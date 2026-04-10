@@ -82,7 +82,7 @@ export default function SetupPage() {
         showDates: data.config.showDates || '',
         venue: data.config.venue || '',
         calendarId: data.config.calendarId || '',
-        useAuditions: data.config.useAuditions || 'false',
+        useAuditions: (data.config.useAuditions === true || data.config.useAuditions === 'true' || String(data.config.useAuditions) === 'true') ? true : false,
         auditionQuestions: Array.isArray(data.config.auditionQuestions) ? data.config.auditionQuestions : [],
         scenes: Array.isArray(data.config.scenes) ? data.config.scenes : [],
         characters: normalizeCast(Array.isArray(data.config.characters) ? data.config.characters : []),
@@ -192,7 +192,7 @@ export default function SetupPage() {
       </div>
 
       <div className="tabs">
-        {['details', 'scenes', 'characters', 'team', ...(config.useAuditions && config.useAuditions !== 'false' ? ['auditions'] : [])].map(t => (
+        {['details', 'scenes', 'characters', 'team', ...(config.useAuditions === true ? ['auditions'] : [])].map(t => (
           <button key={t} className={`tab-btn ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>
             {t.charAt(0).toUpperCase() + t.slice(1)}
           </button>

@@ -114,6 +114,7 @@ function AuditionerModal({ auditioner, sheetId, createdBy, onClose, onRoleAssign
 export default function AuditionsTab({ sheetId, productionCode, session, production }) {
   const [auditioners, setAuditioners] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [selected, setSelected] = useState(null)
   const [search, setSearch] = useState('')
   const [filterRole, setFilterRole] = useState('all')
@@ -130,8 +131,11 @@ export default function AuditionsTab({ sheetId, productionCode, session, product
     try {
       const data = await api.getAuditioners(sheetId)
       setAuditioners(data.auditioners || [])
-    } catch (e) { console.warn('Failed to load auditioners:', e.message) }
-    finally { setLoading(false) }
+      setLoadError('')
+    } catch (e) {
+      console.warn('Failed to load auditioners:', e.message)
+      setLoadError(e.message)
+    } finally { setLoading(false) }
   }
 
   function onRoleAssigned(id, role) {
@@ -189,6 +193,7 @@ export default function AuditionsTab({ sheetId, productionCode, session, product
         ))}
       </div>
 
+      {loadError && <div style={{ fontSize: 13, color: 'var(--red-text)', background: 'var(--red-bg)', padding: '8px 12px', borderRadius: 'var(--radius)', marginBottom: '1rem' }}>{loadError}</div>}
       {loading ? <div className="empty">Loading auditioners…</div>
         : filtered.length === 0 ? <div className="empty">{auditioners.length === 0 ? 'No auditions submitted yet. Share the form link above.' : 'No results.'}</div>
         : (

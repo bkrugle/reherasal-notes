@@ -11,7 +11,7 @@ exports.handler = async (event) => {
   try {
     const sheets = await sheetsClient()
     const [audRows, noteRows] = await Promise.all([
-      getRows(sheets, sheetId, 'Auditioners!A:P'),
+      getRows(sheets, sheetId, 'Auditioners!A:P').catch(() => []),
       getRows(sheets, sheetId, 'AuditionNotes!A:F').catch(() => [])
     ])
 
