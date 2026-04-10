@@ -6,7 +6,7 @@ const https = require('https')
 function resendEmail({ to, subject, html, text }) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
-      from: 'Rehearsal Notes <notes@vhsdrama.org>',
+      from: 'Rehearsal Notes <noreply@notes.vhsdrama.org>',
       to: Array.isArray(to) ? to : [to],
       subject,
       html,
