@@ -213,12 +213,144 @@ textarea { resize: vertical; line-height: 1.5; }
 .muted { color: var(--text2); font-size: 13px; }
 .empty { padding: 2.5rem; text-align: center; color: var(--text3); font-size: 14px; }
 
-@media (max-width: 600px) {
-  .grid3 { grid-template-columns: 1fr 1fr; }
-  .stats-bar { grid-template-columns: 1fr 1fr; }
-  .tabs { gap: 2px; }
-  .tab-btn { font-size: 12px; padding: 7px 5px; }
+/* ── Mobile ─────────────────────────────────────────── */
+@media (max-width: 640px) {
+  body { font-size: 16px; }
+
+  .page { padding: 0.75rem 0.75rem 6rem; }
+
+  /* Grids stack on mobile */
+  .grid2  { grid-template-columns: 1fr; }
+  .grid3  { grid-template-columns: 1fr; }
+  .stats-bar { grid-template-columns: 1fr 1fr; gap: 6px; }
+
+  /* Cards get less padding */
+  .card { padding: 1rem; }
+
+  /* Tabs — scrollable horizontal strip */
+  .tabs {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap;
+    gap: 2px;
+    padding: 3px;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab-btn {
+    font-size: 12px;
+    padding: 8px 10px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
+  /* Inputs — minimum 16px to prevent iOS zoom */
+  input[type=text], input[type=email], input[type=date],
+  input[type=password], input[type=datetime-local],
+  select, textarea {
+    font-size: 16px;
+    padding: 10px 11px;
+  }
+
+  /* Buttons — bigger tap targets */
+  .btn { padding: 11px 16px; min-height: 44px; }
+  .btn-sm { padding: 8px 12px; font-size: 13px; min-height: 36px; }
+  .btn-full { width: 100%; }
+
+  /* Filter pills — scrollable */
+  .filter-bar {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+  .filter-bar::-webkit-scrollbar { display: none; }
+  .filter-pill { flex: 0 0 auto; }
+
+  /* Stats bar number size */
+  .stat-n { font-size: 20px; }
+}
+
+/* ── Top bar mobile ──────────────────────────────────── */
+@media (max-width: 640px) {
+  .topbar-inner {
+    height: auto !important;
+    padding: 8px 0 !important;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .topbar-title { font-size: 14px !important; }
+  .topbar-controls {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap !important;
+  }
+  .topbar-controls::-webkit-scrollbar { display: none; }
+  .stopwatch-wrap {
+    flex-shrink: 0;
+  }
+}
+
+/* ── Safe area for notched phones ───────────────────── */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .page { padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
 }
 
 .badge-costume { background: #fbeaf0; color: #72243e; }
 .badge-set     { background: #e6f1fb; color: #185fa5; }
+
+/* ── Bottom nav (mobile only) ───────────────────────── */
+.bottom-nav {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg);
+    border-top: 0.5px solid var(--border);
+    z-index: 20;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .bottom-nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 8px 4px;
+    border: none;
+    background: transparent;
+    color: var(--text3);
+    font-size: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.15s;
+    min-height: 56px;
+  }
+  .bottom-nav-btn.active {
+    color: var(--text);
+  }
+  .bottom-nav-btn svg {
+    width: 22px;
+    height: 22px;
+  }
+  /* Hide top tabs on mobile since bottom nav replaces them */
+  .tabs-desktop-only {
+    display: none;
+  }
+}
+
+@media (min-width: 641px) {
+  .bottom-nav { display: none !important; }
+  .tabs-desktop-only { display: flex !important; }
+}

@@ -115,42 +115,39 @@ export default function ProductionApp() {
     <div style={{ minHeight: '100vh' }}>
       {/* Top bar */}
       <div style={{ background: 'var(--bg)', borderBottom: '0.5px solid var(--border)', padding: '0 1rem', position: 'sticky', top: 0, zIndex: 10 }}>
-        <div style={{ maxWidth: 880, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 52 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 20 }}>🎭</span>
-            <div>
-              <span style={{ fontSize: 15, fontWeight: 600 }}>{title}</span>
-              <span style={{ fontSize: 12, color: 'var(--text3)', marginLeft: 8 }}>{session.productionCode}</span>
+        <div className="topbar-inner" style={{ maxWidth: 880, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 52 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+            <span style={{ fontSize: 20, flexShrink: 0 }}>🎭</span>
+            <div style={{ minWidth: 0 }}>
+              <span className="topbar-title" style={{ fontSize: 15, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{title}</span>
+              <span style={{ fontSize: 11, color: 'var(--text3)' }}>{session.productionCode}</span>
             </div>
             <ShowCountdown showDates={showDates} />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div className="topbar-controls" style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             {/* Stopwatch */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg2)', border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '4px 8px' }}>
+            <div className="stopwatch-wrap" style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg2)', border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '4px 8px' }}>
               <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 500, minWidth: 44, color: swRunning ? '#e24b4a' : 'var(--text)' }}>{swDisplay}</span>
               <button className="btn btn-sm" style={{ padding: '2px 7px', fontSize: 12 }} onClick={swToggle}>
-                {swRunning ? 'Pause' : swElapsed > 0 ? 'Resume' : 'Start'}
+                {swRunning ? '⏸' : swElapsed > 0 ? '▶' : '▶'}
               </button>
-              <button className="btn btn-sm" style={{ padding: '2px 7px', fontSize: 12 }} onClick={swReset}>Reset</button>
+              <button className="btn btn-sm" style={{ padding: '2px 7px', fontSize: 12 }} onClick={swReset}>↺</button>
             </div>
             <button className="btn btn-sm" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => setShowSceneTimer(t => !t)}>
-              {showSceneTimer ? 'Hide timer' : 'Scene timer'}
+              ⏱
             </button>
             {openNotes.length > 0 && (
               <button className="btn btn-sm" onClick={() => setMeetingMode(true)}
                 style={{ background: 'var(--purple-bg)', color: 'var(--purple-text)', borderColor: 'transparent', fontWeight: 500, fontSize: 12, padding: '4px 8px' }}>
-                Meeting ({openNotes.length})
+                📋 {openNotes.length}
               </button>
             )}
             {session.role === 'admin' && (
-              <button className="btn btn-sm" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => navigate('/setup')}>Setup</button>
+              <button className="btn btn-sm" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => navigate('/setup')}>⚙️</button>
             )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {session.name && (
-                <span style={{ fontSize: 12, color: 'var(--text3)' }}>{session.name}</span>
-              )}
-              <button className="btn btn-sm" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => { logout(); navigate('/') }}>Sign out</button>
-            </div>
+            <button className="btn btn-sm" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => { logout(); navigate('/') }}>
+              {session.name ? session.name.split(' ')[0] : 'Sign out'}
+            </button>
           </div>
         </div>
       </div>
@@ -160,7 +157,7 @@ export default function ProductionApp() {
 
         {showSceneTimer && <SceneTimer scenes={scenes} />}
 
-        <div className="tabs">
+        <div className="tabs tabs-desktop-only">
           {TABS.map((t, i) => (
             <button key={t} className={`tab-btn ${activeTab === i ? 'active' : ''}`} onClick={() => setActiveTab(i)}>{t}</button>
           ))}
@@ -176,6 +173,24 @@ export default function ProductionApp() {
         {activeTab === 7 && <ReportTab notes={notes} production={production} sheetId={session.sheetId} session={session} />}
         {activeTab === 8 && <SendTab notes={notes} characters={characters} sheetId={session.sheetId} production={production} session={session} />}
       </div>
+      {/* Bottom nav — mobile only */}
+      <nav className="bottom-nav">
+        {[
+          { icon: '✏️', label: 'Log',      idx: 0 },
+          { icon: '📋', label: 'Review',   idx: 1 },
+          { icon: '👤', label: 'Cast',     idx: 2 },
+          { icon: '📅', label: 'Calendar', idx: 3 },
+          { icon: '📁', label: 'Docs',     idx: 4 },
+          { icon: '📊', label: 'Trends',   idx: 5 },
+          { icon: '✉️', label: 'Send',     idx: 8 },
+        ].map(({ icon, label, idx }) => (
+          <button key={label} className={`bottom-nav-btn ${activeTab === idx ? 'active' : ''}`}
+            onClick={() => setActiveTab(idx)}>
+            <span style={{ fontSize: 20 }}>{icon}</span>
+            <span>{label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   )
 }

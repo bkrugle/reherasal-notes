@@ -188,7 +188,7 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
       {/* Quick templates */}
       <div style={{ marginBottom: '1rem' }}>
         <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8, fontWeight: 500 }}>Quick templates</p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, WebkitOverflowScrolling: 'touch' }}>
           {QUICK_TEMPLATES.map(t => (
             <button key={t.label} type="button" className="btn btn-sm"
               onClick={() => applyTemplate(t)} style={{ fontSize: 12 }}>{t.label}</button>
@@ -318,11 +318,11 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
 
           {/* Photo attachment */}
           <div style={{ marginBottom: '0.75rem' }}>
-            <input ref={photoInputRef} type="file" accept="image/*" capture="environment"
+            <input ref={photoInputRef} type="file" accept="image/*"
               onChange={handlePhoto} style={{ display: 'none' }} />
             {!photo ? (
               <button type="button" className="btn btn-sm" onClick={() => photoInputRef.current?.click()}
-                style={{ fontSize: 12 }}>
+                style={{ fontSize: 14, padding: '10px 16px' }}>
                 📷 Add photo
               </button>
             ) : (

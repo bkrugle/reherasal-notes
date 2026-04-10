@@ -133,7 +133,7 @@ export default function NoteCard({ note, sheetId, scenes, characters, onUpdated,
         <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>by {localNote.createdBy}</p>
       )}
 
-      <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+      <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
         <button className="btn btn-sm" onClick={toggleResolve}
           style={localNote.resolved ? {} : { color: 'var(--green-text)', borderColor: 'var(--green-text)' }}>
           {localNote.resolved ? '↩ Reopen' : '✓ Resolve'}
