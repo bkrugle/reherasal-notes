@@ -1,0 +1,54 @@
+// Cast member data model utilities
+// A cast entry is either a string (simple) or an object (with emails/members)
+// { name: string, emails: string[], members: string[], isGroup: boolean }
+
+export function castName(entry) {
+  return typeof entry === 'string' ? entry : entry.name || ''
+}
+
+export function castEmails(entry) {
+  if (typeof entry === 'string') return []
+  return entry.emails || []
+}
+
+export function castMembers(entry) {
+  if (typeof entry === 'string') return []
+  return entry.members || []
+}
+
+export function isGroup(entry) {
+  if (typeof entry === 'string') return false
+  return entry.isGroup === true || (entry.members && entry.members.length > 0)
+}
+
+// Get all names as a flat string list for autocomplete
+export function castNameList(characters) {
+  return characters.map(castName).filter(Boolean)
+}
+
+// Normalize a raw characters array (may be strings or objects)
+export function normalizeCast(characters) {
+  if (!Array.isArray(characters)) return []
+  return characters.map(c => {
+    if (typeof c === 'string') return { name: c, emails: [], members: [], isGroup: false }
+    return {
+      name: c.name || '',
+      emails: Array.isArray(c.emails) ? c.emails : [],
+      members: Array.isArray(c.members) ? c.members : [],
+      isGroup: c.isGroup || false
+    }
+  }).filter(c => c.name)
+}
+
+// Get all email recipients for a cast entry name
+// For groups: returns group's own emails + member emails from the full cast list
+export function getEmailsForCast(name, allCast) {
+  const entry = allCast.find(c => castName(c) === name)
+  if (!entry) return []
+  const direct = castEmails(entry)
+  // If it's a group, also collect emails from member entries
+  const memberEmails = castMembers(entry).flatMap(memberName => {
+    return getEmailsForCast(memberName, allCast)
+  })
+  return [...new Set([...direct, ...memberEmails])].filter(Boolean)
+}

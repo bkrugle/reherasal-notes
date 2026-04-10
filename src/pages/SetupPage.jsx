@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import CastManager from '../components/CastManager'
+import { castNameList, normalizeCast } from '../lib/castUtils'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useSession } from '../lib/session'
@@ -73,7 +75,7 @@ export default function SetupPage() {
         venue: data.config.venue || '',
         calendarId: data.config.calendarId || '',
         scenes: Array.isArray(data.config.scenes) ? data.config.scenes : [],
-        characters: Array.isArray(data.config.characters) ? data.config.characters : [],
+        characters: normalizeCast(Array.isArray(data.config.characters) ? data.config.characters : []),
         staff: Array.isArray(data.config.staff) ? data.config.staff : []
       })
       setSharedWith((data.sharedWith || []).map(m => ({ ...m, role: m.role || 'member' })))
@@ -255,8 +257,15 @@ export default function SetupPage() {
 
       {activeTab === 'characters' && (
         <div className="card">
-          <p className="muted" style={{ marginBottom: '1rem' }}>These appear in the cast member autocomplete when logging notes.</p>
-          <TagInput label="Cast / characters" values={config.characters} onChange={v => setC('characters', v)} placeholder="e.g. Elphaba, Ensemble" />
+          <p className="muted" style={{ marginBottom: '1rem' }}>
+            These appear in the cast member autocomplete. Click <strong>Edit</strong> on any entry to add email addresses or mark it as a group.
+          </p>
+          <CastManager
+            label="Cast / characters"
+            characters={config.characters}
+            onChange={v => setC('characters', v)}
+            placeholder="e.g. Elphaba, Ensemble A, Dance Corps"
+          />
           <TagInput label="Staff members" values={config.staff} onChange={v => setC('staff', v)} placeholder="e.g. Stage Manager" />
           <button className="btn btn-primary mt2" onClick={save} disabled={saving}>
             {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save cast & staff'}

@@ -11,6 +11,7 @@ import TrendsTab from '../components/TrendsTab'
 import AttendanceTab from '../components/AttendanceTab'
 import ReportTab from '../components/ReportTab'
 import SceneTimer from '../components/SceneTimer'
+import { castNameList, normalizeCast } from '../lib/castUtils'
 import CalendarTab from '../components/CalendarTab'
 import DocumentsTab from '../components/DocumentsTab'
 
@@ -97,7 +98,9 @@ export default function ProductionApp() {
   }
 
   const scenes = production?.config?.scenes || []
-  const characters = production?.config?.characters || []
+  const rawCharacters = production?.config?.characters || []
+  const characters = normalizeCast(rawCharacters)
+  const characterNames = castNameList(characters)
   const staff = production?.config?.staff || []
   const showDates = production?.config?.showDates || ''
   const calendarId = production?.config?.calendarId || ''
@@ -163,7 +166,7 @@ export default function ProductionApp() {
           ))}
         </div>
 
-        {activeTab === 0 && <LogTab sheetId={session.sheetId} scenes={scenes} characters={[...characters, ...staff]} swDisplay={swDisplay} swRunning={swRunning} createdBy={session.name || session.role} onNoteAdded={onNoteAdded} attachFolderId={attachFolderId} />}
+        {activeTab === 0 && <LogTab sheetId={session.sheetId} scenes={scenes} characters={[...characterNames, ...staff]} swDisplay={swDisplay} swRunning={swRunning} createdBy={session.name || session.role} onNoteAdded={onNoteAdded} attachFolderId={attachFolderId} />}
         {activeTab === 1 && <ReviewTab {...tabProps} loading={loadingNotes} onRefresh={loadNotes} />}
         {activeTab === 2 && <ByCastTab {...tabProps} loading={loadingNotes} />}
         {activeTab === 3 && <CalendarTab calendarId={calendarId} scenes={scenes} notes={notes} onLogForDate={onLogForDate} />}
@@ -171,7 +174,7 @@ export default function ProductionApp() {
         {activeTab === 5 && <TrendsTab notes={notes} />}
         {activeTab === 6 && <AttendanceTab characters={characters} notes={notes} sheetId={session.sheetId} />}
         {activeTab === 7 && <ReportTab notes={notes} production={production} sheetId={session.sheetId} session={session} />}
-        {activeTab === 8 && <SendTab notes={notes} characters={characters} sheetId={session.sheetId} production={production} session={session} />}
+        {activeTab === 8 && <SendTab notes={notes} characters={characters} characterNames={characterNames} sheetId={session.sheetId} production={production} session={session} />}
       </div>
       {/* Bottom nav — mobile only */}
       <nav className="bottom-nav">
