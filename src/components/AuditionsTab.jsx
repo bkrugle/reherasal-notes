@@ -153,12 +153,19 @@ export default function AuditionsTab({ sheetId, productionCode, session, product
     <div>
       {/* Audition link */}
       <div className="card" style={{ marginBottom: '1rem', background: 'var(--blue-bg)', border: '0.5px solid var(--blue-text)' }}>
-        <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--blue-text)', marginBottom: 4 }}>Audition form link</p>
-        <p style={{ fontSize: 12, color: 'var(--blue-text)', wordBreak: 'break-all', marginBottom: 8 }}>{auditionUrl}</p>
-        <button className="btn btn-sm" onClick={() => navigator.clipboard.writeText(auditionUrl)}
-          style={{ fontSize: 12, background: 'var(--blue-text)', color: 'var(--bg)', borderColor: 'transparent' }}>
-          Copy link
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--blue-text)', whiteSpace: 'nowrap' }}>
+            Public audition form:
+          </span>
+          <a href={auditionUrl} target="_blank" rel="noreferrer"
+            style={{ fontSize: 12, color: 'var(--blue-text)', wordBreak: 'break-all', flex: 1 }}>
+            {auditionUrl}
+          </a>
+          <button className="btn btn-sm" onClick={() => navigator.clipboard.writeText(auditionUrl)}
+            style={{ fontSize: 12, background: 'var(--blue-text)', color: 'var(--bg)', borderColor: 'transparent', flexShrink: 0 }}>
+            Copy
+          </button>
+        </div>
       </div>
 
       {/* Stats + filter */}
