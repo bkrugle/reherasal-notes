@@ -9,7 +9,12 @@ export default function LandingPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   // Invite / PIN setup flow
-  const [inviteStep, setInviteStep] = useState(null) // { productionCode, title, sheetId, name, email, inviteCode }
+  const [inviteStep, setInviteStep] = useState(null)
+  const [showRecovery, setShowRecovery] = useState(false)
+  const [recoveryEmail, setRecoveryEmail] = useState('')
+  const [recoverySent, setRecoverySent] = useState(false)
+  const [recoveryLoading, setRecoveryLoading] = useState(false)
+  const [recoveryError, setRecoveryError] = useState('') // { productionCode, title, sheetId, name, email, inviteCode }
   const [newPin, setNewPin] = useState('')
   const [newPinConfirm, setNewPinConfirm] = useState('')
   const [settingPin, setSettingPin] = useState(false)
@@ -39,6 +44,21 @@ export default function LandingPage() {
     }
   }
 
+  async function handleRecovery(e) {
+    e.preventDefault()
+    if (!recoveryEmail.trim()) return
+    setRecoveryLoading(true)
+    setRecoveryError('')
+    try {
+      await api.recoverProductionCode(recoveryEmail.trim(), window.location.origin)
+      setRecoverySent(true)
+    } catch (err) {
+      setRecoveryError(err.message || 'Something went wrong')
+    } finally {
+      setRecoveryLoading(false)
+    }
+  }
+
   async function handleSetPin(e) {
     e.preventDefault()
     if (!newPin || newPin.length < 4) { setError('PIN must be at least 4 characters'); return }
@@ -58,6 +78,59 @@ export default function LandingPage() {
     } finally {
       setSettingPin(false)
     }
+  }
+
+  // Recovery screen
+  if (showRecovery) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+        <div style={{ width: '100%', maxWidth: '400px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <div style={{ fontSize: 48, marginBottom: '0.75rem' }}>🎭</div>
+            <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>Recover production code</h1>
+            <p style={{ fontSize: 13, color: 'var(--text2)' }}>Enter the email address you used when setting up the production.</p>
+          </div>
+          <div className="card">
+            {recoverySent ? (
+              <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+                <p style={{ fontSize: 22, marginBottom: '0.75rem' }}>✉️</p>
+                <p style={{ fontSize: 15, fontWeight: 500, marginBottom: 8 }}>Check your email</p>
+                <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: '1.5rem' }}>
+                  If an account exists for {recoveryEmail}, we've sent the production code(s) to that address.
+                </p>
+                <button className="btn btn-full" onClick={() => { setShowRecovery(false); setRecoverySent(false); setRecoveryEmail('') }}>
+                  Back to sign in
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleRecovery}>
+                <div className="field" style={{ marginBottom: '1.25rem' }}>
+                  <label>Director email address</label>
+                  <input type="email" value={recoveryEmail} onChange={e => setRecoveryEmail(e.target.value)}
+                    placeholder="email@example.com" autoFocus required />
+                </div>
+                {recoveryError && (
+                  <p style={{ fontSize: 13, color: 'var(--red-text)', background: 'var(--red-bg)', padding: '8px 12px', borderRadius: 'var(--radius)', marginBottom: '1rem' }}>
+                    {recoveryError}
+                  </p>
+                )}
+                <button type="submit" className="btn btn-primary btn-full" disabled={recoveryLoading}>
+                  {recoveryLoading ? 'Sending…' : 'Send recovery email'}
+                </button>
+              </form>
+            )}
+          </div>
+          {!recoverySent && (
+            <p style={{ textAlign: 'center', marginTop: '1rem', fontSize: 13, color: 'var(--text3)' }}>
+              <button onClick={() => setShowRecovery(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 13 }}>
+                ← Back to sign in
+              </button>
+            </p>
+          )}
+        </div>
+      </div>
+    )
   }
 
   // Invite PIN setup screen
