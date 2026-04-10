@@ -10,7 +10,7 @@ function StepIndicator({ current }) {
       {STEPS.map((label, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', flex: i < STEPS.length - 1 ? 1 : 'none' }}>
           {/* Step bubble + label */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flexShrink: 0, width: 64 }}>
             <div style={{
               width: 28, height: 28, borderRadius: '50%',
               background: i <= current ? 'var(--text)' : 'var(--bg3)',
@@ -19,11 +19,11 @@ function StepIndicator({ current }) {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 12, fontWeight: 600
             }}>{i < current ? '✓' : i + 1}</div>
-            <span style={{ fontSize: 11, color: i === current ? 'var(--text)' : 'var(--text3)', whiteSpace: 'nowrap', fontWeight: i === current ? 500 : 400, textAlign: 'center' }}>{label}</span>
+            <span style={{ fontSize: 10, color: i === current ? 'var(--text)' : 'var(--text3)', whiteSpace: 'nowrap', fontWeight: i === current ? 500 : 400, textAlign: 'center', lineHeight: 1.3 }}>{label}</span>
           </div>
           {/* Connector line between steps */}
           {i < STEPS.length - 1 && (
-            <div style={{ flex: 1, height: '0.5px', background: i < current ? 'var(--text)' : 'var(--border2)', margin: '0 6px', marginTop: 14 }} />
+            <div style={{ flex: 1, height: '0.5px', background: i < current ? 'var(--text)' : 'var(--border2)', margin: '0 2px', marginTop: 14 }} />
           )}
         </div>
       ))}
@@ -105,7 +105,7 @@ export default function CreatePage() {
       if (!form.title.trim()) return 'Production title is required'
       if (!form.directorName.trim()) return 'Director name is required'
     }
-    if (step === 3) {
+    if (step === 4) {
       if (!form.pin || form.pin.length < 4) return 'PIN must be at least 4 characters'
       if (form.pin !== form.pinConfirm) return 'PINs do not match'
       if (form.adminPin && form.adminPin !== form.adminPinConfirm) return 'Admin PINs do not match'
