@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { api } from '../lib/api'
 import { parseHashtags, getHashtagSuggestions } from '../lib/hashtags'
 
