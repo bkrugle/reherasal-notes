@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { castNameList } from '../lib/castUtils'
 
 const STORAGE_KEY = 'rn_attendance'
 
 export default function AttendanceTab({ characters, notes, sheetId }) {
+  const charNames = castNameList(characters)
   const [records, setRecords] = useState(() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY + '_' + sheetId) || '{}') } catch { return {} }
   })
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10))
   const [saved, setSaved] = useState(false)
 
-  // Get all rehearsal dates from notes
   const rehearsalDates = [...new Set(notes.map(n => n.date))].sort().reverse()
 
   function save(updated) {
@@ -21,23 +22,22 @@ export default function AttendanceTab({ characters, notes, sheetId }) {
 
   function toggle(name, date) {
     const key = date + '_' + name
-    const updated = { ...records, [key]: !records[key] }
-    save(updated)
+    save({ ...records, [key]: !records[key] })
   }
 
   function markAll(date, present) {
     const updated = { ...records }
-    characters.forEach(name => { updated[date + '_' + name] = present })
+    charNames.forEach(name => { updated[date + '_' + name] = present })
     save(updated)
   }
 
   function isPresent(name, date) {
-    return records[date + '_' + name] !== false // default to present
+    return records[date + '_' + name] !== false
   }
 
   function getAttendanceForDate(date) {
-    const present = characters.filter(n => isPresent(n, date)).length
-    return { present, total: characters.length, absent: characters.length - present }
+    const present = charNames.filter(n => isPresent(n, date)).length
+    return { present, total: charNames.length, absent: charNames.length - present }
   }
 
   const dtLabel = (date) => {
@@ -45,7 +45,7 @@ export default function AttendanceTab({ characters, notes, sheetId }) {
     return dt.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
   }
 
-  if (!characters.length) {
+  if (!charNames.length) {
     return <div className="empty">Add cast members in Setup → Characters to track attendance.</div>
   }
 
@@ -53,7 +53,6 @@ export default function AttendanceTab({ characters, notes, sheetId }) {
 
   return (
     <div>
-      {/* Date selector */}
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginBottom: '1rem', flexWrap: 'wrap' }}>
           <div className="field" style={{ flex: 1 }}>
@@ -72,7 +71,7 @@ export default function AttendanceTab({ characters, notes, sheetId }) {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
-          {characters.map(name => {
+          {charNames.map(name => {
             const present = isPresent(name, selectedDate)
             return (
               <div key={name} onClick={() => toggle(name, selectedDate)}
@@ -95,7 +94,6 @@ export default function AttendanceTab({ characters, notes, sheetId }) {
         </div>
       </div>
 
-      {/* Attendance history */}
       {rehearsalDates.length > 0 && (
         <div className="card">
           <p className="section-label" style={{ marginBottom: '1rem' }}>Attendance history</p>
@@ -112,7 +110,7 @@ export default function AttendanceTab({ characters, notes, sheetId }) {
                 </tr>
               </thead>
               <tbody>
-                {characters.map(name => (
+                {charNames.map(name => (
                   <tr key={name}>
                     <td style={{ padding: '5px 8px', borderBottom: '0.5px solid var(--border)', color: 'var(--text)' }}>{name}</td>
                     {rehearsalDates.slice(0, 6).map(d => {
