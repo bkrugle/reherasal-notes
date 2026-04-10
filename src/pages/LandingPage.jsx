@@ -233,15 +233,21 @@ export default function LandingPage() {
           </form>
         </div>
 
-        <p style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: 13, color: 'var(--text3)' }}>
-          Starting a new production?{' '}
-          <button
-            onClick={() => navigate('/create')}
-            style={{ background: 'none', border: 'none', color: 'var(--blue-text)', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}
-          >
-            Create one
-          </button>
-        </p>
+        <div style={{ textAlign: 'center', marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <p style={{ fontSize: 13, color: 'var(--text3)' }}>
+            Starting a new production?{' '}
+            <button onClick={() => navigate('/create')}
+              style={{ background: 'none', border: 'none', color: 'var(--blue-text)', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>
+              Create one
+            </button>
+          </p>
+          <p style={{ fontSize: 13, color: 'var(--text3)' }}>
+            <button onClick={() => setShowRecovery(true)}
+              style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 13, textDecoration: 'underline' }}>
+              Forgot production code?
+            </button>
+          </p>
+        </div>
       </div>
     </div>
   )
