@@ -6,22 +6,24 @@ const STEPS = ['Production details', 'Scenes', 'Characters', 'Auditions', 'Acces
 
 function StepIndicator({ current }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: '2rem' }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '2rem' }}>
       {STEPS.map((label, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', flex: i < STEPS.length - 1 ? 1 : 'none' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          {/* Step bubble + label */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flexShrink: 0 }}>
             <div style={{
               width: 28, height: 28, borderRadius: '50%',
               background: i <= current ? 'var(--text)' : 'var(--bg3)',
               border: '0.5px solid ' + (i <= current ? 'transparent' : 'var(--border2)'),
               color: i <= current ? 'var(--bg)' : 'var(--text3)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 12, fontWeight: 600, flexShrink: 0
+              fontSize: 12, fontWeight: 600
             }}>{i < current ? '✓' : i + 1}</div>
-            <span style={{ fontSize: 11, color: i === current ? 'var(--text)' : 'var(--text3)', whiteSpace: 'nowrap', fontWeight: i === current ? 500 : 400 }}>{label}</span>
+            <span style={{ fontSize: 11, color: i === current ? 'var(--text)' : 'var(--text3)', whiteSpace: 'nowrap', fontWeight: i === current ? 500 : 400, textAlign: 'center' }}>{label}</span>
           </div>
+          {/* Connector line between steps */}
           {i < STEPS.length - 1 && (
-            <div style={{ flex: 1, height: '0.5px', background: i < current ? 'var(--text)' : 'var(--border2)', margin: '0 8px', marginBottom: 18 }} />
+            <div style={{ flex: 1, height: '0.5px', background: i < current ? 'var(--text)' : 'var(--border2)', margin: '0 6px', marginTop: 14 }} />
           )}
         </div>
       ))}
@@ -271,7 +273,7 @@ export default function CreatePage() {
             </p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: '1.5rem' }}>
-            <div onClick={() => setF('useAuditions', true)}
+            <div onClick={() => set('useAuditions', true)}
               style={{
                 padding: '1.25rem', borderRadius: 'var(--radius-lg)', cursor: 'pointer', textAlign: 'center',
                 border: form.useAuditions ? '2px solid var(--text)' : '0.5px solid var(--border)',
@@ -281,7 +283,7 @@ export default function CreatePage() {
               <p style={{ fontSize: 14, fontWeight: 500 }}>Yes, include auditions</p>
               <p style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>Creates audition form, sheets, and folders</p>
             </div>
-            <div onClick={() => setF('useAuditions', false)}
+            <div onClick={() => set('useAuditions', false)}
               style={{
                 padding: '1.25rem', borderRadius: 'var(--radius-lg)', cursor: 'pointer', textAlign: 'center',
                 border: !form.useAuditions ? '2px solid var(--text)' : '0.5px solid var(--border)',
