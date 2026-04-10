@@ -14,7 +14,7 @@ exports.handler = async (event) => {
   let body
   try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
 
-  const { title, pin, adminPin, directorName, directorEmail, showDates, scenes, characters, staff } = body
+  const { title, pin, adminPin, directorName, directorEmail, showDates, scenes, characters, staff, useAuditions } = body
   if (!title || !pin) return err('Title and PIN are required')
   if (pin.length < 4) return err('PIN must be at least 4 characters')
 
@@ -22,77 +22,79 @@ exports.handler = async (event) => {
     const sheets = await sheetsClient()
     const drive = await driveClient()
 
-    // 1. Create production root folder in Shared Drive
+    // 1. Create production root folder
     const rootFolder = await drive.files.create({
       supportsAllDrives: true,
-      requestBody: {
-        name: title,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [SHARED_DRIVE_ID]
-      },
+      requestBody: { name: title, mimeType: 'application/vnd.google-apps.folder', parents: [SHARED_DRIVE_ID] },
       fields: 'id'
     })
     const rootFolderId = rootFolder.data.id
 
-    // 2. Create Note Attachments subfolder
-    const attachFolder = await drive.files.create({
-      supportsAllDrives: true,
-      requestBody: {
-        name: 'Note Attachments',
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [rootFolderId]
-      },
-      fields: 'id'
-    })
+    // 2. Create subfolders
+    const [attachFolder, docsFolder] = await Promise.all([
+      drive.files.create({ supportsAllDrives: true, requestBody: { name: 'Note Attachments', mimeType: 'application/vnd.google-apps.folder', parents: [rootFolderId] }, fields: 'id' }),
+      drive.files.create({ supportsAllDrives: true, requestBody: { name: 'Production Documents', mimeType: 'application/vnd.google-apps.folder', parents: [rootFolderId] }, fields: 'id' })
+    ])
     const attachFolderId = attachFolder.data.id
-
-    // 3. Create Production Documents subfolder
-    const docsFolder = await drive.files.create({
-      supportsAllDrives: true,
-      requestBody: {
-        name: 'Production Documents',
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [rootFolderId]
-      },
-      fields: 'id'
-    })
     const docsFolderId = docsFolder.data.id
 
-    // 4. Create the production sheet inside root folder
+    // 3. Audition folders (if enabled)
+    let auditionFolderId = ''
+    let headshotFolderId = ''
+    if (useAuditions) {
+      const audFolder = await drive.files.create({
+        supportsAllDrives: true,
+        requestBody: { name: 'Auditions', mimeType: 'application/vnd.google-apps.folder', parents: [rootFolderId] },
+        fields: 'id'
+      })
+      auditionFolderId = audFolder.data.id
+      const hsFolder = await drive.files.create({
+        supportsAllDrives: true,
+        requestBody: { name: 'Headshots', mimeType: 'application/vnd.google-apps.folder', parents: [auditionFolderId] },
+        fields: 'id'
+      })
+      headshotFolderId = hsFolder.data.id
+    }
+
+    // 4. Create production sheet
     const driveFile = await drive.files.create({
       supportsAllDrives: true,
-      requestBody: {
-        name: `Production Sheet — ${title}`,
-        mimeType: 'application/vnd.google-apps.spreadsheet',
-        parents: [rootFolderId]
-      },
+      requestBody: { name: `Production Sheet — ${title}`, mimeType: 'application/vnd.google-apps.spreadsheet', parents: [rootFolderId] },
       fields: 'id'
     })
     const productionSheetId = driveFile.data.id
 
     // 5. Set up sheet tabs
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: productionSheetId,
-      requestBody: {
-        requests: [
-          { updateSheetProperties: { properties: { sheetId: 0, title: 'Notes' }, fields: 'title' } },
-          { addSheet: { properties: { title: 'Config' } } },
-          { addSheet: { properties: { title: 'SharedWith' } } }
-        ]
-      }
-    })
+    const addSheets = [
+      { updateSheetProperties: { properties: { sheetId: 0, title: 'Notes' }, fields: 'title' } },
+      { addSheet: { properties: { title: 'Config' } } },
+      { addSheet: { properties: { title: 'SharedWith' } } }
+    ]
+    if (useAuditions) {
+      addSheets.push({ addSheet: { properties: { title: 'Auditioners' } } })
+      addSheets.push({ addSheet: { properties: { title: 'AuditionNotes' } } })
+    }
+    await sheets.spreadsheets.batchUpdate({ spreadsheetId: productionSheetId, requestBody: { requests: addSheets } })
 
-    // 6. Notes header — includes attachmentUrl column
+    // 6. Notes header
     await sheets.spreadsheets.values.update({
-      spreadsheetId: productionSheetId,
-      range: 'Notes!A1:P1',
-      valueInputOption: 'RAW',
-      requestBody: {
-        values: [['id','date','scene','category','priority','cast','cue','swTime','text','resolved','createdAt','updatedAt','createdBy','deleted','carriedOver','attachmentUrl','pinned','privateNote']]
-      }
+      spreadsheetId: productionSheetId, range: 'Notes!A1:R1', valueInputOption: 'RAW',
+      requestBody: { values: [['id','date','scene','category','priority','cast','cue','swTime','text','resolved','createdAt','updatedAt','createdBy','deleted','carriedOver','attachmentUrl','pinned','privateNote']] }
     })
 
-    // 7. Config tab — includes folder IDs
+    // 7. Auditioners header
+    if (useAuditions) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: productionSheetId, range: 'Auditioners!A1:P1', valueInputOption: 'RAW',
+        requestBody: { values: [['id','submittedAt','firstName','lastName','email','phone','grade','age','experience','conflicts','headshotUrl','editToken','customAnswers','role','castConfirmed','deleted']] }
+      })
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: productionSheetId, range: 'AuditionNotes!A1:F1', valueInputOption: 'RAW',
+        requestBody: { values: [['id','auditionerId','text','createdBy','createdAt','deleted']] }
+      })
+    }
+
+    // 8. Config tab
     const configData = [
       ['title', title],
       ['directorName', directorName || ''],
@@ -106,24 +108,24 @@ exports.handler = async (event) => {
       ['rootFolderId', rootFolderId],
       ['attachFolderId', attachFolderId],
       ['docsFolderId', docsFolderId],
+      ['auditionFolderId', auditionFolderId],
+      ['headshotFolderId', headshotFolderId],
+      ['useAuditions', useAuditions ? 'true' : 'false'],
+      ['auditionQuestions', JSON.stringify([])],
       ['createdAt', new Date().toISOString()]
     ]
     await sheets.spreadsheets.values.update({
-      spreadsheetId: productionSheetId,
-      range: 'Config!A1:B20',
-      valueInputOption: 'RAW',
+      spreadsheetId: productionSheetId, range: 'Config!A1:B30', valueInputOption: 'RAW',
       requestBody: { values: configData }
     })
 
-    // 8. SharedWith header
+    // 9. SharedWith header
     await sheets.spreadsheets.values.update({
-      spreadsheetId: productionSheetId,
-      range: 'SharedWith!A1:C1',
-      valueInputOption: 'RAW',
-      requestBody: { values: [['name','email','pinHash']] }
+      spreadsheetId: productionSheetId, range: 'SharedWith!A1:F1', valueInputOption: 'RAW',
+      requestBody: { values: [['name','email','pinHash','inviteCode','activated','role']] }
     })
 
-    // 9. Register in Registry
+    // 10. Register in Registry
     const productionCode = makeProductionCode(title)
     const pinHash = hashPin(pin)
     const adminPinHash = adminPin ? hashPin(adminPin) : pinHash
@@ -131,13 +133,10 @@ exports.handler = async (event) => {
     const registryRows = await getRows(sheets, REGISTRY_SHEET_ID, 'Registry!A:A')
     if (registryRows.length === 0) {
       await sheets.spreadsheets.values.update({
-        spreadsheetId: REGISTRY_SHEET_ID,
-        range: 'Registry!A1:F1',
-        valueInputOption: 'RAW',
+        spreadsheetId: REGISTRY_SHEET_ID, range: 'Registry!A1:F1', valueInputOption: 'RAW',
         requestBody: { values: [['productionCode','title','sheetId','pinHash','adminPinHash','createdAt']] }
       })
     }
-
     await appendRows(sheets, REGISTRY_SHEET_ID, 'Registry!A:F', [
       [productionCode, title, productionSheetId, pinHash, adminPinHash, new Date().toISOString()]
     ])

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 
-const STEPS = ['Production details', 'Scenes', 'Characters', 'Access']
+const STEPS = ['Production details', 'Scenes', 'Characters', 'Auditions', 'Access']
 
 function StepIndicator({ current }) {
   return (
@@ -261,6 +261,41 @@ export default function CreatePage() {
 
           {/* Step 3: Access */}
           {step === 3 && (
+        <div className="card">
+          <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+            <div style={{ fontSize: 48, marginBottom: '0.75rem' }}>🎭</div>
+            <p style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>Include audition management?</p>
+            <p style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.6 }}>
+              This enables a public audition form, auditioner profiles with headshots,
+              staff notes, AI preparation materials, and role assignment.
+            </p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: '1.5rem' }}>
+            <div onClick={() => setF('useAuditions', true)}
+              style={{
+                padding: '1.25rem', borderRadius: 'var(--radius-lg)', cursor: 'pointer', textAlign: 'center',
+                border: form.useAuditions ? '2px solid var(--text)' : '0.5px solid var(--border)',
+                background: form.useAuditions ? 'var(--bg2)' : 'var(--bg)'
+              }}>
+              <p style={{ fontSize: 22, marginBottom: 6 }}>✓</p>
+              <p style={{ fontSize: 14, fontWeight: 500 }}>Yes, include auditions</p>
+              <p style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>Creates audition form, sheets, and folders</p>
+            </div>
+            <div onClick={() => setF('useAuditions', false)}
+              style={{
+                padding: '1.25rem', borderRadius: 'var(--radius-lg)', cursor: 'pointer', textAlign: 'center',
+                border: !form.useAuditions ? '2px solid var(--text)' : '0.5px solid var(--border)',
+                background: !form.useAuditions ? 'var(--bg2)' : 'var(--bg)'
+              }}>
+              <p style={{ fontSize: 22, marginBottom: 6 }}>→</p>
+              <p style={{ fontSize: 14, fontWeight: 500 }}>Skip for now</p>
+              <p style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>Can be enabled later in Setup</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {step === 4 && (
             <>
               <p className="muted" style={{ marginBottom: '1.25rem' }}>
                 Set a PIN for your team to enter the production. Optionally set a separate admin PIN for yourself — admin access lets you edit production setup and manage team access.

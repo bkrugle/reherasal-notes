@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import CastManager from '../components/CastManager'
+import AuditionMaterials from '../components/AuditionMaterials'
 import { castNameList, normalizeCast } from '../lib/castUtils'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
@@ -60,7 +61,7 @@ export default function SetupPage() {
 
   const [config, setConfig] = useState({
     title: '', directorName: '', directorEmail: '',
-    showDates: '', venue: '', calendarId: '', scenes: [], characters: [], staff: []
+    showDates: '', venue: '', calendarId: '', useAuditions: 'false', auditionQuestions: [], scenes: [], characters: [], staff: []
   })
   const [sharedWith, setSharedWith] = useState([])
   const [newMember, setNewMember] = useState({ name: '', email: '', pin: '', role: 'member' })
@@ -81,6 +82,8 @@ export default function SetupPage() {
         showDates: data.config.showDates || '',
         venue: data.config.venue || '',
         calendarId: data.config.calendarId || '',
+        useAuditions: data.config.useAuditions || 'false',
+        auditionQuestions: Array.isArray(data.config.auditionQuestions) ? data.config.auditionQuestions : [],
         scenes: Array.isArray(data.config.scenes) ? data.config.scenes : [],
         characters: normalizeCast(Array.isArray(data.config.characters) ? data.config.characters : []),
         staff: Array.isArray(data.config.staff) ? data.config.staff : []
@@ -189,7 +192,7 @@ export default function SetupPage() {
       </div>
 
       <div className="tabs">
-        {['details', 'scenes', 'characters', 'team'].map(t => (
+        {['details', 'scenes', 'characters', 'team', ...(config.useAuditions === 'true' || config.useAuditions === true ? ['auditions'] : [])].map(t => (
           <button key={t} className={`tab-btn ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>
             {t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
@@ -277,6 +280,30 @@ export default function SetupPage() {
           <button className="btn btn-primary mt2" onClick={save} disabled={saving}>
             {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save cast & staff'}
           </button>
+        </div>
+      )}
+
+      {activeTab === 'auditions' && (
+        <div>
+          <div className="card" style={{ marginBottom: '1rem' }}>
+            <p style={{ fontSize: 14, fontWeight: 500, marginBottom: 8 }}>Custom audition questions</p>
+            <p className="muted" style={{ marginBottom: '1rem', fontSize: 13 }}>
+              These appear on the public audition form in addition to the standard fields.
+            </p>
+            <TagInput
+              label="Custom questions"
+              values={config.auditionQuestions}
+              onChange={v => setC('auditionQuestions', v)}
+              placeholder="e.g. What role are you interested in?, Do you play an instrument?"
+            />
+            <button className="btn btn-primary mt2" onClick={save} disabled={saving}>
+              {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save questions'}
+            </button>
+          </div>
+          <div className="card">
+            <p style={{ fontSize: 14, fontWeight: 500, marginBottom: '1rem' }}>AI preparation materials</p>
+            <AuditionMaterials showTitle={config.title} />
+          </div>
         </div>
       )}
 

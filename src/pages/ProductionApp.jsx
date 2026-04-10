@@ -15,9 +15,11 @@ import { castNameList, normalizeCast } from '../lib/castUtils'
 import CalendarTab from '../components/CalendarTab'
 import DocumentsTab from '../components/DocumentsTab'
 import Dashboard from '../components/Dashboard'
+import AuditionsTab from '../components/AuditionsTab'
+import CastDirectory from '../components/CastDirectory'
 import WrapUp from '../components/WrapUp'
 
-const TABS = ['Home', 'Log', 'Review', 'By cast', 'Calendar', 'Documents', 'Trends', 'Attendance', 'Report', 'Send']
+const TABS = ['Home', 'Log', 'Review', 'By cast', 'Calendar', 'Documents', 'Trends', 'Attendance', 'Report', 'Send', 'Auditions']
 
 function ShowCountdown({ showDates }) {
   if (!showDates) return null
@@ -117,6 +119,7 @@ export default function ProductionApp() {
   const calendarId = production?.config?.calendarId || ''
   const attachFolderId = production?.config?.attachFolderId || ''
   const docsFolderId = production?.config?.docsFolderId || ''
+  const useAuditions = production?.config?.useAuditions === 'true' || production?.config?.useAuditions === true
   const title = session?.title || production?.config?.title || 'Production'
   const openNotes = notes.filter(n => !n.resolved)
   const tabProps = { notes, sheetId: session.sheetId, scenes, characters, staff, onNoteUpdated, onNoteDeleted }
@@ -192,11 +195,12 @@ export default function ProductionApp() {
         {activeTab === 2 && <ReviewTab {...tabProps} loading={loadingNotes} onRefresh={loadNotes} />}
         {activeTab === 3 && <ByCastTab {...tabProps} loading={loadingNotes} />}
         {activeTab === 4 && <CalendarTab calendarId={calendarId} scenes={scenes} notes={notes} onLogForDate={onLogForDate} />}
-        {activeTab === 5 && <DocumentsTab docsFolderId={docsFolderId} isAdmin={session.role === 'admin'} />}
+        {activeTab === 5 && <div><DocumentsTab docsFolderId={docsFolderId} isAdmin={session.role === 'admin'} /><div style={{marginTop:'1rem'}}><CastDirectory sheetId={session.sheetId} production={production} session={session} /></div></div>}
         {activeTab === 6 && <TrendsTab notes={notes} />}
         {activeTab === 7 && <AttendanceTab characters={characters} notes={notes} sheetId={session.sheetId} />}
         {activeTab === 8 && <ReportTab notes={notes} production={production} sheetId={session.sheetId} session={session} />}
         {activeTab === 9 && <SendTab notes={notes} characters={characters} characterNames={characterNames} sheetId={session.sheetId} production={production} session={session} />}
+        {activeTab === 10 && useAuditions && <AuditionsTab sheetId={session.sheetId} productionCode={session.productionCode} session={session} production={production} />}
       </div>
       {/* Bottom nav — mobile only */}
       <nav className="bottom-nav">
@@ -207,6 +211,7 @@ export default function ProductionApp() {
           { icon: '👤', label: 'Cast',     idx: 3 },
           { icon: '📅', label: 'Calendar', idx: 4 },
           { icon: '✉️', label: 'Send',     idx: 9 },
+          ...(useAuditions ? [{ icon: '🎭', label: 'Auditions', idx: 10 }] : []),
         ].map(({ icon, label, idx }) => (
           <button key={label} className={`bottom-nav-btn ${activeTab === idx ? 'active' : ''}`}
             onClick={() => setActiveTab(idx)}>
