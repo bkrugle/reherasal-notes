@@ -11,8 +11,9 @@ import TrendsTab from '../components/TrendsTab'
 import AttendanceTab from '../components/AttendanceTab'
 import ReportTab from '../components/ReportTab'
 import SceneTimer from '../components/SceneTimer'
+import CalendarTab from '../components/CalendarTab'
 
-const TABS = ['Log', 'Review', 'By cast', 'Trends', 'Attendance', 'Report', 'Send']
+const TABS = ['Log', 'Review', 'By cast', 'Calendar', 'Trends', 'Attendance', 'Report', 'Send']
 
 function ShowCountdown({ showDates }) {
   if (!showDates) return null
@@ -87,10 +88,18 @@ export default function ProductionApp() {
   function onNoteUpdated(updated) { setNotes(prev => prev.map(n => n.id === updated.id ? updated : n)) }
   function onNoteDeleted(id) { setNotes(prev => prev.filter(n => n.id !== id)) }
 
+  function onLogForDate(date, scene) {
+    // Switch to Log tab and pre-fill date/scene
+    setActiveTab(0)
+    // Store in sessionStorage for LogTab to pick up
+    sessionStorage.setItem('rn_prefill', JSON.stringify({ date, scene: scene || '' }))
+  }
+
   const scenes = production?.config?.scenes || []
   const characters = production?.config?.characters || []
   const staff = production?.config?.staff || []
   const showDates = production?.config?.showDates || ''
+  const calendarId = production?.config?.calendarId || ''
   const title = session?.title || production?.config?.title || 'Production'
   const openNotes = notes.filter(n => !n.resolved)
   const tabProps = { notes, sheetId: session.sheetId, scenes, characters, staff, onNoteUpdated, onNoteDeleted }
@@ -152,10 +161,11 @@ export default function ProductionApp() {
         {activeTab === 0 && <LogTab sheetId={session.sheetId} scenes={scenes} characters={[...characters, ...staff]} swDisplay={swDisplay} swRunning={swRunning} createdBy={session.name || session.role} onNoteAdded={onNoteAdded} />}
         {activeTab === 1 && <ReviewTab {...tabProps} loading={loadingNotes} onRefresh={loadNotes} />}
         {activeTab === 2 && <ByCastTab {...tabProps} loading={loadingNotes} />}
-        {activeTab === 3 && <TrendsTab notes={notes} />}
-        {activeTab === 4 && <AttendanceTab characters={characters} notes={notes} sheetId={session.sheetId} />}
-        {activeTab === 5 && <ReportTab notes={notes} production={production} sheetId={session.sheetId} />}
-        {activeTab === 6 && <SendTab notes={notes} characters={characters} sheetId={session.sheetId} />}
+        {activeTab === 3 && <CalendarTab calendarId={calendarId} scenes={scenes} notes={notes} onLogForDate={onLogForDate} />}
+        {activeTab === 4 && <TrendsTab notes={notes} />}
+        {activeTab === 5 && <AttendanceTab characters={characters} notes={notes} sheetId={session.sheetId} />}
+        {activeTab === 6 && <ReportTab notes={notes} production={production} sheetId={session.sheetId} />}
+        {activeTab === 7 && <SendTab notes={notes} characters={characters} sheetId={session.sheetId} />}
       </div>
     </div>
   )

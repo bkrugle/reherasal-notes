@@ -47,6 +47,19 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
   const [parsedTags, setParsedTags] = useState([])
   const textareaRef = useRef(null)
 
+  // Pick up prefill from calendar "Log notes for this rehearsal"
+  useEffect(() => {
+    const raw = sessionStorage.getItem('rn_prefill')
+    if (raw) {
+      try {
+        const { date, scene } = JSON.parse(raw)
+        if (date) set('date', date)
+        if (scene) set('scene', scene)
+        sessionStorage.removeItem('rn_prefill')
+      } catch {}
+    }
+  }, [])
+
   const voice = useVoiceInput((text) => {
     const newText = form.text ? form.text + ' ' + text : text
     handleTextChange(newText)

@@ -50,7 +50,7 @@ export default function SetupPage() {
 
   const [config, setConfig] = useState({
     title: '', directorName: '', directorEmail: '',
-    showDates: '', venue: '', scenes: [], characters: [], staff: []
+    showDates: '', venue: '', calendarId: '', scenes: [], characters: [], staff: []
   })
   const [sharedWith, setSharedWith] = useState([])
   const [newMember, setNewMember] = useState({ name: '', email: '', pin: '' })
@@ -70,6 +70,7 @@ export default function SetupPage() {
         directorEmail: data.config.directorEmail || '',
         showDates: data.config.showDates || '',
         venue: data.config.venue || '',
+        calendarId: data.config.calendarId || '',
         scenes: Array.isArray(data.config.scenes) ? data.config.scenes : [],
         characters: Array.isArray(data.config.characters) ? data.config.characters : [],
         staff: Array.isArray(data.config.staff) ? data.config.staff : []
@@ -166,7 +167,7 @@ export default function SetupPage() {
               <input type="email" value={config.directorEmail} onChange={e => setC('directorEmail', e.target.value)} />
             </div>
           </div>
-          <div className="grid2" style={{ marginBottom: '1.25rem' }}>
+          <div className="grid2" style={{ marginBottom: '1rem' }}>
             <div className="field">
               <label>Show dates</label>
               <input type="text" value={config.showDates} onChange={e => setC('showDates', e.target.value)} />
@@ -175,6 +176,14 @@ export default function SetupPage() {
               <label>Venue</label>
               <input type="text" value={config.venue} onChange={e => setC('venue', e.target.value)} />
             </div>
+          </div>
+          <div className="field" style={{ marginBottom: '1.25rem' }}>
+            <label>Google Calendar ID (optional)</label>
+            <input type="text" value={config.calendarId} onChange={e => setC('calendarId', e.target.value)}
+              placeholder="c_abc123...@group.calendar.google.com" />
+            <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+              Share your calendar with altius-qc-functions@altius-project-hub.iam.gserviceaccount.com (Make changes to events), then paste the Calendar ID here.
+            </p>
           </div>
           <button className="btn btn-primary" onClick={save} disabled={saving}>
             {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save changes'}
