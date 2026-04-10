@@ -192,7 +192,7 @@ export default function SetupPage() {
       </div>
 
       <div className="tabs">
-        {['details', 'scenes', 'characters', 'team', ...(config.useAuditions === 'true' || config.useAuditions === true ? ['auditions'] : [])].map(t => (
+        {['details', 'scenes', 'characters', 'team', ...(config.useAuditions && config.useAuditions !== 'false' ? ['auditions'] : [])].map(t => (
           <button key={t} className={`tab-btn ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>
             {t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
