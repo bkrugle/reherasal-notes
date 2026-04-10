@@ -1,0 +1,312 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { api } from '../lib/api'
+
+const STEPS = ['Production details', 'Scenes', 'Characters', 'Access']
+
+function StepIndicator({ current }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: '2rem' }}>
+      {STEPS.map((label, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', flex: i < STEPS.length - 1 ? 1 : 'none' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+            <div style={{
+              width: 28, height: 28, borderRadius: '50%',
+              background: i <= current ? 'var(--text)' : 'var(--bg3)',
+              border: '0.5px solid ' + (i <= current ? 'transparent' : 'var(--border2)'),
+              color: i <= current ? 'var(--bg)' : 'var(--text3)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 12, fontWeight: 600, flexShrink: 0
+            }}>{i < current ? '✓' : i + 1}</div>
+            <span style={{ fontSize: 11, color: i === current ? 'var(--text)' : 'var(--text3)', whiteSpace: 'nowrap', fontWeight: i === current ? 500 : 400 }}>{label}</span>
+          </div>
+          {i < STEPS.length - 1 && (
+            <div style={{ flex: 1, height: '0.5px', background: i < current ? 'var(--text)' : 'var(--border2)', margin: '0 8px', marginBottom: 18 }} />
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function TagInput({ label, placeholder, values, onChange, hint }) {
+  const [input, setInput] = useState('')
+  function add() {
+    const v = input.trim()
+    if (v && !values.includes(v)) onChange([...values, v])
+    setInput('')
+  }
+  function remove(v) { onChange(values.filter(x => x !== v)) }
+  return (
+    <div className="field" style={{ marginBottom: '1rem' }}>
+      <label>{label}</label>
+      {hint && <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 4 }}>{hint}</p>}
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input
+          type="text" value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
+          placeholder={placeholder}
+        />
+        <button type="button" className="btn" onClick={add} style={{ flexShrink: 0 }}>Add</button>
+      </div>
+      {values.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+          {values.map(v => (
+            <span key={v} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              fontSize: 12, padding: '3px 10px',
+              background: 'var(--bg2)', border: '0.5px solid var(--border)',
+              borderRadius: 20, color: 'var(--text)'
+            }}>
+              {v}
+              <button type="button" onClick={() => remove(v)} style={{
+                background: 'none', border: 'none', color: 'var(--text3)',
+                cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 0
+              }}>×</button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function CreatePage() {
+  const navigate = useNavigate()
+  const [step, setStep] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [result, setResult] = useState(null)
+
+  const [form, setForm] = useState({
+    title: '',
+    directorName: '',
+    directorEmail: '',
+    showDates: '',
+    venue: '',
+    scenes: [],
+    characters: [],
+    staff: [],
+    pin: '',
+    pinConfirm: '',
+    adminPin: '',
+    adminPinConfirm: ''
+  })
+
+  function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
+
+  function validateStep() {
+    if (step === 0) {
+      if (!form.title.trim()) return 'Production title is required'
+      if (!form.directorName.trim()) return 'Director name is required'
+    }
+    if (step === 3) {
+      if (!form.pin || form.pin.length < 4) return 'PIN must be at least 4 characters'
+      if (form.pin !== form.pinConfirm) return 'PINs do not match'
+      if (form.adminPin && form.adminPin !== form.adminPinConfirm) return 'Admin PINs do not match'
+    }
+    return null
+  }
+
+  function next() {
+    const e = validateStep()
+    if (e) { setError(e); return }
+    setError('')
+    setStep(s => s + 1)
+  }
+
+  function back() { setError(''); setStep(s => s - 1) }
+
+  async function submit() {
+    const e = validateStep()
+    if (e) { setError(e); return }
+    setLoading(true)
+    setError('')
+    try {
+      const data = await api.createProduction({
+        title: form.title.trim(),
+        directorName: form.directorName.trim(),
+        directorEmail: form.directorEmail.trim(),
+        showDates: form.showDates.trim(),
+        venue: form.venue.trim(),
+        scenes: form.scenes,
+        characters: form.characters,
+        staff: form.staff,
+        pin: form.pin,
+        adminPin: form.adminPin || form.pin
+      })
+      setResult(data)
+    } catch (err) {
+      setError(err.message || 'Failed to create production')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (result) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+        <div style={{ width: '100%', maxWidth: '440px', textAlign: 'center' }}>
+          <div style={{ fontSize: 48, marginBottom: '1rem' }}>🎉</div>
+          <h2 style={{ fontSize: 22, fontWeight: 600, marginBottom: 8 }}>Production created!</h2>
+          <p className="muted" style={{ marginBottom: '1.5rem' }}>Share this code and PIN with your team.</p>
+          <div className="card" style={{ marginBottom: '1rem' }}>
+            <div style={{ marginBottom: '1rem' }}>
+              <p style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4, fontWeight: 500 }}>Production code</p>
+              <p style={{ fontSize: 36, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--text)' }}>{result.productionCode}</p>
+            </div>
+            <div>
+              <p style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4, fontWeight: 500 }}>PIN</p>
+              <p style={{ fontSize: 22, fontWeight: 600, letterSpacing: '0.1em', color: 'var(--text)' }}>{form.pin}</p>
+            </div>
+            {form.adminPin && form.adminPin !== form.pin && (
+              <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '0.5px solid var(--border)' }}>
+                <p style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4, fontWeight: 500 }}>Admin PIN (keep private)</p>
+                <p style={{ fontSize: 22, fontWeight: 600, letterSpacing: '0.1em', color: 'var(--text)' }}>{form.adminPin}</p>
+              </div>
+            )}
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: '1.5rem' }}>
+            Write these down — the PIN cannot be recovered if lost.
+          </p>
+          <button className="btn btn-primary btn-full" onClick={() => navigate('/')}>
+            Go to sign in
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem 1rem' }}>
+      <div style={{ width: '100%', maxWidth: '520px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1.5rem' }}>
+          <button className="btn btn-sm" onClick={() => navigate('/')}>← Back</button>
+          <h1 style={{ fontSize: 20, fontWeight: 600 }}>New production</h1>
+        </div>
+
+        <StepIndicator current={step} />
+
+        <div className="card">
+          {/* Step 0: Details */}
+          {step === 0 && (
+            <>
+              <div className="field" style={{ marginBottom: '1rem' }}>
+                <label>Production title *</label>
+                <input type="text" value={form.title} onChange={e => set('title', e.target.value)} placeholder="e.g. Into the Woods, Spring 2026" />
+              </div>
+              <div className="grid2" style={{ marginBottom: '1rem' }}>
+                <div className="field">
+                  <label>Director name *</label>
+                  <input type="text" value={form.directorName} onChange={e => set('directorName', e.target.value)} placeholder="Your name" />
+                </div>
+                <div className="field">
+                  <label>Director email</label>
+                  <input type="email" value={form.directorEmail} onChange={e => set('directorEmail', e.target.value)} placeholder="you@school.edu" />
+                </div>
+              </div>
+              <div className="grid2" style={{ marginBottom: '1rem' }}>
+                <div className="field">
+                  <label>Show dates</label>
+                  <input type="text" value={form.showDates} onChange={e => set('showDates', e.target.value)} placeholder="May 1–4, 2026" />
+                </div>
+                <div className="field">
+                  <label>Venue</label>
+                  <input type="text" value={form.venue} onChange={e => set('venue', e.target.value)} placeholder="Valley High Auditorium" />
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Step 1: Scenes */}
+          {step === 1 && (
+            <>
+              <p className="muted" style={{ marginBottom: '1rem' }}>Add your scenes or acts. These will appear in the note logging dropdown.</p>
+              <TagInput
+                label="Scenes / acts"
+                placeholder="e.g. Act 1 Scene 2, Opening Number"
+                values={form.scenes}
+                onChange={v => set('scenes', v)}
+                hint="Press Enter or click Add after each one"
+              />
+              <div style={{ marginTop: '0.5rem', padding: '10px 12px', background: 'var(--bg2)', borderRadius: 'var(--radius)', fontSize: 13, color: 'var(--text2)' }}>
+                Tip: You can also add scenes like "Full run", "Bows", "Pit rehearsal" — whatever you actually call them.
+              </div>
+            </>
+          )}
+
+          {/* Step 2: Characters */}
+          {step === 2 && (
+            <>
+              <p className="muted" style={{ marginBottom: '1rem' }}>Add your cast members and characters. These appear in the cast member autocomplete when logging notes.</p>
+              <TagInput
+                label="Cast / characters"
+                placeholder="e.g. Elphaba, Ensemble, Wicked Witch u/s"
+                values={form.characters}
+                onChange={v => set('characters', v)}
+                hint="Use actor names, character names, or both — whatever you prefer"
+              />
+              <TagInput
+                label="Staff members"
+                placeholder="e.g. Music Director, Stage Manager"
+                values={form.staff}
+                onChange={v => set('staff', v)}
+                hint="Optional — staff who will also log notes"
+              />
+            </>
+          )}
+
+          {/* Step 3: Access */}
+          {step === 3 && (
+            <>
+              <p className="muted" style={{ marginBottom: '1.25rem' }}>
+                Set a PIN for your team to enter the production. Optionally set a separate admin PIN for yourself — admin access lets you edit production setup and manage team access.
+              </p>
+              <div className="grid2" style={{ marginBottom: '1rem' }}>
+                <div className="field">
+                  <label>Team PIN *</label>
+                  <input type="password" value={form.pin} onChange={e => set('pin', e.target.value)} placeholder="Min. 4 characters" />
+                </div>
+                <div className="field">
+                  <label>Confirm team PIN *</label>
+                  <input type="password" value={form.pinConfirm} onChange={e => set('pinConfirm', e.target.value)} placeholder="Repeat PIN" />
+                </div>
+              </div>
+              <div style={{ height: '0.5px', background: 'var(--border)', margin: '1rem 0' }} />
+              <p style={{ fontSize: 13, fontWeight: 500, marginBottom: '0.75rem' }}>Admin PIN <span style={{ color: 'var(--text3)', fontWeight: 400 }}>(optional — defaults to team PIN)</span></p>
+              <div className="grid2">
+                <div className="field">
+                  <label>Admin PIN</label>
+                  <input type="password" value={form.adminPin} onChange={e => set('adminPin', e.target.value)} placeholder="Your private PIN" />
+                </div>
+                <div className="field">
+                  <label>Confirm admin PIN</label>
+                  <input type="password" value={form.adminPinConfirm} onChange={e => set('adminPinConfirm', e.target.value)} placeholder="Repeat admin PIN" />
+                </div>
+              </div>
+            </>
+          )}
+
+          {error && (
+            <p style={{ fontSize: 13, color: 'var(--red-text)', background: 'var(--red-bg)', padding: '8px 12px', borderRadius: 'var(--radius)', marginTop: '1rem' }}>
+              {error}
+            </p>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.5rem', gap: 8 }}>
+            {step > 0
+              ? <button type="button" className="btn" onClick={back}>← Back</button>
+              : <div />}
+            {step < STEPS.length - 1
+              ? <button type="button" className="btn btn-primary" onClick={next}>Continue →</button>
+              : <button type="button" className="btn btn-primary" onClick={submit} disabled={loading}>
+                  {loading ? 'Creating…' : 'Create production'}
+                </button>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

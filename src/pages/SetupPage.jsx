@@ -1,0 +1,256 @@
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { api } from '../lib/api'
+import { useSession } from '../lib/session'
+
+function TagInput({ label, values, onChange, placeholder }) {
+  const [input, setInput] = useState('')
+  function add() {
+    const v = input.trim()
+    if (v && !values.includes(v)) onChange([...values, v])
+    setInput('')
+  }
+  function remove(v) { onChange(values.filter(x => x !== v)) }
+  return (
+    <div className="field" style={{ marginBottom: '1rem' }}>
+      <label>{label}</label>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input type="text" value={input} onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
+          placeholder={placeholder} />
+        <button type="button" className="btn btn-sm" onClick={add}>Add</button>
+      </div>
+      {values.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+          {values.map(v => (
+            <span key={v} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              fontSize: 12, padding: '3px 10px',
+              background: 'var(--bg2)', border: '0.5px solid var(--border)',
+              borderRadius: 20
+            }}>
+              {v}
+              <button type="button" onClick={() => remove(v)} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 14, padding: 0 }}>×</button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function SetupPage() {
+  const { session } = useSession()
+  const navigate = useNavigate()
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+  const [activeTab, setActiveTab] = useState('details')
+
+  const [config, setConfig] = useState({
+    title: '', directorName: '', directorEmail: '',
+    showDates: '', venue: '', scenes: [], characters: [], staff: []
+  })
+  const [sharedWith, setSharedWith] = useState([])
+  const [newMember, setNewMember] = useState({ name: '', email: '', pin: '' })
+
+  useEffect(() => {
+    if (session?.role !== 'admin') { navigate('/production'); return }
+    loadData()
+  }, [])
+
+  async function loadData() {
+    setLoading(true)
+    try {
+      const data = await api.getProduction(session.sheetId)
+      setConfig({
+        title: data.config.title || '',
+        directorName: data.config.directorName || '',
+        directorEmail: data.config.directorEmail || '',
+        showDates: data.config.showDates || '',
+        venue: data.config.venue || '',
+        scenes: Array.isArray(data.config.scenes) ? data.config.scenes : [],
+        characters: Array.isArray(data.config.characters) ? data.config.characters : [],
+        staff: Array.isArray(data.config.staff) ? data.config.staff : []
+      })
+      setSharedWith(data.sharedWith || [])
+    } catch (e) {
+      setError('Failed to load production settings')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function setC(key, val) { setConfig(c => ({ ...c, [key]: val })) }
+
+  async function save() {
+    setSaving(true)
+    setError('')
+    try {
+      await api.updateProduction({ sheetId: session.sheetId, config })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    } catch (e) {
+      setError('Failed to save: ' + e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function saveTeam() {
+    setSaving(true)
+    setError('')
+    try {
+      await api.updateProduction({ sheetId: session.sheetId, sharedWith })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    } catch (e) {
+      setError('Failed to save team: ' + e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function addMember() {
+    if (!newMember.name.trim() || !newMember.pin.trim()) return
+    setSharedWith(sw => [...sw, { ...newMember }])
+    setNewMember({ name: '', email: '', pin: '' })
+  }
+
+  function removeMember(i) {
+    setSharedWith(sw => sw.filter((_, idx) => idx !== i))
+  }
+
+  if (loading) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <p className="muted">Loading…</p>
+    </div>
+  )
+
+  return (
+    <div className="page">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1.5rem' }}>
+        <button className="btn btn-sm" onClick={() => navigate('/production')}>← Back</button>
+        <h1 style={{ fontSize: 20, fontWeight: 600 }}>Production setup</h1>
+        <span style={{ fontSize: 12, color: 'var(--text3)', marginLeft: 4 }}>{session.productionCode}</span>
+      </div>
+
+      <div className="tabs">
+        {['details', 'scenes', 'characters', 'team'].map(t => (
+          <button key={t} className={`tab-btn ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>
+            {t.charAt(0).toUpperCase() + t.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {error && (
+        <p style={{ fontSize: 13, color: 'var(--red-text)', background: 'var(--red-bg)', padding: '8px 12px', borderRadius: 'var(--radius)', marginBottom: '1rem' }}>
+          {error}
+        </p>
+      )}
+
+      {activeTab === 'details' && (
+        <div className="card">
+          <div className="field" style={{ marginBottom: '1rem' }}>
+            <label>Production title</label>
+            <input type="text" value={config.title} onChange={e => setC('title', e.target.value)} />
+          </div>
+          <div className="grid2" style={{ marginBottom: '1rem' }}>
+            <div className="field">
+              <label>Director name</label>
+              <input type="text" value={config.directorName} onChange={e => setC('directorName', e.target.value)} />
+            </div>
+            <div className="field">
+              <label>Director email</label>
+              <input type="email" value={config.directorEmail} onChange={e => setC('directorEmail', e.target.value)} />
+            </div>
+          </div>
+          <div className="grid2" style={{ marginBottom: '1.25rem' }}>
+            <div className="field">
+              <label>Show dates</label>
+              <input type="text" value={config.showDates} onChange={e => setC('showDates', e.target.value)} />
+            </div>
+            <div className="field">
+              <label>Venue</label>
+              <input type="text" value={config.venue} onChange={e => setC('venue', e.target.value)} />
+            </div>
+          </div>
+          <button className="btn btn-primary" onClick={save} disabled={saving}>
+            {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save changes'}
+          </button>
+        </div>
+      )}
+
+      {activeTab === 'scenes' && (
+        <div className="card">
+          <p className="muted" style={{ marginBottom: '1rem' }}>These appear in the scene dropdown when logging notes.</p>
+          <TagInput label="Scenes / acts" values={config.scenes} onChange={v => setC('scenes', v)} placeholder="e.g. Act 1 Scene 2" />
+          <button className="btn btn-primary mt2" onClick={save} disabled={saving}>
+            {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save scenes'}
+          </button>
+        </div>
+      )}
+
+      {activeTab === 'characters' && (
+        <div className="card">
+          <p className="muted" style={{ marginBottom: '1rem' }}>These appear in the cast member autocomplete when logging notes.</p>
+          <TagInput label="Cast / characters" values={config.characters} onChange={v => setC('characters', v)} placeholder="e.g. Elphaba, Ensemble" />
+          <TagInput label="Staff members" values={config.staff} onChange={v => setC('staff', v)} placeholder="e.g. Stage Manager" />
+          <button className="btn btn-primary mt2" onClick={save} disabled={saving}>
+            {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save cast & staff'}
+          </button>
+        </div>
+      )}
+
+      {activeTab === 'team' && (
+        <div>
+          <div className="card" style={{ marginBottom: '1rem' }}>
+            <p style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>Share access with a team member</p>
+            <p className="muted" style={{ marginBottom: '1rem', fontSize: 13 }}>
+              Give them the production code <strong>{session.productionCode}</strong> plus the PIN you set below.
+            </p>
+            <div className="grid3" style={{ marginBottom: '0.75rem' }}>
+              <div className="field">
+                <label>Name *</label>
+                <input type="text" value={newMember.name} onChange={e => setNewMember(m => ({ ...m, name: e.target.value }))} placeholder="Erica" />
+              </div>
+              <div className="field">
+                <label>Email</label>
+                <input type="email" value={newMember.email} onChange={e => setNewMember(m => ({ ...m, email: e.target.value }))} placeholder="erica@school.edu" />
+              </div>
+              <div className="field">
+                <label>Their PIN *</label>
+                <input type="text" value={newMember.pin} onChange={e => setNewMember(m => ({ ...m, pin: e.target.value }))} placeholder="Min. 4 chars" />
+              </div>
+            </div>
+            <button className="btn" onClick={addMember}>+ Add team member</button>
+          </div>
+
+          {sharedWith.length > 0 && (
+            <div className="card" style={{ marginBottom: '1rem' }}>
+              <p className="section-label" style={{ marginBottom: '0.75rem' }}>Current team members</p>
+              {sharedWith.map((m, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '8px 0',
+                  borderBottom: i < sharedWith.length - 1 ? '0.5px solid var(--border)' : 'none'
+                }}>
+                  <div>
+                    <span style={{ fontSize: 14, fontWeight: 500 }}>{m.name}</span>
+                    {m.email && <span style={{ fontSize: 13, color: 'var(--text3)', marginLeft: 8 }}>{m.email}</span>}
+                  </div>
+                  <button className="btn btn-sm btn-danger" onClick={() => removeMember(i)}>Remove</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button className="btn btn-primary" onClick={saveTeam} disabled={saving}>
+            {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save team'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
