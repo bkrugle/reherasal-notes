@@ -18,7 +18,12 @@ export const api = {
   saveNote: (sheetId, note) => call('/saveNote', 'POST', { sheetId, note }),
   updateNote: (sheetId, id, changes) => call('/updateNote', 'POST', { sheetId, id, changes }),
   sendReport: (payload) => call('/sendReport', 'POST', payload),
+  sendCastNotes: (payload) => call('/sendCastNotes', 'POST', payload),
   getCalendar: (calendarId, weeks = 3) => call(`/getCalendar?calendarId=${encodeURIComponent(calendarId)}&weeks=${weeks}`),
   upsertEvent: (payload) => call('/upsertEvent', 'POST', payload),
   deleteEvent: (calendarId, eventId) => call('/deleteEvent', 'POST', { calendarId, eventId }),
+  uploadFile: (payload) => call('/uploadFile', 'POST', payload),
+  getFiles: (folderId) => call(`/getFiles?folderId=${encodeURIComponent(folderId)}`),
+  deleteFile: (fileId) => call('/deleteFile', 'POST', { fileId }),
+  deleteProduction: (sheetId, productionCode) => call('/deleteProduction', 'POST', { sheetId, productionCode }),
 }

@@ -117,6 +117,18 @@ export default function NoteCard({ note, sheetId, scenes, characters, onUpdated,
         {localNote.text}
       </p>
 
+      {localNote.attachmentUrl && (
+        <a href={localNote.attachmentUrl} target="_blank" rel="noreferrer"
+          style={{ display: 'inline-block', marginTop: 8, marginBottom: 4 }}>
+          <div style={{
+            fontSize: 12, padding: '4px 10px', borderRadius: 'var(--radius)',
+            background: 'var(--blue-bg)', color: 'var(--blue-text)',
+            border: '0.5px solid transparent', display: 'inline-flex', alignItems: 'center', gap: 5
+          }}>
+            📷 View attached photo ↗
+          </div>
+        </a>
+      )}
       {localNote.createdBy && (
         <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>by {localNote.createdBy}</p>
       )}

@@ -36,13 +36,15 @@ function useVoiceInput(onResult) {
   return { listening, supported, start, stop }
 }
 
-export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunning, createdBy, onNoteAdded }) {
+export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunning, createdBy, onNoteAdded, attachFolderId }) {
   const today = new Date().toISOString().slice(0, 10)
   const [form, setForm] = useState({
     date: today, scene: '', category: 'general', priority: 'med',
     cast: '', cue: '', text: '', carriedOver: false
   })
   const [flash, setFlash] = useState(false)
+  const [photo, setPhoto] = useState(null) // { base64, mimeType, name, preview }
+  const photoInputRef = useRef(null)
   const [suggestions, setSuggestions] = useState([])
   const [parsedTags, setParsedTags] = useState([])
   const textareaRef = useRef(null)
@@ -88,6 +90,33 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
     textareaRef.current?.focus()
   }
 
+  async function handlePhoto(e) {
+    const file = e.target.files[0]
+    if (!file) return
+    // Compress image client-side
+    const preview = URL.createObjectURL(file)
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      // Simple compression via canvas
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        const MAX = 1200
+        let { width, height } = img
+        if (width > MAX || height > MAX) {
+          if (width > height) { height = Math.round(height * MAX / width); width = MAX }
+          else { width = Math.round(width * MAX / height); height = MAX }
+        }
+        canvas.width = width; canvas.height = height
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+        const compressed = canvas.toDataURL('image/jpeg', 0.82).split(',')[1]
+        setPhoto({ base64: compressed, mimeType: 'image/jpeg', name: file.name, preview })
+      }
+      img.src = ev.target.result
+    }
+    reader.readAsDataURL(file)
+  }
+
   function applyTemplate(t) {
     setForm(f => ({ ...f, category: t.category, priority: t.priority, text: t.text }))
     setParsedTags([])
@@ -122,12 +151,30 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
     }
     onNoteAdded(fullNote)
     setForm(f => ({ ...f, text: '', cast: '', cue: '', carriedOver: false, scene: '', category: 'general', priority: 'med' }))
+    setPhoto(null)
     setParsedTags([])
     setSuggestions([])
     setFlash(true)
     setTimeout(() => setFlash(false), 1500)
     api.saveNote(sheetId, { ...finalForm, swTime, createdBy })
-      .then(result => onNoteAdded({ ...fullNote, id: result.id, createdAt: result.createdAt }))
+      .then(async result => {
+        let attachmentUrl = ''
+        if (photo && attachFolderId) {
+          try {
+            const uploaded = await api.uploadFile({
+              folderId: attachFolderId,
+              fileName: 'note-' + result.id + '.jpg',
+              mimeType: 'image/jpeg',
+              base64Data: photo.base64,
+              category: 'note-attachment'
+            })
+            attachmentUrl = uploaded.webViewLink || ''
+            await api.updateNote(sheetId, result.id, { attachmentUrl })
+          } catch (e) { console.warn('Photo upload failed:', e.message) }
+        }
+        onNoteAdded({ ...fullNote, id: result.id, createdAt: result.createdAt, attachmentUrl })
+        setPhoto(null)
+      })
       .catch(e => console.warn('Note sync failed:', e.message))
   }
 
@@ -265,6 +312,28 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
                     background: 'var(--blue-bg)', color: 'var(--blue-text)'
                   }}>{t}</span>
                 ))}
+              </div>
+            )}
+          </div>
+
+          {/* Photo attachment */}
+          <div style={{ marginBottom: '0.75rem' }}>
+            <input ref={photoInputRef} type="file" accept="image/*" capture="environment"
+              onChange={handlePhoto} style={{ display: 'none' }} />
+            {!photo ? (
+              <button type="button" className="btn btn-sm" onClick={() => photoInputRef.current?.click()}
+                style={{ fontSize: 12 }}>
+                📷 Add photo
+              </button>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <img src={photo.preview} alt="attachment"
+                  style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 'var(--radius)', border: '0.5px solid var(--border)' }} />
+                <div>
+                  <p style={{ fontSize: 13, color: 'var(--text)', marginBottom: 2 }}>{photo.name}</p>
+                  <button type="button" className="btn btn-sm" onClick={() => setPhoto(null)}
+                    style={{ fontSize: 11, color: 'var(--red-text)', borderColor: 'var(--red-text)' }}>Remove</button>
+                </div>
               </div>
             )}
           </div>

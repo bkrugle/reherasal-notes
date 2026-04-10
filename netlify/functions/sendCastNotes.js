@@ -3,11 +3,15 @@
 const { CORS, ok, err } = require('./_sheets')
 const https = require('https')
 
-function resendEmail({ to, subject, html, text }) {
+function resendEmail({ to, subject, html, text, replyTo, fromName }) {
   return new Promise((resolve, reject) => {
+    const from = fromName
+      ? `${fromName} <noreply@notes.vhsdrama.org>`
+      : 'Rehearsal Notes <noreply@notes.vhsdrama.org>'
     const body = JSON.stringify({
-      from: 'Rehearsal Notes <noreply@notes.vhsdrama.org>',
+      from,
       to: Array.isArray(to) ? to : [to],
+      reply_to: replyTo || undefined,
       subject,
       html,
       text
@@ -43,60 +47,59 @@ exports.handler = async (event) => {
   let body
   try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
 
-  const { to, subject, notes, productionTitle, date, directorName } = body
-  if (!to || !notes) return err('to and notes required')
-
+  const { to, castName, notes, productionTitle, directorName, directorEmail } = body
+  if (!to || !notes || !castName) return err('to, castName, and notes required')
   if (!process.env.RESEND_API_KEY) return err('RESEND_API_KEY not configured', 500)
-
-  const dt = new Date(date + 'T00:00:00')
-  const dateLabel = dt.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
-
-  const byScene = {}
-  notes.forEach(n => {
-    const k = n.scene || 'General'
-    if (!byScene[k]) byScene[k] = []
-    byScene[k].push(n)
-  })
 
   const catColor = {
     blocking: '#ba7517', performance: '#7f77dd', music: '#1d9e75',
     technical: '#d85a30', general: '#639922', costume: '#d4537e', set: '#378add'
   }
 
+  // Group notes by date
+  const byDate = {}
+  notes.forEach(n => {
+    if (!byDate[n.date]) byDate[n.date] = []
+    byDate[n.date].push(n)
+  })
+
   let html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
 <body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#1a1a1a;">
   <h1 style="font-size:20px;margin-bottom:4px">${productionTitle}</h1>
-  <p style="color:#666;font-size:14px;margin-bottom:24px">Rehearsal report — ${dateLabel}</p>`
+  <p style="color:#666;font-size:14px;margin-bottom:8px">Notes for <strong>${castName}</strong></p>
+  <p style="color:#999;font-size:12px;margin-bottom:24px">From ${directorName || 'Your Director'}</p>`
 
-  let text = `${productionTitle}\nRehearsal report — ${dateLabel}\n\n`
+  let text = `${productionTitle}\nNotes for ${castName}\nFrom ${directorName || 'Your Director'}\n\n`
 
-  Object.entries(byScene).forEach(([scene, ns]) => {
-    html += `<h2 style="font-size:14px;border-bottom:1px solid #ddd;padding-bottom:4px;margin:20px 0 8px">${scene}</h2><ul style="margin:0;padding-left:20px">`
-    text += `${scene.toUpperCase()}\n`
+  Object.entries(byDate).sort().forEach(([date, ns]) => {
+    const dt = new Date(date + 'T00:00:00')
+    const dateLabel = dt.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
+    html += `<h2 style="font-size:14px;border-bottom:1px solid #ddd;padding-bottom:4px;margin:20px 0 8px">${dateLabel}</h2><ul style="margin:0;padding-left:20px">`
+    text += `${dateLabel.toUpperCase()}\n`
     ns.forEach(n => {
       const col = catColor[n.category] || '#888'
-      const pri = n.priority === 'high'
-      const who = n.cast ? ` <strong>${n.cast}</strong>` : ''
       const cue = n.cue ? ` <em>(@ ${n.cue})</em>` : ''
+      const pri = n.priority === 'high'
       html += `<li style="margin:6px 0;font-size:14px">
         <span style="background:${col}22;color:${col};font-size:11px;padding:1px 6px;border-radius:8px;font-weight:600">${n.category}</span>
-        ${who}${cue}${pri ? ' <span style="color:#a32d2d">★</span>' : ''} — ${n.text}
+        ${cue}${pri ? ' <span style="color:#a32d2d">★</span>' : ''} — ${n.text}
+        ${n.carriedOver === 'true' ? '<span style="font-size:11px;color:#ba7517"> (carried over)</span>' : ''}
       </li>`
-      text += `• [${n.category}]${n.cast ? ' ' + n.cast : ''}${n.cue ? ' @ ' + n.cue : ''}${pri ? ' ★' : ''} — ${n.text}\n`
+      text += `• [${n.category}]${n.cue ? ' @ ' + n.cue : ''}${pri ? ' ★' : ''} — ${n.text}\n`
     })
     html += '</ul>'
     text += '\n'
   })
 
-  html += `<p style="margin-top:32px;font-size:13px;color:#999">Sent by ${directorName || 'Director'} via Rehearsal Notes</p>
-</body></html>`
-  text += `\n— ${directorName || 'Director'}`
+  html += `<p style="margin-top:32px;font-size:13px;color:#999">
+    Questions? Reply to this email to reach ${directorName || 'your director'}.
+  </p></body></html>`
+  text += `\nQuestions? Reply to this email.\n— ${directorName || 'Director'}`
 
   try {
-    const recipients = Array.isArray(to) ? to : [to]
     await resendEmail({
-      to: recipients,
-      subject: subject || `Rehearsal report — ${dateLabel}`,
+      to: Array.isArray(to) ? to : [to],
+      subject: `Your notes — ${productionTitle}`,
       html,
       text,
       replyTo: directorEmail || undefined,

@@ -40,11 +40,12 @@ function TagInput({ label, values, onChange, placeholder }) {
 }
 
 export default function SetupPage() {
-  const { session } = useSession()
+  const { session, logout } = useSession()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('details')
 
@@ -110,6 +111,24 @@ export default function SetupPage() {
       setError('Failed to save team: ' + e.message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function deleteProduction() {
+    const confirmed = window.confirm(
+      `Are you sure you want to permanently delete "${config.title}"?\n\nThis will delete the production sheet, all uploaded files, and remove it from the registry. This cannot be undone.`
+    )
+    if (!confirmed) return
+    const doubleConfirm = window.confirm('Last chance — this is permanent. Delete this production?')
+    if (!doubleConfirm) return
+    setDeleting(true)
+    try {
+      await api.deleteProduction(session.sheetId, session.productionCode)
+      logout()
+      navigate('/')
+    } catch (e) {
+      setError('Failed to delete: ' + e.message)
+      setDeleting(false)
     }
   }
 
@@ -188,6 +207,16 @@ export default function SetupPage() {
           <button className="btn btn-primary" onClick={save} disabled={saving}>
             {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save changes'}
           </button>
+
+          <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '0.5px solid var(--border)' }}>
+            <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--red-text)', marginBottom: 8 }}>Danger zone</p>
+            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: '1rem' }}>
+              Permanently delete this production, all its notes, uploaded files, and documents. This cannot be undone.
+            </p>
+            <button className="btn btn-danger" onClick={deleteProduction} disabled={deleting}>
+              {deleting ? 'Deleting…' : 'Delete this production'}
+            </button>
+          </div>
         </div>
       )}
 

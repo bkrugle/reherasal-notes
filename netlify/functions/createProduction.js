@@ -22,19 +22,55 @@ exports.handler = async (event) => {
     const sheets = await sheetsClient()
     const drive = await driveClient()
 
-    // Create the sheet inside the Shared Drive
+    // 1. Create production root folder in Shared Drive
+    const rootFolder = await drive.files.create({
+      supportsAllDrives: true,
+      requestBody: {
+        name: title,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [SHARED_DRIVE_ID]
+      },
+      fields: 'id'
+    })
+    const rootFolderId = rootFolder.data.id
+
+    // 2. Create Note Attachments subfolder
+    const attachFolder = await drive.files.create({
+      supportsAllDrives: true,
+      requestBody: {
+        name: 'Note Attachments',
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [rootFolderId]
+      },
+      fields: 'id'
+    })
+    const attachFolderId = attachFolder.data.id
+
+    // 3. Create Production Documents subfolder
+    const docsFolder = await drive.files.create({
+      supportsAllDrives: true,
+      requestBody: {
+        name: 'Production Documents',
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: [rootFolderId]
+      },
+      fields: 'id'
+    })
+    const docsFolderId = docsFolder.data.id
+
+    // 4. Create the production sheet inside root folder
     const driveFile = await drive.files.create({
       supportsAllDrives: true,
       requestBody: {
-        name: `Rehearsal Notes — ${title}`,
+        name: `Production Sheet — ${title}`,
         mimeType: 'application/vnd.google-apps.spreadsheet',
-        parents: [SHARED_DRIVE_ID]
+        parents: [rootFolderId]
       },
       fields: 'id'
     })
     const productionSheetId = driveFile.data.id
 
-    // Rename Sheet1 to Notes, add Config and SharedWith tabs
+    // 5. Set up sheet tabs
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: productionSheetId,
       requestBody: {
@@ -46,25 +82,30 @@ exports.handler = async (event) => {
       }
     })
 
-    // Set up Notes header row
+    // 6. Notes header — includes attachmentUrl column
     await sheets.spreadsheets.values.update({
       spreadsheetId: productionSheetId,
-      range: 'Notes!A1:N1',
+      range: 'Notes!A1:P1',
       valueInputOption: 'RAW',
       requestBody: {
-        values: [['id','date','scene','category','priority','cast','cue','swTime','text','resolved','createdAt','updatedAt','createdBy','deleted']]
+        values: [['id','date','scene','category','priority','cast','cue','swTime','text','resolved','createdAt','updatedAt','createdBy','deleted','carriedOver','attachmentUrl']]
       }
     })
 
-    // Set up Config tab
+    // 7. Config tab — includes folder IDs
     const configData = [
       ['title', title],
       ['directorName', directorName || ''],
       ['directorEmail', directorEmail || ''],
       ['showDates', showDates || ''],
+      ['venue', ''],
+      ['calendarId', ''],
       ['scenes', JSON.stringify(scenes || [])],
       ['characters', JSON.stringify(characters || [])],
       ['staff', JSON.stringify(staff || [])],
+      ['rootFolderId', rootFolderId],
+      ['attachFolderId', attachFolderId],
+      ['docsFolderId', docsFolderId],
       ['createdAt', new Date().toISOString()]
     ]
     await sheets.spreadsheets.values.update({
@@ -74,7 +115,7 @@ exports.handler = async (event) => {
       requestBody: { values: configData }
     })
 
-    // Set up SharedWith header
+    // 8. SharedWith header
     await sheets.spreadsheets.values.update({
       spreadsheetId: productionSheetId,
       range: 'SharedWith!A1:C1',
@@ -82,7 +123,7 @@ exports.handler = async (event) => {
       requestBody: { values: [['name','email','pinHash']] }
     })
 
-    // Register in the Registry sheet
+    // 9. Register in Registry
     const productionCode = makeProductionCode(title)
     const pinHash = hashPin(pin)
     const adminPinHash = adminPin ? hashPin(adminPin) : pinHash

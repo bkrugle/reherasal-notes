@@ -1,9 +1,17 @@
 import { useState, useEffect } from 'react'
+import { api } from '../lib/api'
 
-export default function SendTab({ notes, characters }) {
+export default function SendTab({ notes, characters, production }) {
   const [emails, setEmails] = useState(() => {
     try { return JSON.parse(localStorage.getItem('rn_emails') || '{}') } catch { return {} }
   })
+  const [sending, setSending] = useState({})
+  const [sent, setSent] = useState({})
+  const [errors, setErrors] = useState({})
+
+  const directorName = production?.config?.directorName || ''
+  const directorEmail = production?.config?.directorEmail || ''
+  const productionTitle = production?.config?.title || 'Production'
 
   function setEmail(name, val) {
     const updated = { ...emails, [name]: val }
@@ -11,24 +19,48 @@ export default function SendTab({ notes, characters }) {
     localStorage.setItem('rn_emails', JSON.stringify(updated))
   }
 
-  function compose(name) {
+  async function sendNotes(name) {
     const openNotes = notes.filter(n => n.cast === name && !n.resolved)
     if (!openNotes.length) return
     const email = emails[name] || ''
-    const lines = [
-      `Hi ${name.split(' ')[0]},\n`,
-      `Here are your notes from our recent rehearsal(s):\n`
-    ]
+    if (!email) { setErrors(e => ({ ...e, [name]: 'Enter an email address first' })); return }
+    setSending(s => ({ ...s, [name]: true }))
+    setErrors(e => ({ ...e, [name]: '' }))
+    try {
+      await api.sendCastNotes({
+        to: email,
+        castName: name,
+        notes: openNotes,
+        productionTitle,
+        directorName,
+        directorEmail
+      })
+      setSent(s => ({ ...s, [name]: true }))
+      setTimeout(() => setSent(s => ({ ...s, [name]: false })), 3000)
+    } catch (e) {
+      setErrors(err => ({ ...err, [name]: e.message }))
+    } finally {
+      setSending(s => ({ ...s, [name]: false }))
+    }
+  }
+
+  function composeFallback(name) {
+    // Fallback mailto for when API isn't configured
+    const openNotes = notes.filter(n => n.cast === name && !n.resolved)
+    if (!openNotes.length) return
+    const email = emails[name] || ''
+    const lines = [`Hi ${name.split(' ')[0]},
+
+Here are your notes:
+`]
     openNotes.forEach(n => {
-      const dt = new Date(n.date + 'T00:00:00')
-      const dateLabel = dt.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
-      const cue = n.cue ? ` (@ ${n.cue})` : ''
-      const scene = n.scene ? ` — ${n.scene}` : ''
-      lines.push(`• [${n.category}]${scene}${cue} ${n.text}  (${dateLabel})`)
+      lines.push(`• [${n.category}] ${n.text}`)
     })
-    lines.push('\nThanks — see you at the next rehearsal!\n')
-    const subject = encodeURIComponent(`Rehearsal notes for ${name}`)
-    const body = encodeURIComponent(lines.join('\n'))
+    lines.push(`
+— ${directorName || 'Your Director'}`)
+    const subject = encodeURIComponent(`Your notes — ${productionTitle}`)
+    const body = encodeURIComponent(lines.join('
+'))
     window.location.href = `mailto:${email}?subject=${subject}&body=${body}`
   }
 
@@ -74,17 +106,20 @@ export default function SendTab({ notes, characters }) {
                 onChange={e => setEmail(name, e.target.value)}
                 style={{ fontSize: 13, padding: '6px 9px' }}
               />
+              {errors[name] && <p style={{ fontSize: 12, color: 'var(--red-text)', marginTop: 6 }}>{errors[name]}</p>}
               {openNotes.length > 0 && (
                 <button
                   className="btn btn-sm"
-                  onClick={() => compose(name)}
+                  onClick={() => sendNotes(name)}
+                  disabled={sending[name]}
                   style={{
                     marginTop: 8, width: '100%',
-                    background: 'var(--blue-bg)', color: 'var(--blue-text)',
+                    background: sent[name] ? 'var(--green-bg)' : 'var(--blue-bg)',
+                    color: sent[name] ? 'var(--green-text)' : 'var(--blue-text)',
                     borderColor: 'transparent', fontWeight: 500
                   }}
                 >
-                  Compose email →
+                  {sending[name] ? 'Sending…' : sent[name] ? '✓ Sent!' : `Send notes (${openNotes.length})`}
                 </button>
               )}
             </div>

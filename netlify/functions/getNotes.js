@@ -10,7 +10,7 @@ exports.handler = async (event) => {
 
   try {
     const sheets = await sheetsClient()
-    const rows = await getRows(sheets, sheetId, 'Notes!A:O')
+    const rows = await getRows(sheets, sheetId, 'Notes!A:P')
     if (rows.length < 2) return ok({ notes: [] })
 
     const [header, ...data] = rows
@@ -33,7 +33,8 @@ exports.handler = async (event) => {
         createdAt: r[idx.createdAt] || '',
         updatedAt: r[idx.updatedAt] || '',
         createdBy: r[idx.createdBy] || '',
-        carriedOver: r[idx.carriedOver] || 'false'
+        carriedOver: r[idx.carriedOver] || 'false',
+        attachmentUrl: r[idx.attachmentUrl] || ''
       }))
       .reverse()
 
