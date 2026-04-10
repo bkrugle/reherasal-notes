@@ -12,6 +12,8 @@ async function call(path, method = 'GET', body = null) {
 export const api = {
   createProduction: (payload) => call('/createProduction', 'POST', payload),
   authenticate: (productionCode, pin) => call('/authenticate', 'POST', { productionCode, pin }),
+  authenticateWithNewPin: (productionCode, inviteCode, newPin) => call('/authenticate', 'POST', { productionCode, pin: inviteCode, newPin }),
+  sendWelcome: (payload) => call('/sendWelcome', 'POST', payload),
   getProduction: (sheetId) => call(`/getProduction?sheetId=${sheetId}`),
   updateProduction: (payload) => call('/updateProduction', 'POST', payload),
   getNotes: (sheetId) => call(`/getNotes?sheetId=${sheetId}`),

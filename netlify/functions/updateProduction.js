@@ -1,6 +1,14 @@
 'use strict'
 
-const { sheetsClient, hashPin, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, hashPin, getRows, CORS, ok, err } = require('./_sheets')
+
+// Generate a random invite code
+function makeInviteCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let code = ''
+  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)]
+  return code
+}
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
@@ -29,21 +37,70 @@ exports.handler = async (event) => {
     }
 
     if (sharedWith !== undefined) {
-      // Rebuild SharedWith tab
-      const rows = [['name', 'email', 'pinHash']]
-      sharedWith.forEach(({ name, email, pin }) => {
-        if (name || email) {
-          rows.push([name || '', email || '', pin ? hashPin(pin) : ''])
+      // Read existing members to preserve their pinHash and inviteCode
+      const existing = {}
+      try {
+        const existingRows = await getRows(sheets, sheetId, 'SharedWith!A:F')
+        if (existingRows.length > 1) {
+          const [h, ...data] = existingRows
+          const nameIdx = h.indexOf('name')
+          const emailIdx = h.indexOf('email')
+          const pinIdx = h.indexOf('pinHash')
+          const inviteIdx = h.indexOf('inviteCode')
+          const activatedIdx = h.indexOf('activated')
+          data.filter(r => r.some(Boolean)).forEach(r => {
+            const key = (r[emailIdx] || r[nameIdx] || '').toLowerCase()
+            if (key) existing[key] = {
+              pinHash: r[pinIdx] || '',
+              inviteCode: r[inviteIdx] || '',
+              activated: r[activatedIdx] || 'false'
+            }
+          })
         }
+      } catch (e) { console.warn('Could not read existing members:', e.message) }
+
+      // Build new rows — generate invite codes for new members
+      const header = ['name', 'email', 'pinHash', 'inviteCode', 'activated', 'role']
+      const rows = [header]
+      const newInviteCodes = {} // name -> inviteCode for newly added members
+
+      sharedWith.forEach((member) => {
+        const { name, email, pin } = member
+        if (!name && !email) return
+        const key = (email || name || '').toLowerCase()
+        const prev = existing[key]
+
+        let pinHash = ''
+        let inviteCode = ''
+        let activated = 'false'
+
+        if (prev) {
+          // Existing member — preserve their credentials
+          pinHash = prev.pinHash
+          inviteCode = prev.inviteCode
+          activated = prev.activated
+        } else {
+          // New member — generate invite code, no PIN yet
+          inviteCode = makeInviteCode()
+          newInviteCodes[name || email] = inviteCode
+        }
+
+        // If admin explicitly set a pin, hash it (legacy support)
+        if (pin && !prev) pinHash = hashPin(pin)
+
+        const memberRole = (prev?.role === 'admin' || member?.role === 'admin') ? 'admin' : 'member'
+        rows.push([name || '', email || '', pinHash, inviteCode, activated, memberRole])
       })
-      // Clear then rewrite
-      await sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range: 'SharedWith!A:C' })
+
+      await sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range: 'SharedWith!A:F' })
       await sheets.spreadsheets.values.update({
         spreadsheetId: sheetId,
-        range: 'SharedWith!A1:C' + rows.length,
+        range: `SharedWith!A1:F${rows.length}`,
         valueInputOption: 'RAW',
         requestBody: { values: rows }
       })
+
+      return ok({ success: true, newInviteCodes })
     }
 
     return ok({ success: true })

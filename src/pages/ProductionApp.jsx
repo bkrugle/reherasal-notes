@@ -145,7 +145,12 @@ export default function ProductionApp() {
             {session.role === 'admin' && (
               <button className="btn btn-sm" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => navigate('/setup')}>Setup</button>
             )}
-            <button className="btn btn-sm" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => { logout(); navigate('/') }}>Sign out</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {session.name && (
+                <span style={{ fontSize: 12, color: 'var(--text3)' }}>{session.name}</span>
+              )}
+              <button className="btn btn-sm" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => { logout(); navigate('/') }}>Sign out</button>
+            </div>
           </div>
         </div>
       </div>
@@ -168,8 +173,8 @@ export default function ProductionApp() {
         {activeTab === 4 && <DocumentsTab docsFolderId={docsFolderId} isAdmin={session.role === 'admin'} />}
         {activeTab === 5 && <TrendsTab notes={notes} />}
         {activeTab === 6 && <AttendanceTab characters={characters} notes={notes} sheetId={session.sheetId} />}
-        {activeTab === 7 && <ReportTab notes={notes} production={production} sheetId={session.sheetId} />}
-        {activeTab === 8 && <SendTab notes={notes} characters={characters} sheetId={session.sheetId} production={production} />}
+        {activeTab === 7 && <ReportTab notes={notes} production={production} sheetId={session.sheetId} session={session} />}
+        {activeTab === 8 && <SendTab notes={notes} characters={characters} sheetId={session.sheetId} production={production} session={session} />}
       </div>
     </div>
   )

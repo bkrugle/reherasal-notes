@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 
-export default function SendTab({ notes, characters, production }) {
+export default function SendTab({ notes, characters, production, session }) {
   const [emails, setEmails] = useState(() => {
     try { return JSON.parse(localStorage.getItem('rn_emails') || '{}') } catch { return {} }
   })
@@ -9,8 +9,9 @@ export default function SendTab({ notes, characters, production }) {
   const [sent, setSent] = useState({})
   const [errors, setErrors] = useState({})
 
-  const directorName = production?.config?.directorName || ''
-  const directorEmail = production?.config?.directorEmail || ''
+  // Use the logged-in user's name/email, fall back to production config
+  const senderName = session?.name || production?.config?.directorName || ''
+  const senderEmail = session?.email || production?.config?.directorEmail || ''
   const productionTitle = production?.config?.title || 'Production'
 
   function setEmail(name, val) {
@@ -32,8 +33,8 @@ export default function SendTab({ notes, characters, production }) {
         castName: name,
         notes: openNotes,
         productionTitle,
-        directorName,
-        directorEmail
+        directorName: senderName,
+        directorEmail: senderEmail
       })
       setSent(s => ({ ...s, [name]: true }))
       setTimeout(() => setSent(s => ({ ...s, [name]: false })), 3000)
@@ -56,7 +57,7 @@ Here are your notes:
     openNotes.forEach(n => {
       lines.push(`• [${n.category}] ${n.text}`)
     })
-    lines.push(`\n— ${directorName || 'Your Director'}`)
+    lines.push(`\n— ${senderName || 'Your Director'}`)
     const subject = encodeURIComponent(`Your notes — ${productionTitle}`)
     const body = encodeURIComponent(lines.join('\n'))
     window.location.href = `mailto:${email}?subject=${subject}&body=${body}`

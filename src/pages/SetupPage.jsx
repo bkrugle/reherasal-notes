@@ -54,7 +54,7 @@ export default function SetupPage() {
     showDates: '', venue: '', calendarId: '', scenes: [], characters: [], staff: []
   })
   const [sharedWith, setSharedWith] = useState([])
-  const [newMember, setNewMember] = useState({ name: '', email: '', pin: '' })
+  const [newMember, setNewMember] = useState({ name: '', email: '', pin: '', role: 'member' })
 
   useEffect(() => {
     if (session?.role !== 'admin') { navigate('/production'); return }
@@ -76,7 +76,7 @@ export default function SetupPage() {
         characters: Array.isArray(data.config.characters) ? data.config.characters : [],
         staff: Array.isArray(data.config.staff) ? data.config.staff : []
       })
-      setSharedWith(data.sharedWith || [])
+      setSharedWith((data.sharedWith || []).map(m => ({ ...m, role: m.role || 'member' })))
     } catch (e) {
       setError('Failed to load production settings')
     } finally {
@@ -104,7 +104,26 @@ export default function SetupPage() {
     setSaving(true)
     setError('')
     try {
-      await api.updateProduction({ sheetId: session.sheetId, sharedWith })
+      const result = await api.updateProduction({ sheetId: session.sheetId, sharedWith })
+      // Send welcome emails to newly added members
+      if (result.newInviteCodes) {
+        const appUrl = window.location.origin
+        for (const member of sharedWith) {
+          const inviteCode = result.newInviteCodes[member.name || member.email]
+          if (inviteCode && member.email) {
+            api.sendWelcome({
+              to: member.email,
+              memberName: member.name,
+              productionTitle: config.title,
+              productionCode: session.productionCode,
+              inviteCode,
+              appUrl,
+              directorName: session.name || config.directorName,
+              directorEmail: session.email || config.directorEmail
+            }).catch(e => console.warn('Welcome email failed:', e.message))
+          }
+        }
+      }
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch (e) {
@@ -133,13 +152,17 @@ export default function SetupPage() {
   }
 
   function addMember() {
-    if (!newMember.name.trim() || !newMember.pin.trim()) return
+    if (!newMember.name.trim()) return
     setSharedWith(sw => [...sw, { ...newMember }])
     setNewMember({ name: '', email: '', pin: '' })
   }
 
   function removeMember(i) {
     setSharedWith(sw => sw.filter((_, idx) => idx !== i))
+  }
+
+  function toggleMemberRole(i) {
+    setSharedWith(sw => sw.map((m, idx) => idx === i ? { ...m, role: m.role === 'admin' ? 'member' : 'admin' } : m))
   }
 
   if (loading) return (
@@ -258,9 +281,19 @@ export default function SetupPage() {
                 <input type="email" value={newMember.email} onChange={e => setNewMember(m => ({ ...m, email: e.target.value }))} placeholder="erica@school.edu" />
               </div>
               <div className="field">
-                <label>Their PIN *</label>
-                <input type="text" value={newMember.pin} onChange={e => setNewMember(m => ({ ...m, pin: e.target.value }))} placeholder="Min. 4 chars" />
+                <label>Their PIN <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(optional — they'll set their own)</span></label>
+                <input type="text" value={newMember.pin} onChange={e => setNewMember(m => ({ ...m, pin: e.target.value }))} placeholder="Leave blank to send invite" />
               </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.75rem' }}>
+              <input type="checkbox" id="new-member-admin" checked={newMember.role === 'admin'}
+                onChange={e => setNewMember(m => ({ ...m, role: e.target.checked ? 'admin' : 'member' }))}
+                style={{ width: 16, height: 16, cursor: 'pointer' }} />
+              <label htmlFor="new-member-admin" style={{ fontSize: 13, color: 'var(--text2)', cursor: 'pointer', marginBottom: 0 }}>
+                Grant admin access (can edit setup and manage team)
+              </label>
+            </div>
+            <div style={{ display: 'none' }}>
             </div>
             <button className="btn" onClick={addMember}>+ Add team member</button>
           </div>
@@ -277,8 +310,24 @@ export default function SetupPage() {
                   <div>
                     <span style={{ fontSize: 14, fontWeight: 500 }}>{m.name}</span>
                     {m.email && <span style={{ fontSize: 13, color: 'var(--text3)', marginLeft: 8 }}>{m.email}</span>}
+                    {m.activated === false && (
+                      <span style={{ fontSize: 11, marginLeft: 8, padding: '2px 8px', borderRadius: 20, background: 'var(--amber-bg)', color: 'var(--amber-text)', fontWeight: 500 }}>
+                        invite pending
+                      </span>
+                    )}
+                    {m.activated === true && (
+                      <span style={{ fontSize: 11, marginLeft: 8, padding: '2px 8px', borderRadius: 20, background: 'var(--green-bg)', color: 'var(--green-text)', fontWeight: 500 }}>
+                        active
+                      </span>
+                    )}
                   </div>
-                  <button className="btn btn-sm btn-danger" onClick={() => removeMember(i)}>Remove</button>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <button className="btn btn-sm" onClick={() => toggleMemberRole(i)}
+                        style={m.role === 'admin' ? { background: 'var(--purple-bg)', color: 'var(--purple-text)', borderColor: 'transparent' } : {}}>
+                        {m.role === 'admin' ? '★ Admin' : 'Make admin'}
+                      </button>
+                      <button className="btn btn-sm btn-danger" onClick={() => removeMember(i)}>Remove</button>
+                    </div>
                 </div>
               ))}
             </div>

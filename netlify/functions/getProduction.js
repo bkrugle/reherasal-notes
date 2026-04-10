@@ -21,15 +21,19 @@ exports.handler = async (event) => {
     })
 
     // Read SharedWith tab
-    const sharedRows = await getRows(sheets, sheetId, 'SharedWith!A:C')
+    const sharedRows = await getRows(sheets, sheetId, 'SharedWith!A:F')
     let sharedWith = []
     if (sharedRows.length > 1) {
       const [header, ...data] = sharedRows
       const nameIdx = header.indexOf('name')
       const emailIdx = header.indexOf('email')
+      const activatedIdx = header.indexOf('activated')
+      const roleIdx = header.indexOf('role')
       sharedWith = data.filter(r => r.some(Boolean)).map(r => ({
         name: r[nameIdx] || '',
-        email: r[emailIdx] || ''
+        email: r[emailIdx] || '',
+        activated: r[activatedIdx] === 'true',
+        role: r[roleIdx] || 'member'
       }))
     }
 

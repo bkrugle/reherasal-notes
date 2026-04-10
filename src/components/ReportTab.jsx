@@ -1,13 +1,17 @@
 import { useState } from 'react'
 import { api } from '../lib/api'
 
-export default function ReportTab({ notes, production, sheetId }) {
+export default function ReportTab({ notes, production, sheetId, session }) {
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
   const [emails, setEmails] = useState(() => {
     try { return localStorage.getItem('rn_report_emails_' + sheetId) || '' } catch { return '' }
   })
+  // Use logged-in user's name/email, fall back to production config
+  const senderName = session?.name || production?.config?.directorName || ''
+  const senderEmail = session?.email || production?.config?.directorEmail || ''
+
   const [selectedDate, setSelectedDate] = useState(() => {
     const dates = [...new Set(notes.map(n => n.date))].sort().reverse()
     return dates[0] || new Date().toISOString().slice(0, 10)
@@ -40,7 +44,8 @@ export default function ReportTab({ notes, production, sheetId }) {
           notes: filteredNotes,
           productionTitle: production?.config?.title || 'Production',
           date: selectedDate,
-          directorName: production?.config?.directorName || ''
+          directorName: senderName,
+          directorEmail: senderEmail
         })
       }).then(r => r.json()).then(d => {
         if (d.error) throw new Error(d.error)
