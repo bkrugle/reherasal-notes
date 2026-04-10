@@ -7,12 +7,18 @@ import { useSession } from '../lib/session'
 
 function TagInput({ label, values, onChange, placeholder }) {
   const [input, setInput] = useState('')
+
   function add() {
-    const v = input.trim()
-    if (v && !values.includes(v)) onChange([...values, v])
+    // Support comma-separated input
+    const items = input.split(',').map(v => v.trim()).filter(Boolean)
+    if (!items.length) return
+    const unique = items.filter(v => !values.includes(v))
+    if (unique.length) onChange([...values, ...unique])
     setInput('')
   }
+
   function remove(v) { onChange(values.filter(x => x !== v)) }
+
   return (
     <div className="field" style={{ marginBottom: '1rem' }}>
       <label>{label}</label>
@@ -22,6 +28,7 @@ function TagInput({ label, values, onChange, placeholder }) {
           placeholder={placeholder} />
         <button type="button" className="btn btn-sm" onClick={add}>Add</button>
       </div>
+      <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>Separate multiple entries with commas</p>
       {values.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
           {values.map(v => (

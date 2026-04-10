@@ -4,8 +4,10 @@ import { castName, castEmails, castMembers, isGroup, normalizeCast } from '../li
 function EmailList({ emails, onChange }) {
   const [input, setInput] = useState('')
   function add() {
-    const v = input.trim()
-    if (v && !emails.includes(v)) onChange([...emails, v])
+    const items = input.split(',').map(v => v.trim()).filter(Boolean)
+    if (!items.length) return
+    const unique = items.filter(v => !emails.includes(v))
+    if (unique.length) onChange([...emails, ...unique])
     setInput('')
   }
   function remove(e) { onChange(emails.filter(x => x !== e)) }
@@ -167,9 +169,12 @@ export default function CastManager({ characters, onChange, label, placeholder }
   const allNames = normalized.map(castName)
 
   function add() {
-    const v = input.trim()
-    if (!v || allNames.includes(v)) return
-    onChange([...normalized, { name: v, emails: [], members: [], isGroup: false }])
+    const items = input.split(',').map(v => v.trim()).filter(Boolean)
+    if (!items.length) return
+    const newEntries = items
+      .filter(v => !allNames.includes(v))
+      .map(v => ({ name: v, emails: [], members: [], isGroup: false }))
+    if (newEntries.length) onChange([...normalized, ...newEntries])
     setInput('')
   }
 
@@ -191,6 +196,7 @@ export default function CastManager({ characters, onChange, label, placeholder }
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
           placeholder={placeholder} />
+      <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>Separate multiple entries with commas</p>
         <button type="button" className="btn btn-sm" onClick={add}>Add</button>
       </div>
       {normalized.length > 0 && (

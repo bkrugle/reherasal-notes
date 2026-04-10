@@ -32,8 +32,10 @@ function StepIndicator({ current }) {
 function TagInput({ label, placeholder, values, onChange, hint }) {
   const [input, setInput] = useState('')
   function add() {
-    const v = input.trim()
-    if (v && !values.includes(v)) onChange([...values, v])
+    const items = input.split(',').map(v => v.trim()).filter(Boolean)
+    if (!items.length) return
+    const unique = items.filter(v => !values.includes(v))
+    if (unique.length) onChange([...values, ...unique])
     setInput('')
   }
   function remove(v) { onChange(values.filter(x => x !== v)) }
@@ -228,7 +230,7 @@ export default function CreatePage() {
                 placeholder="e.g. Act 1 Scene 2, Opening Number"
                 values={form.scenes}
                 onChange={v => set('scenes', v)}
-                hint="Press Enter or click Add after each one"
+                hint="Separate multiple entries with commas, or press Enter after each"
               />
               <div style={{ marginTop: '0.5rem', padding: '10px 12px', background: 'var(--bg2)', borderRadius: 'var(--radius)', fontSize: 13, color: 'var(--text2)' }}>
                 Tip: You can also add scenes like "Full run", "Bows", "Pit rehearsal" — whatever you actually call them.
