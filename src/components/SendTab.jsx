@@ -56,11 +56,9 @@ Here are your notes:
     openNotes.forEach(n => {
       lines.push(`• [${n.category}] ${n.text}`)
     })
-    lines.push(`
-— ${directorName || 'Your Director'}`)
+    lines.push(`\n— ${directorName || 'Your Director'}`)
     const subject = encodeURIComponent(`Your notes — ${productionTitle}`)
-    const body = encodeURIComponent(lines.join('
-'))
+    const body = encodeURIComponent(lines.join('\n'))
     window.location.href = `mailto:${email}?subject=${subject}&body=${body}`
   }
 
