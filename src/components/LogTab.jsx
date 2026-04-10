@@ -40,7 +40,7 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
   const today = new Date().toISOString().slice(0, 10)
   const [form, setForm] = useState({
     date: today, scene: '', category: 'general', priority: 'med',
-    cast: '', cue: '', text: '', carriedOver: false
+    cast: '', cue: '', text: '', carriedOver: false, privateNote: false
   })
   const [flash, setFlash] = useState(false)
   const [photo, setPhoto] = useState(null) // { base64, mimeType, name, preview }
@@ -151,7 +151,7 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
       time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
     onNoteAdded(fullNote)
-    setForm(f => ({ ...f, text: '', cast: '', cue: '', carriedOver: false, scene: '', category: 'general', priority: 'med' }))
+    setForm(f => ({ ...f, text: '', cast: '', cue: '', carriedOver: false, privateNote: false, scene: '', category: 'general', priority: 'med' }))
     setPhoto(null)
     setParsedTags([])
     setSuggestions([])
@@ -348,12 +348,20 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
           </div>
 
           {/* Carried over */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.5rem' }}>
             <input type="checkbox" id="carried-over" checked={form.carriedOver}
               onChange={e => set('carriedOver', e.target.checked)}
               style={{ width: 16, height: 16, cursor: 'pointer' }} />
             <label htmlFor="carried-over" style={{ fontSize: 13, color: 'var(--text2)', cursor: 'pointer', marginBottom: 0 }}>
               Carried over from previous rehearsal
+            </label>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.75rem' }}>
+            <input type="checkbox" id="private-note" checked={form.privateNote}
+              onChange={e => set('privateNote', e.target.checked)}
+              style={{ width: 16, height: 16, cursor: 'pointer' }} />
+            <label htmlFor="private-note" style={{ fontSize: 13, color: 'var(--purple-text)', cursor: 'pointer', marginBottom: 0, fontWeight: 500 }}>
+              🔒 Private — don't share with cast
             </label>
           </div>
 

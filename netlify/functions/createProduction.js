@@ -88,7 +88,7 @@ exports.handler = async (event) => {
       range: 'Notes!A1:P1',
       valueInputOption: 'RAW',
       requestBody: {
-        values: [['id','date','scene','category','priority','cast','cue','swTime','text','resolved','createdAt','updatedAt','createdBy','deleted','carriedOver','attachmentUrl']]
+        values: [['id','date','scene','category','priority','cast','cue','swTime','text','resolved','createdAt','updatedAt','createdBy','deleted','carriedOver','attachmentUrl','pinned','privateNote']]
       }
     })
 

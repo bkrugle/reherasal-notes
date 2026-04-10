@@ -14,8 +14,10 @@ import SceneTimer from '../components/SceneTimer'
 import { castNameList, normalizeCast } from '../lib/castUtils'
 import CalendarTab from '../components/CalendarTab'
 import DocumentsTab from '../components/DocumentsTab'
+import Dashboard from '../components/Dashboard'
+import WrapUp from '../components/WrapUp'
 
-const TABS = ['Log', 'Review', 'By cast', 'Calendar', 'Documents', 'Trends', 'Attendance', 'Report', 'Send']
+const TABS = ['Home', 'Log', 'Review', 'By cast', 'Calendar', 'Documents', 'Trends', 'Attendance', 'Report', 'Send']
 
 function ShowCountdown({ showDates }) {
   if (!showDates) return null
@@ -48,6 +50,8 @@ export default function ProductionApp() {
   const [error, setError] = useState('')
   const [meetingMode, setMeetingMode] = useState(false)
   const [showSceneTimer, setShowSceneTimer] = useState(false)
+  const [wrapUp, setWrapUp] = useState(false)
+  const [calendarEvents, setCalendarEvents] = useState([])
 
   const [swRunning, setSwRunning] = useState(false)
   const [swElapsed, setSwElapsed] = useState(0)
@@ -70,8 +74,15 @@ export default function ProductionApp() {
   }, [swRunning, swStart])
 
   async function loadProduction() {
-    try { const data = await api.getProduction(session.sheetId); setProduction(data) }
-    catch (e) { setError('Failed to load production config') }
+    try {
+      const data = await api.getProduction(session.sheetId)
+      setProduction(data)
+      // Load calendar events if configured
+      const calId = data?.config?.calendarId
+      if (calId) {
+        api.getCalendar(calId, 2).then(d => setCalendarEvents(d.events || [])).catch(() => {})
+      }
+    } catch (e) { setError('Failed to load production config') }
   }
 
   async function loadNotes() {
@@ -110,6 +121,12 @@ export default function ProductionApp() {
   const openNotes = notes.filter(n => !n.resolved)
   const tabProps = { notes, sheetId: session.sheetId, scenes, characters, staff, onNoteUpdated, onNoteDeleted }
 
+  if (wrapUp) {
+    return <WrapUp notes={notes} characters={characters} production={production}
+      session={session} sheetId={session.sheetId}
+      onUpdated={onNoteUpdated} onClose={() => setWrapUp(false)} />
+  }
+
   if (meetingMode) {
     return <MeetingMode notes={notes} sheetId={session.sheetId} onUpdated={onNoteUpdated} onClose={() => setMeetingMode(false)} />
   }
@@ -145,6 +162,10 @@ export default function ProductionApp() {
                 📋 {openNotes.length}
               </button>
             )}
+            <button className="btn btn-sm" style={{ fontSize: 12, padding: '4px 8px', background: 'var(--amber-bg)', color: 'var(--amber-text)', borderColor: 'transparent', fontWeight: 500 }}
+              onClick={() => setWrapUp(true)}>
+              Wrap up
+            </button>
             {session.role === 'admin' && (
               <button className="btn btn-sm" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => navigate('/setup')}>⚙️</button>
             )}
@@ -166,26 +187,26 @@ export default function ProductionApp() {
           ))}
         </div>
 
-        {activeTab === 0 && <LogTab sheetId={session.sheetId} scenes={scenes} characters={[...characterNames, ...staff]} swDisplay={swDisplay} swRunning={swRunning} createdBy={session.name || session.role} onNoteAdded={onNoteAdded} attachFolderId={attachFolderId} />}
-        {activeTab === 1 && <ReviewTab {...tabProps} loading={loadingNotes} onRefresh={loadNotes} />}
-        {activeTab === 2 && <ByCastTab {...tabProps} loading={loadingNotes} />}
-        {activeTab === 3 && <CalendarTab calendarId={calendarId} scenes={scenes} notes={notes} onLogForDate={onLogForDate} />}
-        {activeTab === 4 && <DocumentsTab docsFolderId={docsFolderId} isAdmin={session.role === 'admin'} />}
-        {activeTab === 5 && <TrendsTab notes={notes} />}
-        {activeTab === 6 && <AttendanceTab characters={characters} notes={notes} sheetId={session.sheetId} />}
-        {activeTab === 7 && <ReportTab notes={notes} production={production} sheetId={session.sheetId} session={session} />}
-        {activeTab === 8 && <SendTab notes={notes} characters={characters} characterNames={characterNames} sheetId={session.sheetId} production={production} session={session} />}
+        {activeTab === 0 && <Dashboard notes={notes} production={production} session={session} calendarEvents={calendarEvents} onNavigate={setActiveTab} onLogForDate={onLogForDate} openNotes={openNotes} />}
+        {activeTab === 1 && <LogTab sheetId={session.sheetId} scenes={scenes} characters={[...characterNames, ...staff]} swDisplay={swDisplay} swRunning={swRunning} createdBy={session.name || session.role} onNoteAdded={onNoteAdded} attachFolderId={attachFolderId} />}
+        {activeTab === 2 && <ReviewTab {...tabProps} loading={loadingNotes} onRefresh={loadNotes} />}
+        {activeTab === 3 && <ByCastTab {...tabProps} loading={loadingNotes} />}
+        {activeTab === 4 && <CalendarTab calendarId={calendarId} scenes={scenes} notes={notes} onLogForDate={onLogForDate} />}
+        {activeTab === 5 && <DocumentsTab docsFolderId={docsFolderId} isAdmin={session.role === 'admin'} />}
+        {activeTab === 6 && <TrendsTab notes={notes} />}
+        {activeTab === 7 && <AttendanceTab characters={characters} notes={notes} sheetId={session.sheetId} />}
+        {activeTab === 8 && <ReportTab notes={notes} production={production} sheetId={session.sheetId} session={session} />}
+        {activeTab === 9 && <SendTab notes={notes} characters={characters} characterNames={characterNames} sheetId={session.sheetId} production={production} session={session} />}
       </div>
       {/* Bottom nav — mobile only */}
       <nav className="bottom-nav">
         {[
-          { icon: '✏️', label: 'Log',      idx: 0 },
-          { icon: '📋', label: 'Review',   idx: 1 },
-          { icon: '👤', label: 'Cast',     idx: 2 },
-          { icon: '📅', label: 'Calendar', idx: 3 },
-          { icon: '📁', label: 'Docs',     idx: 4 },
-          { icon: '📊', label: 'Trends',   idx: 5 },
-          { icon: '✉️', label: 'Send',     idx: 8 },
+          { icon: '🏠', label: 'Home',     idx: 0 },
+          { icon: '✏️', label: 'Log',      idx: 1 },
+          { icon: '📋', label: 'Review',   idx: 2 },
+          { icon: '👤', label: 'Cast',     idx: 3 },
+          { icon: '📅', label: 'Calendar', idx: 4 },
+          { icon: '✉️', label: 'Send',     idx: 9 },
         ].map(({ icon, label, idx }) => (
           <button key={label} className={`bottom-nav-btn ${activeTab === idx ? 'active' : ''}`}
             onClick={() => setActiveTab(idx)}>

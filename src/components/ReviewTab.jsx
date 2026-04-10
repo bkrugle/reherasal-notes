@@ -105,9 +105,9 @@ export default function ReviewTab({ notes, sheetId, scenes, characters, loading,
       {/* Category filter */}
       <div className="filter-bar">
         <span className="filter-label">Filter:</span>
-        {['all', 'open', 'blocking', 'performance', 'music', 'technical', 'high'].map(f => (
+        {['all', 'open', 'pinned', 'high', 'blocking', 'performance', 'music', 'technical', 'private'].map(f => (
           <button key={f} className={`filter-pill ${catFilter === f ? 'active' : ''}`} onClick={() => setCatFilter(f)}>
-            {f === 'high' ? 'High priority' : f.charAt(0).toUpperCase() + f.slice(1)}
+            {f === 'high' ? '★ High priority' : f === 'pinned' ? '📌 Pinned' : f === 'private' ? '🔒 Private' : f.charAt(0).toUpperCase() + f.slice(1)}
           </button>
         ))}
       </div>

@@ -45,7 +45,7 @@ export default function SendTab({ notes, characters, characterNames, production,
   }
 
   async function sendNotes(name) {
-    const openNotes = notes.filter(n => n.cast === name && !n.resolved)
+    const openNotes = notes.filter(n => n.cast === name && !n.resolved && !n.privateNote)
     if (!openNotes.length) return
     const emails = getEmails(name)
     if (!emails.length) {
@@ -76,7 +76,7 @@ export default function SendTab({ notes, characters, characterNames, production,
   }
 
   function composeFallback(name) {
-    const openNotes = notes.filter(n => n.cast === name && !n.resolved)
+    const openNotes = notes.filter(n => n.cast === name && !n.resolved && !n.privateNote)
     if (!openNotes.length) return
     const emails = getEmails(name)
     const to = emails.join(',')
@@ -103,7 +103,7 @@ export default function SendTab({ notes, characters, characterNames, production,
           const group = entry ? isGroup(entry) : false
           const groupMembers = entry ? castMembers(entry) : []
           const configEmails = getEmailsForCast(name, characters)
-          const openNotes = notes.filter(n => n.cast === name && !n.resolved)
+          const openNotes = notes.filter(n => n.cast === name && !n.resolved && !n.privateNote)
           const initials = name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
 
           return (

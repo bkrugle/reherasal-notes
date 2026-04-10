@@ -17,7 +17,7 @@ exports.handler = async (event) => {
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
     const now = new Date().toISOString()
 
-    await appendRows(sheets, sheetId, 'Notes!A:O', [[
+    await appendRows(sheets, sheetId, 'Notes!A:R', [[
       id,
       note.date || now.slice(0, 10),
       note.scene || '',
@@ -32,7 +32,10 @@ exports.handler = async (event) => {
       now,
       note.createdBy || '',
       'false',
-      note.carriedOver ? 'true' : 'false'
+      note.carriedOver ? 'true' : 'false',
+      note.attachmentUrl || '',
+      note.pinned ? 'true' : 'false',
+      note.privateNote ? 'true' : 'false'
     ]])
 
     return ok({ id, createdAt: now })

@@ -1,8 +1,16 @@
 import NoteCard from './NoteCard'
+import { api } from '../lib/api'
 
 export default function ByCastTab({ notes, sheetId, scenes, characters, loading, onNoteUpdated, onNoteDeleted }) {
   if (loading) return <div className="empty">Loading notes…</div>
   if (!notes.length) return <div className="empty">No notes yet — log some from the first tab.</div>
+
+  function resolveAll(ns) {
+    ns.filter(n => !n.resolved).forEach(n => {
+      onNoteUpdated({ ...n, resolved: true })
+      api.updateNote(sheetId, n.id, { resolved: true }).catch(e => console.warn('Sync failed:', e.message))
+    })
+  }
 
   const members = {}
   notes.forEach(n => {
@@ -23,6 +31,10 @@ export default function ByCastTab({ notes, sheetId, scenes, characters, loading,
                 {name}
                 <span style={{ fontWeight: 400, marginLeft: 8 }}>
                   {open} open · {ns.length} total
+                {open > 0 && (
+                  <button className="btn btn-sm" style={{ marginLeft: 8, fontSize: 11, padding: '2px 8px' }}
+                    onClick={() => resolveAll(ns)}>Resolve all</button>
+                )}
                 </span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

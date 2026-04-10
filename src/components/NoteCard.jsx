@@ -1,17 +1,20 @@
 import { useState } from 'react'
 import { api } from '../lib/api'
 
-const CATEGORIES = ['general', 'blocking', 'performance', 'music', 'technical']
+const CATEGORIES = ['general', 'blocking', 'performance', 'music', 'technical', 'costume', 'set']
 const PRIORITIES = [
   { value: 'high', label: 'High' },
   { value: 'med', label: 'Normal' },
   { value: 'low', label: 'Low' }
 ]
 
+function syncNote(sheetId, id, changes) {
+  api.updateNote(sheetId, id, changes).catch(e => console.warn('Sync failed:', e.message))
+}
+
 export default function NoteCard({ note, sheetId, scenes, characters, onUpdated, onDeleted }) {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({ ...note })
-  // Local optimistic state — drive the UI from this, sync parent in background
   const [localNote, setLocalNote] = useState(note)
 
   function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
@@ -21,25 +24,37 @@ export default function NoteCard({ note, sheetId, scenes, characters, onUpdated,
     setLocalNote(updated)
     setEditing(false)
     onUpdated(updated)
-    api.updateNote(sheetId, note.id, {
+    syncNote(sheetId, note.id, {
       text: form.text, scene: form.scene, category: form.category,
       priority: form.priority, cast: form.cast, cue: form.cue
-    }).catch(e => console.warn('Sync failed:', e.message))
+    })
   }
 
   function toggleResolve() {
     const updated = { ...localNote, resolved: !localNote.resolved }
     setLocalNote(updated)
     onUpdated(updated)
-    api.updateNote(sheetId, note.id, { resolved: !localNote.resolved })
-      .catch(e => console.warn('Sync failed:', e.message))
+    syncNote(sheetId, note.id, { resolved: !localNote.resolved })
+  }
+
+  function togglePin() {
+    const updated = { ...localNote, pinned: !localNote.pinned }
+    setLocalNote(updated)
+    onUpdated(updated)
+    syncNote(sheetId, note.id, { pinned: !localNote.pinned })
+  }
+
+  function togglePrivate() {
+    const updated = { ...localNote, privateNote: !localNote.privateNote }
+    setLocalNote(updated)
+    onUpdated(updated)
+    syncNote(sheetId, note.id, { privateNote: !localNote.privateNote })
   }
 
   function deleteNote() {
     if (!confirm('Delete this note? This cannot be undone.')) return
     onDeleted(note.id)
-    api.updateNote(sheetId, note.id, { deleted: true })
-      .catch(e => console.warn('Sync failed:', e.message))
+    syncNote(sheetId, note.id, { deleted: true })
   }
 
   const dt = new Date(localNote.date + 'T00:00:00')
@@ -95,10 +110,19 @@ export default function NoteCard({ note, sheetId, scenes, characters, onUpdated,
   }
 
   return (
-    <div className="card" style={{ opacity: localNote.resolved ? 0.48 : 1, transition: 'opacity 0.15s' }}>
+    <div className="card" style={{
+      opacity: localNote.resolved ? 0.48 : 1,
+      transition: 'opacity 0.15s',
+      borderLeft: localNote.pinned ? '3px solid var(--amber-text)' : localNote.privateNote ? '3px solid var(--purple-text)' : undefined,
+      borderRadius: 'var(--radius-lg)'
+    }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 7 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
           <span className={`pdot pdot-${localNote.priority}`} />
+          {localNote.pinned && <span style={{ fontSize: 11 }}>📌</span>}
+          {localNote.privateNote && (
+            <span style={{ fontSize: 11, fontWeight: 500, padding: '1px 7px', borderRadius: 20, background: 'var(--purple-bg)', color: 'var(--purple-text)' }}>private</span>
+          )}
           {localNote.scene && <span className="badge badge-scene">{localNote.scene}</span>}
           <span className={`badge badge-${localNote.category}`}>{localNote.category}</span>
           {localNote.cast && <span className="badge badge-char">{localNote.cast}</span>}
@@ -120,15 +144,12 @@ export default function NoteCard({ note, sheetId, scenes, characters, onUpdated,
       {localNote.attachmentUrl && (
         <a href={localNote.attachmentUrl} target="_blank" rel="noreferrer"
           style={{ display: 'inline-block', marginTop: 8, marginBottom: 4 }}>
-          <div style={{
-            fontSize: 12, padding: '4px 10px', borderRadius: 'var(--radius)',
-            background: 'var(--blue-bg)', color: 'var(--blue-text)',
-            border: '0.5px solid transparent', display: 'inline-flex', alignItems: 'center', gap: 5
-          }}>
+          <div style={{ fontSize: 12, padding: '4px 10px', borderRadius: 'var(--radius)', background: 'var(--blue-bg)', color: 'var(--blue-text)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
             📷 View attached photo ↗
           </div>
         </a>
       )}
+
       {localNote.createdBy && (
         <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>by {localNote.createdBy}</p>
       )}
@@ -137,6 +158,14 @@ export default function NoteCard({ note, sheetId, scenes, characters, onUpdated,
         <button className="btn btn-sm" onClick={toggleResolve}
           style={localNote.resolved ? {} : { color: 'var(--green-text)', borderColor: 'var(--green-text)' }}>
           {localNote.resolved ? '↩ Reopen' : '✓ Resolve'}
+        </button>
+        <button className="btn btn-sm" onClick={togglePin}
+          style={localNote.pinned ? { background: 'var(--amber-bg)', color: 'var(--amber-text)', borderColor: 'transparent' } : {}}>
+          {localNote.pinned ? '📌 Pinned' : '📌 Pin'}
+        </button>
+        <button className="btn btn-sm" onClick={togglePrivate}
+          style={localNote.privateNote ? { background: 'var(--purple-bg)', color: 'var(--purple-text)', borderColor: 'transparent' } : {}}>
+          {localNote.privateNote ? '🔒 Private' : '🔒'}
         </button>
         <button className="btn btn-sm" onClick={() => setEditing(true)}>Edit</button>
         <button className="btn btn-sm btn-danger" onClick={deleteNote}>Delete</button>
