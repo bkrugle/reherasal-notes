@@ -45,6 +45,7 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
   const [flash, setFlash] = useState(false)
   const [photo, setPhoto] = useState(null) // { base64, mimeType, name, preview }
   const photoInputRef = useRef(null)
+  const cameraInputRef = useRef(null)
   const [suggestions, setSuggestions] = useState([])
   const [parsedTags, setParsedTags] = useState([])
   const textareaRef = useRef(null)
@@ -320,11 +321,19 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
           <div style={{ marginBottom: '0.75rem' }}>
             <input ref={photoInputRef} type="file" accept="image/*"
               onChange={handlePhoto} style={{ display: 'none' }} />
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment"
+              onChange={handlePhoto} style={{ display: 'none' }} />
             {!photo ? (
-              <button type="button" className="btn btn-sm" onClick={() => photoInputRef.current?.click()}
-                style={{ fontSize: 14, padding: '10px 16px' }}>
-                📷 Add photo
-              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" className="btn btn-sm" onClick={() => cameraInputRef.current?.click()}
+                  style={{ fontSize: 14, padding: '10px 14px' }}>
+                  📷 Camera
+                </button>
+                <button type="button" className="btn btn-sm" onClick={() => photoInputRef.current?.click()}
+                  style={{ fontSize: 14, padding: '10px 14px' }}>
+                  🖼 Library
+                </button>
+              </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <img src={photo.preview} alt="attachment"
