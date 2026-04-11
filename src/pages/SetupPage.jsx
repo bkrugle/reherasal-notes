@@ -239,6 +239,23 @@ export default function SetupPage() {
               Share your calendar with altius-qc-functions@altius-project-hub.iam.gserviceaccount.com (Make changes to events), then paste the Calendar ID here.
             </p>
           </div>
+          {/* Audition management toggle */}
+          <div style={{ marginBottom: '1.25rem', padding: '12px 14px', background: 'var(--bg2)', borderRadius: 'var(--radius)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>Audition management</p>
+              <p style={{ fontSize: 12, color: 'var(--text3)' }}>
+                {config.useAuditions === true ? 'Enabled — Auditions tab is active' : 'Disabled — enable to add audition form, profiles, and AI materials'}
+              </p>
+            </div>
+            <button className="btn btn-sm"
+              onClick={() => setC('useAuditions', config.useAuditions === true ? false : true)}
+              style={config.useAuditions === true
+                ? { background: 'var(--green-bg)', color: 'var(--green-text)', borderColor: 'transparent', fontWeight: 500 }
+                : {}}>
+              {config.useAuditions === true ? '✓ On' : 'Enable'}
+            </button>
+          </div>
+
           <button className="btn btn-primary" onClick={save} disabled={saving}>
             {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save changes'}
           </button>

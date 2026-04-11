@@ -138,7 +138,8 @@ export default function CreatePage() {
         characters: form.characters,
         staff: form.staff,
         pin: form.pin,
-        adminPin: form.adminPin || form.pin
+        adminPin: form.adminPin || form.pin,
+        useAuditions: form.useAuditions
       })
       setResult(data)
     } catch (err) {
