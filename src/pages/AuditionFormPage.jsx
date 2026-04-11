@@ -258,6 +258,9 @@ export default function AuditionFormPage() {
         </p>
       </div>
 
+      {cameraOpen && !cameraStream && (
+        <p style={{ fontSize: 13, color: 'var(--text2)', marginTop: 8 }}>Starting camera…</p>
+      )}
       {cameraOpen && cameraStream && (
         <CameraCapture stream={cameraStream} onSnap={handleSnap} onClose={closeCamera} />
       )}
