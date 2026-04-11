@@ -115,12 +115,20 @@ exports.handler = async (event) => {
       Object.entries(extraFolderIds).forEach(([k, v]) => { merged[k] = v })
 
       const configData = Object.entries(merged).map(([k, v]) => [k, v])
+      console.log('Saving config, keys:', configData.map(([k]) => k).join(', '))
       await sheets.spreadsheets.values.update({
         spreadsheetId: sheetId,
-        range: 'Config!A1:B' + (configData.length + 1),
+        range: 'Config!A1:B' + configData.length,
         valueInputOption: 'RAW',
         requestBody: { values: configData }
       })
+      // Clear any extra rows beyond what we wrote
+      if (configData.length < 30) {
+        await sheets.spreadsheets.values.clear({
+          spreadsheetId: sheetId,
+          range: `Config!A${configData.length + 1}:B50`
+        }).catch(() => {})
+      }
     }
 
     if (sharedWith !== undefined) {

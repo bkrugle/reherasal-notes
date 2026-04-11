@@ -111,7 +111,9 @@ export default function SetupPage() {
   const [saved, setSaved] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [lookingUpCast, setLookingUpCast] = useState(false)
-  const [lookupResult, setLookupResult] = useState(null) // { characters, showTitle }
+  const [lookupResult, setLookupResult] = useState(null)
+  const [lookingUpScenes, setLookingUpScenes] = useState(false)
+  const [sceneLookupResult, setSceneLookupResult] = useState(null) // { characters, showTitle }
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('details')
 
@@ -185,6 +187,19 @@ export default function SetupPage() {
     } finally {
       setLookingUpCast(false)
     }
+  }
+
+  async function lookupScenes() {
+    if (!config.title) { setError('Enter a production title in the Details tab first'); return }
+    setLookingUpScenes(true)
+    setSceneLookupResult(null)
+    setError('')
+    try {
+      const data = await api.lookupShowScenes(config.title)
+      if (data.scenes?.length > 0) setSceneLookupResult(data)
+      else setError('No scenes found — add them manually below.')
+    } catch (e) { setError('Lookup failed: ' + e.message) }
+    finally { setLookingUpScenes(false) }
   }
 
   function applyLookupResult(selected) {
@@ -358,7 +373,44 @@ export default function SetupPage() {
 
       {activeTab === 'scenes' && (
         <div className="card">
-          <p className="muted" style={{ marginBottom: '1rem' }}>These appear in the scene dropdown when logging notes.</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: '1rem' }}>
+            <p className="muted" style={{ margin: 0 }}>These appear in the scene dropdown when logging notes.</p>
+            <button className="btn btn-sm" onClick={lookupScenes} disabled={lookingUpScenes || !config.title}
+              style={{ background: 'var(--blue-bg)', color: 'var(--blue-text)', borderColor: 'transparent', fontWeight: 500, flexShrink: 0 }}>
+              {lookingUpScenes ? '✨ Looking up…' : '✨ Auto-populate from show'}
+            </button>
+          </div>
+          {sceneLookupResult && (
+            <div style={{ background: 'var(--blue-bg)', border: '0.5px solid var(--blue-text)', borderRadius: 'var(--radius)', padding: '1rem', marginBottom: '1rem' }}>
+              <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--blue-text)', marginBottom: 8 }}>
+                ✨ Found {sceneLookupResult.scenes.length} scenes for <em>{sceneLookupResult.showTitle}</em>
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                {sceneLookupResult.scenes.map(name => {
+                  const added = config.scenes.includes(name)
+                  return (
+                    <button key={name} type="button"
+                      onClick={() => {
+                        if (added) setC('scenes', config.scenes.filter(s => s !== name))
+                        else setC('scenes', [...config.scenes, name])
+                      }}
+                      style={{
+                        fontSize: 12, padding: '4px 10px', borderRadius: 20, cursor: 'pointer',
+                        border: '0.5px solid var(--blue-text)',
+                        background: added ? 'var(--blue-text)' : 'transparent',
+                        color: added ? 'var(--bg)' : 'var(--blue-text)'
+                      }}>
+                      {added ? '✓ ' : ''}{name}
+                    </button>
+                  )
+                })}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn btn-sm" onClick={() => setC('scenes', [...new Set([...config.scenes, ...sceneLookupResult.scenes])])}>Add all</button>
+                <button className="btn btn-sm" onClick={() => setSceneLookupResult(null)}>Dismiss</button>
+              </div>
+            </div>
+          )}
           <TagInput label="Scenes / acts" values={config.scenes} onChange={v => setC('scenes', v)} placeholder="e.g. Act 1 Scene 2" />
           <button className="btn btn-primary mt2" onClick={save} disabled={saving}>
             {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save scenes'}

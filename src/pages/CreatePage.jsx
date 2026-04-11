@@ -84,6 +84,8 @@ export default function CreatePage() {
   const [result, setResult] = useState(null)
   const [lookingUpCast, setLookingUpCast] = useState(false)
   const [castLookupResult, setCastLookupResult] = useState(null)
+  const [lookingUpScenes, setLookingUpScenes] = useState(false)
+  const [sceneLookupResult, setSceneLookupResult] = useState(null)
 
   const [form, setForm] = useState({
     title: '',
@@ -111,6 +113,17 @@ export default function CreatePage() {
       if (data.characters?.length > 0) setCastLookupResult(data)
     } catch (e) { console.warn('Cast lookup failed:', e.message) }
     finally { setLookingUpCast(false) }
+  }
+
+  async function lookupScenes() {
+    if (!form.title) return
+    setLookingUpScenes(true)
+    setSceneLookupResult(null)
+    try {
+      const data = await api.lookupShowScenes(form.title)
+      if (data.scenes?.length > 0) setSceneLookupResult(data)
+    } catch (e) { console.warn('Scene lookup failed:', e.message) }
+    finally { setLookingUpScenes(false) }
   }
 
   function validateStep() {
@@ -240,6 +253,49 @@ export default function CreatePage() {
           {/* Step 1: Scenes */}
           {step === 1 && (
             <>
+              {form.title && (
+                <div style={{ marginBottom: '1rem' }}>
+                  {sceneLookupResult ? (
+                    <div style={{ background: 'var(--blue-bg)', border: '0.5px solid var(--blue-text)', borderRadius: 'var(--radius)', padding: '1rem' }}>
+                      <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--blue-text)', marginBottom: 8 }}>
+                        ✨ Found {sceneLookupResult.scenes.length} scenes for <em>{sceneLookupResult.showTitle}</em>
+                      </p>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                        {sceneLookupResult.scenes.map(name => {
+                          const added = form.scenes.includes(name)
+                          return (
+                            <button key={name} type="button"
+                              onClick={() => {
+                                if (added) set('scenes', form.scenes.filter(s => s !== name))
+                                else set('scenes', [...form.scenes, name])
+                              }}
+                              style={{
+                                fontSize: 12, padding: '4px 10px', borderRadius: 20, cursor: 'pointer',
+                                border: '0.5px solid var(--blue-text)',
+                                background: added ? 'var(--blue-text)' : 'transparent',
+                                color: added ? 'var(--bg)' : 'var(--blue-text)'
+                              }}>
+                              {added ? '✓ ' : ''}{name}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button type="button" className="btn btn-sm"
+                          onClick={() => set('scenes', [...new Set([...form.scenes, ...sceneLookupResult.scenes])])}>
+                          Add all
+                        </button>
+                        <button type="button" className="btn btn-sm" onClick={() => setSceneLookupResult(null)}>Dismiss</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button type="button" className="btn btn-sm" onClick={lookupScenes} disabled={lookingUpScenes}
+                      style={{ background: 'var(--blue-bg)', color: 'var(--blue-text)', borderColor: 'transparent', fontWeight: 500 }}>
+                      {lookingUpScenes ? '✨ Looking up scenes…' : `✨ Auto-populate scenes from "${form.title}"`}
+                    </button>
+                  )}
+                </div>
+              )}
               <p className="muted" style={{ marginBottom: '1rem' }}>Add your scenes or acts. These will appear in the note logging dropdown.</p>
               <TagInput
                 label="Scenes / acts"
