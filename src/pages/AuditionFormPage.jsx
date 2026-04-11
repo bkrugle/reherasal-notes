@@ -9,9 +9,12 @@ export default function AuditionFormPage() {
   const [error, setError] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const [cameraStream, setCameraStream] = useState(null)
   const [photo, setPhoto] = useState(null)
   const photoRef = useRef(null)
   const cameraRef = useRef(null)
+  const videoRef = useRef(null)
 
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '', phone: '',
@@ -27,6 +30,46 @@ export default function AuditionFormPage() {
 
   function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
   function setCustom(q, val) { setForm(f => ({ ...f, customAnswers: { ...f.customAnswers, [q]: val } })) }
+
+  async function openCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+      })
+      setCameraStream(stream)
+      setCameraOpen(true)
+      // Attach stream to video element after render
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+          videoRef.current.play()
+        }
+      }, 100)
+    } catch (e) {
+      setError('Camera not available: ' + e.message)
+    }
+  }
+
+  function snapPhoto() {
+    const video = videoRef.current
+    if (!video) return
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    canvas.getContext('2d').drawImage(video, 0, 0)
+    const b64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1]
+    const preview = canvas.toDataURL('image/jpeg', 0.85)
+    setPhoto({ base64: b64, preview })
+    closeCamera()
+  }
+
+  function closeCamera() {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(t => t.stop())
+      setCameraStream(null)
+    }
+    setCameraOpen(false)
+  }
 
   async function handlePhoto(e) {
     const file = e.target.files[0]
@@ -185,9 +228,20 @@ export default function AuditionFormPage() {
               </label>
               <input ref={photoRef} type="file" accept="image/*" onChange={handlePhoto} style={{ display: 'none' }} />
               <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{ display: 'none' }} />
-              {!photo ? (
+              {cameraOpen && (
+                <div style={{ marginBottom: 12 }}>
+                  <video ref={videoRef} autoPlay playsInline muted
+                    style={{ width: '100%', maxWidth: 320, borderRadius: 'var(--radius)', border: '0.5px solid var(--border)', display: 'block', marginBottom: 8 }} />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" className="btn btn-primary" onClick={snapPhoto}
+                      style={{ fontSize: 14 }}>📸 Take photo</button>
+                    <button type="button" className="btn btn-sm" onClick={closeCamera}>Cancel</button>
+                  </div>
+                </div>
+              )}
+              {!photo && !cameraOpen ? (
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button type="button" className="btn btn-sm" onClick={() => cameraRef.current?.click()}
+                  <button type="button" className="btn btn-sm" onClick={openCamera}
                     style={{ fontSize: 14, padding: '10px 14px' }}>📷 Take photo</button>
                   <button type="button" className="btn btn-sm" onClick={() => photoRef.current?.click()}
                     style={{ fontSize: 14, padding: '10px 14px' }}>🖼 Upload photo</button>
