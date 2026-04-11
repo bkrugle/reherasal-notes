@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 
-// Fully self-contained camera overlay
-// Mounts a video element directly to document.body to avoid React re-render issues
 export default function CameraCapture({ stream, onSnap, onClose }) {
   const videoRef = useRef(null)
 
@@ -11,8 +10,11 @@ export default function CameraCapture({ stream, onSnap, onClose }) {
     if (!video) return
     video.srcObject = stream
     video.play().catch(e => console.warn('play:', e))
+    // Lock scroll on body while camera is open
+    document.body.style.overflow = 'hidden'
     return () => {
       video.srcObject = null
+      document.body.style.overflow = ''
     }
   }, [stream])
 
@@ -28,17 +30,25 @@ export default function CameraCapture({ stream, onSnap, onClose }) {
     onSnap({ base64, preview })
   }
 
-  return (
+  const overlay = (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 9999,
-      background: 'rgba(0,0,0,0.95)',
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      padding: '1rem'
+      position: 'fixed',
+      top: 0, left: 0, right: 0, bottom: 0,
+      width: '100%', height: '100%',
+      zIndex: 99999,
+      background: '#000',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '1rem',
+      boxSizing: 'border-box',
+      WebkitOverflowScrolling: 'touch'
     }}>
-      <p style={{ color: '#fff', fontSize: 14, marginBottom: '1rem', opacity: 0.7 }}>
+      <p style={{ color: '#fff', fontSize: 14, marginBottom: 12, opacity: 0.8 }}>
         Position your face in the frame
       </p>
+
       <video
         ref={videoRef}
         autoPlay
@@ -47,35 +57,57 @@ export default function CameraCapture({ stream, onSnap, onClose }) {
         style={{
           width: '100%',
           maxWidth: 480,
-          maxHeight: '60vh',
+          height: 'auto',
+          maxHeight: '65vh',
           borderRadius: 12,
           background: '#111',
-          display: 'block'
+          display: 'block',
+          objectFit: 'cover'
         }}
       />
-      <div style={{ display: 'flex', gap: 12, marginTop: '1.5rem' }}>
+
+      <div style={{ display: 'flex', gap: 16, marginTop: 24 }}>
         <button
           onClick={snap}
           style={{
-            background: '#fff', color: '#000',
-            border: 'none', borderRadius: 50,
-            width: 64, height: 64, fontSize: 28,
-            cursor: 'pointer', fontWeight: 700
+            background: '#fff',
+            color: '#000',
+            border: 'none',
+            borderRadius: '50%',
+            width: 72,
+            height: 72,
+            fontSize: 30,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
           }}
         >📸</button>
         <button
           onClick={onClose}
           style={{
-            background: 'rgba(255,255,255,0.15)', color: '#fff',
-            border: '1px solid rgba(255,255,255,0.3)',
-            borderRadius: 50, width: 64, height: 64,
-            fontSize: 20, cursor: 'pointer'
+            background: 'rgba(255,255,255,0.2)',
+            color: '#fff',
+            border: '1px solid rgba(255,255,255,0.4)',
+            borderRadius: '50%',
+            width: 72,
+            height: 72,
+            fontSize: 22,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
           }}
         >✕</button>
       </div>
-      <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: '1rem' }}>
+
+      <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 16, textAlign: 'center' }}>
         Tap 📸 to capture · ✕ to cancel
       </p>
     </div>
   )
+
+  return createPortal(overlay, document.body)
 }
