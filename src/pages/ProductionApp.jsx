@@ -45,7 +45,15 @@ function ShowCountdown({ showDates }) {
 export default function ProductionApp() {
   const { session, logout } = useSession()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState(0)
+  const tabKey = 'rn_tab_' + (session?.sheetId || 'default')
+  const [activeTab, setActiveTab] = useState(() => {
+    try { return parseInt(sessionStorage.getItem(tabKey) || '0', 10) } catch { return 0 }
+  })
+
+  function setTab(idx) {
+    setActiveTab(idx)
+    try { sessionStorage.setItem(tabKey, String(idx)) } catch {}
+  }
   const [production, setProduction] = useState(null)
   const [notes, setNotes] = useState([])
   const [loadingNotes, setLoadingNotes] = useState(true)
@@ -186,11 +194,11 @@ export default function ProductionApp() {
 
         <div className="tabs tabs-desktop-only">
           {TABS.map((t, i) => (
-            <button key={t} className={`tab-btn ${activeTab === i ? 'active' : ''}`} onClick={() => setActiveTab(i)}>{t}</button>
+            <button key={t} className={`tab-btn ${activeTab === i ? 'active' : ''}`} onClick={() => setTab(i)}>{t}</button>
           ))}
         </div>
 
-        {activeTab === 0 && <Dashboard notes={notes} production={production} session={session} calendarEvents={calendarEvents} onNavigate={setActiveTab} onLogForDate={onLogForDate} openNotes={openNotes} />}
+        {activeTab === 0 && <Dashboard notes={notes} production={production} session={session} calendarEvents={calendarEvents} onNavigate={setTab} onLogForDate={onLogForDate} openNotes={openNotes} />}
         {activeTab === 1 && <LogTab sheetId={session.sheetId} scenes={scenes} characters={[...characterNames, ...staff]} swDisplay={swDisplay} swRunning={swRunning} createdBy={session.name || session.role} onNoteAdded={onNoteAdded} attachFolderId={attachFolderId} />}
         {activeTab === 2 && <ReviewTab {...tabProps} loading={loadingNotes} onRefresh={loadNotes} />}
         {activeTab === 3 && <ByCastTab {...tabProps} loading={loadingNotes} />}
@@ -214,7 +222,7 @@ export default function ProductionApp() {
           ...(useAuditions ? [{ icon: '🎭', label: 'Auditions', idx: 10 }] : []),
         ].map(({ icon, label, idx }) => (
           <button key={label} className={`bottom-nav-btn ${activeTab === idx ? 'active' : ''}`}
-            onClick={() => setActiveTab(idx)}>
+            onClick={() => setTab(idx)}>
             <span style={{ fontSize: 20 }}>{icon}</span>
             <span>{label}</span>
           </button>
