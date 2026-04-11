@@ -6,6 +6,7 @@ import ProductionApp from './pages/ProductionApp'
 import SetupPage from './pages/SetupPage'
 import AuditionFormPage from './pages/AuditionFormPage'
 import AuditionEditPage from './pages/AuditionEditPage'
+import ImportPage from './pages/ImportPage'
 
 function RequireAuth({ children }) {
   const { session } = useSession()
@@ -24,6 +25,7 @@ export default function App() {
         {/* Public audition routes — no auth required */}
         <Route path="/audition/:productionCode" element={<AuditionFormPage />} />
         <Route path="/audition-edit/:token" element={<AuditionEditPage />} />
+        <Route path="/import" element={<ImportPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </SessionProvider>
