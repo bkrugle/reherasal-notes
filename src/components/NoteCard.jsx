@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { api } from '../lib/api'
+import { castNameList } from '../lib/castUtils'
+import { parseHashtags } from '../lib/hashtags'
 
 const CATEGORIES = ['general', 'blocking', 'performance', 'music', 'technical', 'costume', 'set']
 const PRIORITIES = [
@@ -89,7 +91,7 @@ export default function NoteCard({ note, sheetId, scenes, characters, onUpdated,
             <label>Cast member</label>
             <input type="text" value={form.cast} onChange={e => set('cast', e.target.value)} list="edit-cast-list" />
             <datalist id="edit-cast-list">
-              {characters.map(c => <option key={c} value={c} />)}
+              {castNameList(characters).map(c => <option key={c} value={c} />)}
             </datalist>
           </div>
           <div className="field">
@@ -98,8 +100,17 @@ export default function NoteCard({ note, sheetId, scenes, characters, onUpdated,
           </div>
         </div>
         <div className="field" style={{ marginBottom: 10 }}>
-          <label>Note</label>
-          <textarea rows={3} value={form.text} onChange={e => set('text', e.target.value)} />
+          <label>Note <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 400 }}>— hashtags supported: #blocking #high @CastName</span></label>
+          <textarea rows={3} value={form.text} onChange={e => {
+            const val = e.target.value
+            set('text', val)
+            // Parse hashtags and update fields
+            const parsed = parseHashtags(val)
+            if (parsed.category) set('category', parsed.category)
+            if (parsed.priority) set('priority', parsed.priority)
+            if (parsed.cast) set('cast', parsed.cast)
+            if (parsed.scene) set('scene', parsed.scene)
+          }} />
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-primary btn-sm" onClick={saveEdit}>Save</button>
