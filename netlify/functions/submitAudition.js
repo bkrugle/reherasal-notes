@@ -30,7 +30,7 @@ async function uploadHeadshot(drive, folderId, base64Data, auditionerId) {
     const result = await new Promise((resolve, reject) => {
       const req = https.request({
         hostname: 'www.googleapis.com',
-        path: '/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,webViewLink',
+        path: '/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id,webViewLink,webContentLink',
         method: 'POST',
         headers: {
           'Authorization': 'Bearer ' + accessToken.token,
@@ -44,7 +44,26 @@ async function uploadHeadshot(drive, folderId, base64Data, auditionerId) {
       req.on('error', reject)
       req.write(multipart); req.end()
     })
-    return result.webViewLink || ''
+    // Make file publicly readable so it can be displayed in the app
+    if (result.id) {
+      await new Promise((resolve) => {
+        const permBody = JSON.stringify({ role: 'reader', type: 'anyone' })
+        const permReq = https.request({
+          hostname: 'www.googleapis.com',
+          path: `/drive/v3/files/${result.id}/permissions?supportsAllDrives=true`,
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + accessToken.token,
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(permBody)
+          }
+        }, res => { res.resume(); res.on('end', resolve) })
+        permReq.on('error', () => resolve())
+        permReq.write(permBody); permReq.end()
+      })
+    }
+    // Use direct image URL for display in app
+    return result.id ? `https://drive.google.com/uc?export=view&id=${result.id}` : ''
   } catch (e) {
     console.warn('Headshot upload failed:', e.message)
     return ''
@@ -70,7 +89,7 @@ exports.handler = async (event) => {
   let body
   try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
 
-  const { sheetId, headshotFolderId, appUrl, productionTitle, directorEmail,
+  const { sheetId, headshotFolderId, appUrl, productionTitle, directorEmail, productionCode,
     firstName, lastName, email, phone, grade, age, experience, conflicts, customAnswers,
     headshotBase64, editToken: existingToken } = body
 
@@ -152,7 +171,7 @@ exports.handler = async (event) => {
 
     // Send confirmation email
     if (email && process.env.RESEND_API_KEY) {
-      const editUrl = `${appUrl || 'https://rehearsal-notes.netlify.app'}/audition-edit/${editToken}`
+      const editUrl = `${appUrl || 'https://rehearsal-notes.netlify.app'}/audition-edit/${editToken}?code=${encodeURIComponent(productionCode || '')}`
       const answers = customAnswers || {}
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
 <body style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1a1a1a;">
