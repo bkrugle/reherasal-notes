@@ -35,7 +35,7 @@ export default function AuditionFormPage() {
   async function openCamera() {
     setError('')
     if (!navigator.mediaDevices?.getUserMedia) {
-      cameraRef.current?.click()
+      setError('getUserMedia not supported on this browser.')
       return
     }
     try {
@@ -45,8 +45,7 @@ export default function AuditionFormPage() {
       setCameraStream(stream)
       setCameraOpen(true)
     } catch (e) {
-      console.warn('Camera error:', e.name, e.message)
-      cameraRef.current?.click()
+      setError('Camera error: ' + e.name + ' — ' + e.message)
     }
   }
 
