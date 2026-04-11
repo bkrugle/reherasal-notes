@@ -7,6 +7,14 @@
   timeout = 26
   node_bundler = "esbuild"
 
+[functions."lookupShowCast"]
+  timeout = 26
+  node_bundler = "esbuild"
+
+[functions."lookupShowScenes"]
+  timeout = 26
+  node_bundler = "esbuild"
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"

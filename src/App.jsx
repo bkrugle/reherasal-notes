@@ -25,7 +25,7 @@ export default function App() {
         {/* Public audition routes — no auth required */}
         <Route path="/audition/:productionCode" element={<AuditionFormPage />} />
         <Route path="/audition-edit/:token" element={<AuditionEditPage />} />
-        <Route path="/import" element={<ImportPage />} />
+        <Route path="/import" element={<RequireAuth><ImportPage /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </SessionProvider>

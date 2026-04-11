@@ -43,24 +43,28 @@ export default function WrapUp({ notes, characters, production, session, sheetId
 
   function isAbsent(name) { return attendance[name] === true }
 
+  const [sendErrors, setSendErrors] = useState({}) // name -> error message
+
   async function sendSelected() {
     setSending(true)
+    setSendErrors({})
     const toSend = Object.entries(selectedCast).filter(([, sel]) => sel).map(([name]) => name)
     for (const name of toSend) {
       const castNotes = openNotes.filter(n => n.cast === name && !n.privateNote)
       if (!castNotes.length) continue
       const emails = getEmailsForCast(name, characters)
-      if (!emails.length) continue
+      if (!emails.length) {
+        setSendErrors(e => ({ ...e, [name]: 'No email address on file' }))
+        continue
+      }
       try {
-        await Promise.all(emails.map(email =>
-          api.sendCastNotes({
-            to: email, castName: name, notes: castNotes,
-            productionTitle, directorName: senderName, directorEmail: senderEmail
-          })
-        ))
+        await api.sendCastNotes({
+          to: emails, castName: name, notes: castNotes,
+          productionTitle, directorName: senderName, directorEmail: senderEmail
+        })
         setSent(s => ({ ...s, [name]: true }))
       } catch (e) {
-        console.warn('Failed to send to', name, e.message)
+        setSendErrors(errs => ({ ...errs, [name]: e.message || 'Send failed' }))
       }
     }
     setSending(false)
@@ -193,6 +197,9 @@ export default function WrapUp({ notes, characters, production, session, sheetId
                       </div>
                       {!hasEmail && <span style={{ fontSize: 11, color: 'var(--amber-text)' }}>no email</span>}
                       {sent[name] && <span style={{ fontSize: 11, color: 'var(--green-text)', fontWeight: 500 }}>✓ Sent</span>}
+                      {!getEmailsForCast(name, characters).length && (
+                        <span style={{ fontSize: 11, color: 'var(--amber-text)', fontWeight: 500 }}>⚠ No email</span>
+                      )}
                     </div>
                   </div>
                 )
@@ -212,12 +219,30 @@ export default function WrapUp({ notes, characters, production, session, sheetId
           <div style={{ maxWidth: 500, margin: '2rem auto', textAlign: 'center' }}>
             <div style={{ fontSize: 56, marginBottom: '1rem' }}>🎭</div>
             <p style={{ fontSize: 22, fontWeight: 600, marginBottom: 8 }}>Rehearsal wrapped!</p>
-            <p style={{ color: 'var(--text2)', marginBottom: '2rem', lineHeight: 1.6 }}>
+            <p style={{ color: 'var(--text2)', marginBottom: Object.keys(sendErrors).length ? '1rem' : '2rem', lineHeight: 1.6 }}>
               {Object.values(sent).filter(Boolean).length > 0
                 ? `Notes sent to ${Object.values(sent).filter(Boolean).length} cast member${Object.values(sent).filter(Boolean).length !== 1 ? 's' : ''}.`
                 : 'No notes were sent tonight.'}
               {' '}See you at the next rehearsal!
             </p>
+
+            {Object.keys(sendErrors).length > 0 && (
+              <div style={{
+                background: 'var(--red-bg)', border: '0.5px solid var(--red-text)',
+                borderRadius: 'var(--radius)', padding: '1rem', marginBottom: '1.5rem', textAlign: 'left'
+              }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--red-text)', marginBottom: 8 }}>
+                  ⚠ {Object.keys(sendErrors).length} send failure{Object.keys(sendErrors).length !== 1 ? 's' : ''} — fix in Setup → Characters:
+                </p>
+                {Object.entries(sendErrors).map(([name, msg]) => (
+                  <div key={name} style={{ fontSize: 12, color: 'var(--red-text)', marginBottom: 4, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ fontWeight: 500 }}>{name}</span>
+                    <span style={{ opacity: 0.8 }}>{msg}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <button className="btn btn-primary btn-full" onClick={onClose}>Back to app</button>
           </div>
         )}

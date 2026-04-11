@@ -100,7 +100,7 @@ export default function NoteCard({ note, sheetId, scenes, characters, onUpdated,
           </div>
         </div>
         <div className="field" style={{ marginBottom: 10 }}>
-          <label>Note <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 400 }}>— hashtags supported: #blocking #high @CastName</span></label>
+          <label>Note <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 400 }}>— use #blocking #high #Leaf or @LeafConeybear</span></label>
           <textarea rows={3} value={form.text} onChange={e => {
             const val = e.target.value
             set('text', val)

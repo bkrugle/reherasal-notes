@@ -67,8 +67,10 @@ exports.handler = async (event) => {
     chars.forEach(c => {
       const name = typeof c === 'string' ? c : c.name || ''
       const email = typeof c === 'object' ? (c.emails || [])[0] || '' : ''
+      const phone = typeof c === 'object' ? c.phone || '' : ''
+      const castMemberName = typeof c === 'object' ? c.castMember || '' : ''
       if (name && !castMembers.find(m => m.name === name)) {
-        castMembers.push({ name, role: '', email, phone: '', grade: '', headshotUrl: '' })
+        castMembers.push({ name, role: castMemberName, email, phone, grade: '', headshotUrl: '' })
       }
     })
 

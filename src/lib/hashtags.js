@@ -71,14 +71,24 @@ export function parseHashtags(text, characters = [], scenes = []) {
   let cast = null
   let scene = null
 
-  // Extract all #tags from text
-  const tagPattern = /#([a-zA-Z0-9_]+)/g
+  // Extract all #tags and @mentions from text
+  const tagPattern = /[#@]([a-zA-Z0-9_]+)/g
   let match
 
   while ((match = tagPattern.exec(text)) !== null) {
     const raw = match[1]
     const lower = raw.toLowerCase()
+    const isMention = match[0].startsWith('@')
     tags.push(raw)
+
+    // @ mentions always try cast first
+    if (isMention) {
+      if (!cast) {
+        const castMatch = fuzzyMatch(raw, characters)
+        if (castMatch) { cast = castMatch; continue }
+      }
+      continue
+    }
 
     // Check category
     if (CATEGORY_TAGS[lower]) {
@@ -105,7 +115,7 @@ export function parseHashtags(text, characters = [], scenes = []) {
     }
   }
 
-  // Remove recognized hashtags from text, keep unrecognized ones
+  // Remove recognized tags/mentions from text, keep unrecognized ones
   let cleanText = text
   const recognizedTags = new Set()
 
@@ -114,13 +124,16 @@ export function parseHashtags(text, characters = [], scenes = []) {
   while ((match = tagPattern.exec(text)) !== null) {
     const raw = match[1]
     const lower = raw.toLowerCase()
-    if (
+    const isMention = match[0].startsWith('@')
+    if (isMention) {
+      if (fuzzyMatch(raw, characters)) recognizedTags.add(match[0])
+    } else if (
       CATEGORY_TAGS[lower] ||
       PRIORITY_TAGS[lower] ||
       fuzzyMatch(raw, characters) ||
       fuzzyMatch(raw, scenes)
     ) {
-      recognizedTags.add(match[0]) // full #tag string
+      recognizedTags.add(match[0])
     }
   }
 
@@ -142,31 +155,40 @@ export function parseHashtags(text, characters = [], scenes = []) {
  * @returns {string[]} suggestions
  */
 export function getHashtagSuggestions(text, characters = [], scenes = []) {
-  // Find the current incomplete hashtag being typed
-  const match = text.match(/#([a-zA-Z0-9_]*)$/)
+  // Find the current incomplete hashtag or @mention being typed
+  const match = text.match(/[#@]([a-zA-Z0-9_]*)$/)
   if (!match) return []
 
+  const isMention = match[0].startsWith('@')
   const partial = match[1].toLowerCase()
-  if (partial.length < 1) return []
+  if (partial.length < 1 && !isMention) return []
 
   const suggestions = []
 
-  // Category suggestions
-  const catKeys = [...new Set(Object.keys(CATEGORY_TAGS))]
-  catKeys.filter(k => k.startsWith(partial)).forEach(k => suggestions.push('#' + k))
+  if (isMention) {
+    // @ always suggests cast members
+    characters
+      .filter(c => partial.length === 0 || normalize(c).includes(partial))
+      .slice(0, 6)
+      .forEach(c => suggestions.push('@' + c.replace(/\s+/g, '')))
+  } else {
+    // Category suggestions
+    const catKeys = [...new Set(Object.keys(CATEGORY_TAGS))]
+    catKeys.filter(k => k.startsWith(partial)).forEach(k => suggestions.push('#' + k))
 
-  // Priority suggestions
-  Object.keys(PRIORITY_TAGS).filter(k => k.startsWith(partial)).forEach(k => suggestions.push('#' + k))
+    // Priority suggestions
+    Object.keys(PRIORITY_TAGS).filter(k => k.startsWith(partial)).forEach(k => suggestions.push('#' + k))
 
-  // Cast suggestions
-  characters.filter(c => normalize(c).includes(partial)).slice(0, 4).forEach(c => {
-    suggestions.push('#' + c.split(' ')[0].toLowerCase())
-  })
+    // Cast suggestions
+    characters.filter(c => normalize(c).includes(partial)).slice(0, 4).forEach(c => {
+      suggestions.push('#' + c.split(' ')[0].toLowerCase())
+    })
 
-  // Scene suggestions
-  scenes.filter(s => normalize(s).includes(partial)).slice(0, 3).forEach(s => {
-    suggestions.push('#' + normalize(s))
-  })
+    // Scene suggestions
+    scenes.filter(s => normalize(s).includes(partial)).slice(0, 3).forEach(s => {
+      suggestions.push('#' + normalize(s))
+    })
+  }
 
   return [...new Set(suggestions)].slice(0, 6)
 }

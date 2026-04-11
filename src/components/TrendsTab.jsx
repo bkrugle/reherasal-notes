@@ -63,7 +63,7 @@ export default function TrendsTab({ notes }) {
     return { byDate, byCat, dates, topCast, maxCast, carriedOver, highOpen, resRate }
   }, [notes])
 
-  if (!notes.length) return <div className="empty">No notes yet to analyze.</div>
+  if (!notes.length) return <div className="empty">No notes yet — start logging from the Log tab and trends will appear here.</div>
   if (!stats) return null
 
   return (

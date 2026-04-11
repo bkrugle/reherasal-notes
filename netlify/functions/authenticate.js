@@ -5,9 +5,29 @@ const {
   REGISTRY_SHEET_ID, CORS, ok, err
 } = require('./_sheets')
 
+// Simple in-memory rate limiter: max 10 attempts per IP per 15 minutes
+const attempts = new Map()
+function isRateLimited(ip) {
+  const now = Date.now()
+  const window = 15 * 60 * 1000 // 15 minutes
+  const max = 10
+  const key = ip || 'unknown'
+  const entry = attempts.get(key) || { count: 0, start: now }
+  if (now - entry.start > window) {
+    attempts.set(key, { count: 1, start: now })
+    return false
+  }
+  entry.count++
+  attempts.set(key, entry)
+  return entry.count > max
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
   if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+
+  const clientIp = event.headers?.['x-forwarded-for']?.split(',')[0] || event.headers?.['client-ip'] || ''
+  if (isRateLimited(clientIp)) return err('Too many attempts. Please wait 15 minutes.', 429)
 
   let body
   try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
