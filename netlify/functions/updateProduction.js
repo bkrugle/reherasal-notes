@@ -24,15 +24,25 @@ exports.handler = async (event) => {
     const sheets = await sheetsClient()
 
     if (config) {
-      const configData = Object.entries(config).map(([k, v]) => [
-        k,
-        typeof v === 'object' ? JSON.stringify(v)
-        : typeof v === 'boolean' ? String(v)
-        : (v ?? '')
-      ])
+      // Read existing config first to preserve keys we don't manage (folder IDs, etc.)
+      const existing = {}
+      try {
+        const existingRows = await getRows(sheets, sheetId, 'Config!A:B')
+        existingRows.forEach(([k, v]) => { if (k) existing[k] = v })
+      } catch (e) { console.warn('Could not read existing config:', e.message) }
+
+      // Merge: existing keys preserved, incoming keys overwrite
+      const merged = { ...existing }
+      Object.entries(config).forEach(([k, v]) => {
+        merged[k] = typeof v === 'object' ? JSON.stringify(v)
+          : typeof v === 'boolean' ? String(v)
+          : (v ?? '')
+      })
+
+      const configData = Object.entries(merged).map(([k, v]) => [k, v])
       await sheets.spreadsheets.values.update({
         spreadsheetId: sheetId,
-        range: 'Config!A1:B30',
+        range: 'Config!A1:B' + (configData.length + 1),
         valueInputOption: 'RAW',
         requestBody: { values: configData }
       })

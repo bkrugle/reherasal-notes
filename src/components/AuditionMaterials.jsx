@@ -15,7 +15,6 @@ export default function AuditionMaterials({ showTitle }) {
   const [error, setError] = useState('')
 
   async function generate() {
-    if (results[selected]) return // already generated
     if (!showTitle) { setError('Enter a show title in Setup → Details first'); return }
     setLoading(true)
     setError('')
@@ -38,12 +37,11 @@ export default function AuditionMaterials({ showTitle }) {
         Each type is generated fresh using Claude.
       </p>
 
-      {/* Type selector */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8, marginBottom: '1.25rem' }}>
         {TYPES.map(t => (
           <div key={t.value} onClick={() => setSelected(t.value)}
             style={{
-              padding: '10px 12px', borderRadius: 'var(--radius)', cursor: 'pointer',
+              padding: '10px 12px', borderRadius: 'var(--radius)', cursor: 'pointer', textAlign: 'center',
               border: selected === t.value ? '2px solid var(--text)' : '0.5px solid var(--border)',
               background: selected === t.value ? 'var(--bg2)' : 'var(--bg)'
             }}>
@@ -59,7 +57,11 @@ export default function AuditionMaterials({ showTitle }) {
         {loading ? 'Generating…' : current ? '↻ Regenerate' : `Generate ${TYPES.find(t => t.value === selected)?.label}`}
       </button>
 
-      {error && <p style={{ fontSize: 13, color: 'var(--red-text)', background: 'var(--red-bg)', padding: '8px 12px', borderRadius: 'var(--radius)', marginTop: '1rem' }}>{error}</p>}
+      {error && (
+        <p style={{ fontSize: 13, color: 'var(--red-text)', background: 'var(--red-bg)', padding: '8px 12px', borderRadius: 'var(--radius)', marginTop: '1rem' }}>
+          {error}
+        </p>
+      )}
 
       {current && (
         <div style={{ marginTop: '1.25rem', padding: '1rem', background: 'var(--bg2)', borderRadius: 'var(--radius)', fontSize: 14, lineHeight: 1.7, whiteSpace: 'pre-wrap', maxHeight: 500, overflowY: 'auto' }}>

@@ -15,26 +15,26 @@ exports.handler = async (event) => {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) return err('ANTHROPIC_API_KEY not configured', 500)
 
+  // Short prompts to stay within 10s Netlify free tier timeout
   const prompts = {
-    sides: `You are a theater director preparing audition materials for "${showTitle}". Provide 3-4 suggested audition sides (short scenes or monologues) that would work well for this show. For each, include: the character name, a brief description of the scene/moment, why it's good for auditions, and the approximate length. Format clearly with headers. Be specific to this show.`,
-    monologues: `You are a theater director preparing auditions for "${showTitle}". Suggest 4-5 contrasting monologues from other shows that would work well to audition for roles in "${showTitle}". For each, include: show title, character, brief description of the monologue, what it tests in the actor, and approximate length. Format clearly. Consider the tone and style of "${showTitle}" when making suggestions.`,
-    vocal: `You are a music director preparing vocal auditions for "${showTitle}". Provide guidance on: 1. Vocal ranges needed for the main characters (soprano, mezzo, baritone, bass, belt, etc.) 2. Suggested 16-bar cuts that would work well for this show's style 3. What vocal qualities to listen for in each major role 4. Any specific vocal challenges in the show directors should watch for. Be specific to "${showTitle}".`,
-    schedule: `You are a stage manager planning audition day for "${showTitle}". Create a suggested audition day schedule template including: 1. Check-in and form completion 2. Group warm-up if applicable 3. Individual audition slots with suggested timing 4. Callback structure if needed 5. What materials auditioners should prepare. Keep it practical for a school/community theater production of "${showTitle}".`
+    sides: `List 3 audition sides for "${showTitle}" - character, scene description, why it works, length. Be concise.`,
+    monologues: `Suggest 4 contrasting monologues from other shows for auditioning for "${showTitle}". Show, character, what it tests. Be concise.`,
+    vocal: `Vocal audition guide for "${showTitle}": ranges per character, 16-bar cut suggestions, what to listen for. Be concise.`,
+    schedule: `Audition day schedule template for "${showTitle}" school/community theater production. Include timings. Be concise.`
   }
 
   const prompt = prompts[requestType] || prompts.sides
 
   try {
     const requestBody = JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1500,
+      model: 'claude-haiku-4-5-20251001',  // Haiku is much faster
+      max_tokens: 800,
       messages: [{ role: 'user', content: prompt }]
     })
 
-    // Use node-fetch style with https module
     const response = await new Promise((resolve, reject) => {
       const https = require('https')
-      const options = {
+      const req = https.request({
         hostname: 'api.anthropic.com',
         port: 443,
         path: '/v1/messages',
@@ -45,45 +45,30 @@ exports.handler = async (event) => {
           'content-type': 'application/json',
           'content-length': Buffer.byteLength(requestBody)
         }
-      }
-
-      const req = https.request(options, (res) => {
+      }, (res) => {
         let data = ''
         res.on('data', chunk => { data += chunk })
-        res.on('end', () => {
-          resolve({ status: res.statusCode, body: data })
-        })
+        res.on('end', () => resolve({ status: res.statusCode, body: data }))
       })
-
       req.on('error', reject)
-      req.setTimeout(25000, () => {
-        req.destroy()
-        reject(new Error('Request timed out after 25s'))
-      })
+      req.setTimeout(9000, () => { req.destroy(); reject(new Error('Timeout')) })
       req.write(requestBody)
       req.end()
     })
 
-    console.log('Claude API status:', response.status)
-
     let parsed
-    try {
-      parsed = JSON.parse(response.body)
-    } catch (e) {
-      console.error('Failed to parse Claude response:', response.body.slice(0, 200))
-      return err('Invalid response from Claude API', 500)
-    }
+    try { parsed = JSON.parse(response.body) }
+    catch (e) { return err('Invalid API response', 500) }
 
     if (response.status >= 400) {
-      console.error('Claude API error:', parsed)
-      return err(parsed.error?.message || 'Claude API error: ' + response.status, 500)
+      return err(parsed.error?.message || 'API error ' + response.status, 500)
     }
 
     const content = parsed.content?.[0]?.text || ''
     return ok({ content, requestType })
 
   } catch (e) {
-    console.error('generateAuditionMaterials error:', e.message)
-    return err('Failed to generate materials: ' + e.message, 500)
+    console.error('Error:', e.message)
+    return err(e.message, 500)
   }
 }
