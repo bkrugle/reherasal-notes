@@ -62,10 +62,10 @@ async function uploadHeadshot(drive, folderId, base64Data, auditionerId) {
         permReq.write(permBody); permReq.end()
       })
     }
-    // Use direct image URL for display in app
-    return result.id ? `https://drive.google.com/uc?export=view&id=${result.id}` : ''
+    // Use thumbnail URL - works without Google login
+    return result.id ? `https://lh3.googleusercontent.com/d/${result.id}` : ''
   } catch (e) {
-    console.warn('Headshot upload failed:', e.message)
+    console.error('Headshot upload failed:', e.message, e.stack)
     return ''
   }
 }
@@ -144,10 +144,35 @@ exports.handler = async (event) => {
       }
     }
 
-    // Upload headshot
+    // Upload headshot — create folder if missing (productions created before folder support)
     let headshotUrl = ''
-    if (headshotBase64 && headshotFolderId) {
-      headshotUrl = await uploadHeadshot(drive, headshotFolderId, headshotBase64, existingId || id)
+    let effectiveFolderId = headshotFolderId
+    if (headshotBase64) {
+      if (!effectiveFolderId) {
+        try {
+          // Try to find or create Headshots folder under production root
+          const configRows = await getRows(sheets, sheetId, 'Config!A:B')
+          const rootRow = configRows.find(r => r[0] === 'rootFolderId')
+          const auditionFolderRow = configRows.find(r => r[0] === 'auditionFolderId')
+          const parentId = auditionFolderRow?.[1] || rootRow?.[1]
+          if (parentId) {
+            const folderRes = await drive.files.create({
+              supportsAllDrives: true,
+              requestBody: { name: 'Headshots', mimeType: 'application/vnd.google-apps.folder', parents: [parentId] },
+              fields: 'id'
+            })
+            effectiveFolderId = folderRes.data.id
+            // Save back to config so we don't recreate next time
+            await sheets.spreadsheets.values.append({
+              spreadsheetId: sheetId, range: 'Config!A:B', valueInputOption: 'RAW',
+              requestBody: { values: [['headshotFolderId', effectiveFolderId]] }
+            })
+          }
+        } catch (e) { console.warn('Could not create headshot folder:', e.message) }
+      }
+      if (effectiveFolderId) {
+        headshotUrl = await uploadHeadshot(drive, effectiveFolderId, headshotBase64, existingId || id)
+      }
     }
 
     const rowData = [
