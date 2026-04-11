@@ -15,7 +15,7 @@ export default function AuditionFormPage() {
   const [photo, setPhoto] = useState(null)
   const photoRef = useRef(null)
   const cameraRef = useRef(null)
-  const videoRef = useRef(null)
+  const videoRef = useRef(null)  // kept for snapPhoto legacy, unused by CameraCapture
 
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '', phone: '',
@@ -32,15 +32,6 @@ export default function AuditionFormPage() {
   function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
   function setCustom(q, val) { setForm(f => ({ ...f, customAnswers: { ...f.customAnswers, [q]: val } })) }
 
-  // Ref callback — fires the instant the video element mounts
-  const videoRefCallback = (node) => {
-    videoRef.current = node
-    if (node && cameraStream) {
-      node.srcObject = cameraStream
-      node.play().catch(e => console.warn('Video play:', e))
-    }
-  }
-
   async function openCamera() {
     setError('')
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -53,12 +44,8 @@ export default function AuditionFormPage() {
       })
       setCameraStream(stream)
       setCameraOpen(true)
-      // Also try to attach immediately if video is already mounted
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        videoRef.current.play().catch(() => {})
-      }
     } catch (e) {
+      console.warn('Camera error:', e.name, e.message)
       cameraRef.current?.click()
     }
   }
