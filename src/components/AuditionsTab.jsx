@@ -20,10 +20,12 @@ function AuditionerModal({ auditioner, sheetId, createdBy, onClose, onRoleAssign
   }
 
   async function assignRole() {
+    if (!role.trim()) return
     setAssigningRole(true)
     try {
-      await api.assignRole({ sheetId, auditionerId: auditioner.id, role })
-      onRoleAssigned(auditioner.id, role)
+      await api.assignRole({ sheetId, auditionerId: auditioner.id, role: role.trim() })
+      onRoleAssigned(auditioner.id, role.trim())
+      if (onCastAssigned) onCastAssigned() // refresh production config
     } catch (e) { alert('Failed: ' + e.message) }
     finally { setAssigningRole(false) }
   }
@@ -46,6 +48,7 @@ function AuditionerModal({ auditioner, sheetId, createdBy, onClose, onRoleAssign
               <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 2 }}>{auditioner.firstName} {auditioner.lastName}</h2>
               {auditioner.grade && <p style={{ fontSize: 13, color: 'var(--text2)' }}>Grade {auditioner.grade}{auditioner.age ? ` · Age ${auditioner.age}` : ''}</p>}
               {auditioner.email && <p style={{ fontSize: 13, color: 'var(--text3)' }}>{auditioner.email}</p>}
+              {auditioner.role && <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--green-text)', marginTop: 2 }}>✓ Cast as {auditioner.role}</p>}
             </div>
           </div>
           <button className="btn btn-sm" onClick={onClose}>×</button>
@@ -111,7 +114,7 @@ function AuditionerModal({ auditioner, sheetId, createdBy, onClose, onRoleAssign
   )
 }
 
-export default function AuditionsTab({ sheetId, productionCode, session, production }) {
+export default function AuditionsTab({ sheetId, productionCode, session, production, onCastAssigned }) {
   const [auditioners, setAuditioners] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')

@@ -1,5 +1,59 @@
 import { useState, useEffect } from 'react'
 import CastManager from '../components/CastManager'
+
+function LookupResultPanel({ result, existing, onApply, onDismiss }) {
+  const existingNames = existing.map(c => typeof c === 'string' ? c : c.name)
+  const [selected, setSelected] = useState(() =>
+    result.characters.filter(name => !existingNames.includes(name))
+  )
+
+  function toggle(name) {
+    setSelected(s => s.includes(name) ? s.filter(n => n !== name) : [...s, name])
+  }
+
+  return (
+    <div style={{ background: 'var(--purple-bg)', border: '0.5px solid var(--purple-text)', borderRadius: 'var(--radius-lg)', padding: '1rem', marginBottom: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--purple-text)' }}>
+          ✨ Found {result.characters.length} characters for <em>{result.showTitle}</em>
+        </p>
+        <button className="btn btn-sm" onClick={onDismiss} style={{ fontSize: 11 }}>Dismiss</button>
+      </div>
+      <p style={{ fontSize: 12, color: 'var(--purple-text)', opacity: 0.8, marginBottom: 10 }}>
+        Select the ones you want to add. Already-added characters are greyed out.
+      </p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+        {result.characters.map(name => {
+          const already = existingNames.includes(name)
+          const sel = selected.includes(name)
+          return (
+            <button key={name} type="button"
+              onClick={() => !already && toggle(name)}
+              style={{
+                fontSize: 12, padding: '4px 10px', borderRadius: 20, cursor: already ? 'default' : 'pointer',
+                border: '0.5px solid ' + (already ? 'var(--border)' : sel ? 'var(--purple-text)' : 'var(--purple-text)'),
+                background: already ? 'var(--bg3)' : sel ? 'var(--purple-text)' : 'transparent',
+                color: already ? 'var(--text3)' : sel ? 'var(--bg)' : 'var(--purple-text)',
+                opacity: already ? 0.5 : 1
+              }}>
+              {already ? '✓ ' : sel ? '✓ ' : ''}{name}
+            </button>
+          )
+        })}
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="btn btn-sm" onClick={() => setSelected(result.characters.filter(n => !existingNames.includes(n)))}>
+          Select all
+        </button>
+        <button className="btn btn-sm" onClick={() => setSelected([])}>None</button>
+        <button className="btn btn-primary btn-sm" onClick={() => onApply(selected)} disabled={!selected.length}
+          style={{ marginLeft: 'auto' }}>
+          Add {selected.length} character{selected.length !== 1 ? 's' : ''} →
+        </button>
+      </div>
+    </div>
+  )
+}
 import AuditionMaterials from '../components/AuditionMaterials'
 import { castNameList, normalizeCast } from '../lib/castUtils'
 import { useNavigate } from 'react-router-dom'
@@ -56,6 +110,8 @@ export default function SetupPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [lookingUpCast, setLookingUpCast] = useState(false)
+  const [lookupResult, setLookupResult] = useState(null) // { characters, showTitle }
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('details')
 
@@ -110,6 +166,34 @@ export default function SetupPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  async function lookupCast() {
+    if (!config.title) { setError('Enter a production title in the Details tab first'); return }
+    setLookingUpCast(true)
+    setLookupResult(null)
+    setError('')
+    try {
+      const data = await api.lookupShowCast(config.title)
+      if (data.characters && data.characters.length > 0) {
+        setLookupResult(data)
+      } else {
+        setError(`No characters found for "${config.title}". You can still add them manually below.`)
+      }
+    } catch (e) {
+      setError('Lookup failed: ' + e.message)
+    } finally {
+      setLookingUpCast(false)
+    }
+  }
+
+  function applyLookupResult(selected) {
+    // Merge selected characters with existing, avoiding duplicates
+    const existing = config.characters.map(c => typeof c === 'string' ? c : c.name)
+    const toAdd = selected.filter(name => !existing.includes(name))
+      .map(name => ({ name, emails: [], members: [], isGroup: false }))
+    setC('characters', [...config.characters, ...toAdd])
+    setLookupResult(null)
   }
 
   async function saveTeam() {
@@ -284,9 +368,24 @@ export default function SetupPage() {
 
       {activeTab === 'characters' && (
         <div className="card">
-          <p className="muted" style={{ marginBottom: '1rem' }}>
-            These appear in the cast member autocomplete. Click <strong>Edit</strong> on any entry to add email addresses or mark it as a group.
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: '1rem' }}>
+            <p className="muted" style={{ margin: 0 }}>
+              These appear in the cast member autocomplete. Click <strong>Edit</strong> on any entry to add email addresses or mark it as a group.
+            </p>
+            <button className="btn btn-sm" onClick={lookupCast} disabled={lookingUpCast || !config.title}
+              style={{ background: 'var(--purple-bg)', color: 'var(--purple-text)', borderColor: 'transparent', fontWeight: 500, flexShrink: 0 }}>
+              {lookingUpCast ? '✨ Looking up…' : '✨ Auto-populate from show'}
+            </button>
+          </div>
+
+          {lookupResult && (
+            <LookupResultPanel
+              result={lookupResult}
+              existing={config.characters}
+              onApply={applyLookupResult}
+              onDismiss={() => setLookupResult(null)}
+            />
+          )}
           <CastManager
             label="Cast / characters"
             characters={config.characters}

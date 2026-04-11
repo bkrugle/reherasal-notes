@@ -100,6 +100,18 @@ export default function CreatePage() {
 
   function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
 
+  async function lookupCast() {
+    if (!form.title) return
+    setLookingUpCast(true)
+    setCastLookupResult(null)
+    try {
+      const { api } = await import('../lib/api')
+      const data = await api.lookupShowCast(form.title)
+      if (data.characters?.length > 0) setCastLookupResult(data)
+    } catch (e) { console.warn('Cast lookup failed:', e.message) }
+    finally { setLookingUpCast(false) }
+  }
+
   function validateStep() {
     if (step === 0) {
       if (!form.title.trim()) return 'Production title is required'

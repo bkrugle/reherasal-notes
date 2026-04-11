@@ -44,4 +44,5 @@ export const api = {
   generateAuditionMaterials: (showTitle, requestType) => call('/generateAuditionMaterials', 'POST', { showTitle, requestType }),
   generateCastDirectory: (sheetId, productionTitle, useAuditions) => call('/generateCastDirectory', 'POST', { sheetId, productionTitle, useAuditions }),
   recoverProductionCode: (email, appUrl) => call('/recoverProductionCode', 'POST', { email, appUrl }),
+  lookupShowCast: (showTitle) => call('/lookupShowCast', 'POST', { showTitle }),
 }

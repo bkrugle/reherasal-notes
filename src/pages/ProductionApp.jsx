@@ -208,7 +208,7 @@ export default function ProductionApp() {
         {activeTab === 7 && <AttendanceTab characters={characters} notes={notes} sheetId={session.sheetId} />}
         {activeTab === 8 && <ReportTab notes={notes} production={production} sheetId={session.sheetId} session={session} />}
         {activeTab === 9 && <SendTab notes={notes} characters={characters} characterNames={characterNames} sheetId={session.sheetId} production={production} session={session} />}
-        {activeTab === 10 && useAuditions && <AuditionsTab sheetId={session.sheetId} productionCode={session.productionCode} session={session} production={production} />}
+        {activeTab === 10 && useAuditions && <AuditionsTab sheetId={session.sheetId} productionCode={session.productionCode} session={session} production={production} onCastAssigned={loadProduction} />}
       </div>
       {/* Bottom nav — mobile only */}
       <nav className="bottom-nav">
