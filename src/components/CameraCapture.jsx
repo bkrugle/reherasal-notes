@@ -6,21 +6,23 @@ export default function CameraCapture({ stream, onSnap, onClose }) {
 
   useEffect(() => {
     if (!stream) return
-    // Small delay to ensure portal has mounted in DOM
-    const timer = setTimeout(() => {
-      const video = videoRef.current
-      if (!video) {
-        console.warn('CameraCapture: video ref not ready')
-        return
-      }
-      video.srcObject = stream
-      video.play()
-        .then(() => console.log('Camera playing'))
-        .catch(e => console.warn('play error:', e))
-    }, 50)
+    const video = videoRef.current
+    if (!video) {
+      // Video not mounted yet — retry after next paint
+      const raf = requestAnimationFrame(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+          videoRef.current.play().catch(e => console.warn('play:', e))
+        }
+      })
+      document.body.style.overflow = 'hidden'
+      return () => { cancelAnimationFrame(raf); document.body.style.overflow = '' }
+    }
+    video.srcObject = stream
+    video.play().catch(e => console.warn('play:', e))
     document.body.style.overflow = 'hidden'
     return () => {
-      clearTimeout(timer)
+      video.srcObject = null
       document.body.style.overflow = ''
     }
   }, [stream])

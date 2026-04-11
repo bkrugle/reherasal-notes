@@ -33,20 +33,21 @@ export default function AuditionFormPage() {
   function setCustom(q, val) { setForm(f => ({ ...f, customAnswers: { ...f.customAnswers, [q]: val } })) }
 
   async function openCamera() {
-    setError('')
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError('getUserMedia not supported on this browser.')
+      setError('Camera API not available. Please use Upload photo.')
       return
     }
+    setCameraOpen(true) // Show "Starting camera…" immediately
+    let stream
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
-      })
-      setCameraStream(stream)
-      setCameraOpen(true)
+      stream = await navigator.mediaDevices.getUserMedia({ video: true })
     } catch (e) {
+      setCameraOpen(false)
       setError('Camera error: ' + e.name + ' — ' + e.message)
+      return
     }
+    setError('')
+    setCameraStream(stream)
   }
 
   function snapPhoto() {
@@ -258,7 +259,9 @@ export default function AuditionFormPage() {
       </div>
 
       {cameraOpen && !cameraStream && (
-        <p style={{ fontSize: 13, color: 'var(--text2)', marginTop: 8 }}>Starting camera…</p>
+        <div style={{ marginTop: 8, padding: '10px 14px', background: 'var(--bg2)', borderRadius: 'var(--radius)', fontSize: 13 }}>
+          📷 Requesting camera access…
+        </div>
       )}
       {cameraOpen && cameraStream && (
         <CameraCapture stream={cameraStream} onSnap={handleSnap} onClose={closeCamera} />
