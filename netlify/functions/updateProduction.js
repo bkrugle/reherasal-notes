@@ -26,7 +26,9 @@ exports.handler = async (event) => {
     if (config) {
       const configData = Object.entries(config).map(([k, v]) => [
         k,
-        typeof v === 'object' ? JSON.stringify(v) : (v || '')
+        typeof v === 'object' ? JSON.stringify(v)
+        : typeof v === 'boolean' ? String(v)
+        : (v ?? '')
       ])
       await sheets.spreadsheets.values.update({
         spreadsheetId: sheetId,
