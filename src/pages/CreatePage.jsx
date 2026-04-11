@@ -257,6 +257,52 @@ export default function CreatePage() {
           {step === 2 && (
             <>
               <p className="muted" style={{ marginBottom: '1rem' }}>Add your cast members and characters. These appear in the cast member autocomplete when logging notes.</p>
+
+              {/* Auto-populate from show title */}
+              {form.title && (
+                <div style={{ marginBottom: '1rem' }}>
+                  {castLookupResult ? (
+                    <div style={{ background: 'var(--purple-bg)', border: '0.5px solid var(--purple-text)', borderRadius: 'var(--radius)', padding: '1rem' }}>
+                      <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--purple-text)', marginBottom: 8 }}>
+                        ✨ Found {castLookupResult.characters.length} characters for <em>{castLookupResult.showTitle}</em>
+                      </p>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                        {castLookupResult.characters.map(name => {
+                          const added = form.characters.includes(name)
+                          return (
+                            <button key={name} type="button"
+                              onClick={() => {
+                                if (added) set('characters', form.characters.filter(c => c !== name))
+                                else set('characters', [...form.characters, name])
+                              }}
+                              style={{
+                                fontSize: 12, padding: '4px 10px', borderRadius: 20, cursor: 'pointer',
+                                border: '0.5px solid var(--purple-text)',
+                                background: added ? 'var(--purple-text)' : 'transparent',
+                                color: added ? 'var(--bg)' : 'var(--purple-text)'
+                              }}>
+                              {added ? '✓ ' : ''}{name}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button type="button" className="btn btn-sm"
+                          onClick={() => set('characters', [...new Set([...form.characters, ...castLookupResult.characters])])}>
+                          Add all
+                        </button>
+                        <button type="button" className="btn btn-sm" onClick={() => setCastLookupResult(null)}>Dismiss</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button type="button" className="btn btn-sm" onClick={lookupCast} disabled={lookingUpCast}
+                      style={{ background: 'var(--purple-bg)', color: 'var(--purple-text)', borderColor: 'transparent', fontWeight: 500 }}>
+                      {lookingUpCast ? '✨ Looking up cast…' : `✨ Auto-populate cast from "${form.title}"`}
+                    </button>
+                  )}
+                </div>
+              )}
+
               <TagInput
                 label="Cast / characters"
                 placeholder="e.g. Elphaba, Ensemble, Wicked Witch u/s"
