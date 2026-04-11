@@ -82,6 +82,8 @@ export default function CreatePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState(null)
+  const [lookingUpCast, setLookingUpCast] = useState(false)
+  const [castLookupResult, setCastLookupResult] = useState(null)
 
   const [form, setForm] = useState({
     title: '',
@@ -105,7 +107,6 @@ export default function CreatePage() {
     setLookingUpCast(true)
     setCastLookupResult(null)
     try {
-      const { api } = await import('../lib/api')
       const data = await api.lookupShowCast(form.title)
       if (data.characters?.length > 0) setCastLookupResult(data)
     } catch (e) { console.warn('Cast lookup failed:', e.message) }
