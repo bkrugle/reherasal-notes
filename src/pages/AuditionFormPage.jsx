@@ -42,7 +42,8 @@ export default function AuditionFormPage() {
   async function openCamera() {
     setError('')
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError('Camera not supported on this browser. Please use the Upload photo option.')
+      // Fallback: use input capture
+      cameraRef.current?.click()
       return
     }
     try {
@@ -52,13 +53,8 @@ export default function AuditionFormPage() {
       setCameraStream(stream)
       setCameraOpen(true)
     } catch (e) {
-      if (e.name === 'NotAllowedError') {
-        setError('Camera permission denied. Please allow camera access and try again, or use Upload photo.')
-      } else if (e.name === 'NotFoundError') {
-        setError('No camera found. Please use the Upload photo option.')
-      } else {
-        setError('Camera not available: ' + e.message + '. Please use Upload photo instead.')
-      }
+      // Any camera error: fall back silently to file input with capture
+      cameraRef.current?.click()
     }
   }
 
@@ -111,7 +107,6 @@ export default function AuditionFormPage() {
   async function submit(e) {
     e.preventDefault()
     if (!form.firstName.trim() || !form.lastName.trim()) return
-    if (!photo) { setError('Please add a headshot photo before submitting.'); return }
     setSubmitting(true)
     try {
       await api.submitAudition({
@@ -236,7 +231,7 @@ export default function AuditionFormPage() {
             {/* Headshot */}
             <div style={{ marginBottom: '1rem' }}>
               <label style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, display: 'block', marginBottom: 8 }}>
-                Headshot photo *
+                Headshot photo <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(optional — staff can add later)</span>
               </label>
               <input ref={photoRef} type="file" accept="image/*" onChange={handlePhoto} style={{ display: 'none' }} />
               <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{ display: 'none' }} />
