@@ -44,24 +44,29 @@ function formatSize(bytes) {
   return (n / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
-export default function DocumentsTab({ docsFolderId, isAdmin }) {
+export default function DocumentsTab({ docsFolderId, attachFolderId, isAdmin }) {
   const [files, setFiles] = useState([])
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [filterCat, setFilterCat] = useState('all')
   const [uploadCategory, setUploadCategory] = useState('general')
+  const [activeFolder, setActiveFolder] = useState('docs') // 'docs' | 'attachments'
   const fileInputRef = useRef(null)
 
+  const activeFolderId = activeFolder === 'docs' ? docsFolderId : attachFolderId
+
   useEffect(() => {
-    if (docsFolderId) loadFiles()
-  }, [docsFolderId])
+    const folderId = activeFolder === 'docs' ? docsFolderId : attachFolderId
+    if (folderId) loadFiles()
+  }, [docsFolderId, attachFolderId, activeFolder])
 
   async function loadFiles() {
     setLoading(true)
     setError('')
     try {
-      const data = await api.getFiles(docsFolderId)
+      const folderId = activeFolder === 'docs' ? docsFolderId : attachFolderId
+      const data = await api.getFiles(folderId)
       setFiles(data.files || [])
     } catch (e) {
       setError('Failed to load files: ' + e.message)
@@ -85,7 +90,7 @@ export default function DocumentsTab({ docsFolderId, isAdmin }) {
       })
 
       const result = await api.uploadFile({
-        folderId: docsFolderId,
+        folderId: activeFolderId,
         fileName: file.name,
         mimeType: file.type,
         base64Data,
@@ -113,7 +118,7 @@ export default function DocumentsTab({ docsFolderId, isAdmin }) {
 
   const filtered = filterCat === 'all' ? files : files.filter(f => f.category === filterCat)
 
-  if (!docsFolderId) {
+  if (!docsFolderId && !attachFolderId) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text2)' }}>
         <p style={{ fontSize: 15, fontWeight: 500, marginBottom: 8 }}>No documents folder</p>

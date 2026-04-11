@@ -203,7 +203,7 @@ export default function ProductionApp() {
         {activeTab === 2 && <ReviewTab {...tabProps} loading={loadingNotes} onRefresh={loadNotes} />}
         {activeTab === 3 && <ByCastTab {...tabProps} loading={loadingNotes} />}
         {activeTab === 4 && <CalendarTab calendarId={calendarId} scenes={scenes} notes={notes} onLogForDate={onLogForDate} />}
-        {activeTab === 5 && <div><DocumentsTab docsFolderId={docsFolderId} isAdmin={session.role === 'admin'} /><div style={{marginTop:'1rem'}}><CastDirectory sheetId={session.sheetId} production={production} session={session} /></div></div>}
+        {activeTab === 5 && <div><DocumentsTab docsFolderId={docsFolderId} attachFolderId={attachFolderId} isAdmin={session.role === 'admin'} /><div style={{marginTop:'1rem'}}><CastDirectory sheetId={session.sheetId} production={production} session={session} /></div></div>}
         {activeTab === 6 && <TrendsTab notes={notes} />}
         {activeTab === 7 && <AttendanceTab characters={characters} notes={notes} sheetId={session.sheetId} />}
         {activeTab === 8 && <ReportTab notes={notes} production={production} sheetId={session.sheetId} session={session} />}

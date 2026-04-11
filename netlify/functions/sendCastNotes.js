@@ -47,7 +47,8 @@ exports.handler = async (event) => {
   let body
   try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
 
-  const { to, castName, notes, productionTitle, directorName, directorEmail } = body
+  const { to, castName, notes: rawNotes, productionTitle, directorName, directorEmail } = body
+  const notes = (rawNotes || []).filter(n => !n.privateNote)
   if (!to || !notes || !castName) return err('to, castName, and notes required')
   if (!process.env.RESEND_API_KEY) return err('RESEND_API_KEY not configured', 500)
 

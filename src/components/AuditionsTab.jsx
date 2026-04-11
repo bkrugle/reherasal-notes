@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
 
-function AuditionerModal({ auditioner, sheetId, createdBy, onClose, onRoleAssigned }) {
+function AuditionerModal({ auditioner, sheetId, createdBy, onClose, onRoleAssigned, onCastAssigned }) {
   const [note, setNote] = useState('')
   const [notes, setNotes] = useState(auditioner.notes || [])
   const [saving, setSaving] = useState(false)

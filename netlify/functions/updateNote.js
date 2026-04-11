@@ -14,7 +14,8 @@ exports.handler = async (event) => {
 
   try {
     const sheets = await sheetsClient()
-    const rows = await getRows(sheets, sheetId, 'Notes!A:N')
+    // Read full row A:R to preserve all columns including pinned/privateNote/attachmentUrl
+    const rows = await getRows(sheets, sheetId, 'Notes!A:R')
     if (rows.length < 2) return err('Note not found', 404)
 
     const [header, ...data] = rows
@@ -25,8 +26,8 @@ exports.handler = async (event) => {
     if (rowIndex === -1) return err('Note not found', 404)
 
     const row = [...data[rowIndex]]
-    // Pad row to full width
-    while (row.length < header.length) row.push('')
+    // Pad row to full width (A:R = 18 columns)
+    while (row.length < 18) row.push('')
 
     if (changes.text !== undefined) row[idx.text] = changes.text
     if (changes.scene !== undefined) row[idx.scene] = changes.scene
@@ -36,12 +37,16 @@ exports.handler = async (event) => {
     if (changes.cue !== undefined) row[idx.cue] = changes.cue
     if (changes.resolved !== undefined) row[idx.resolved] = String(changes.resolved)
     if (changes.deleted !== undefined) row[idx.deleted] = String(changes.deleted)
+    if (changes.pinned !== undefined) row[idx.pinned] = String(changes.pinned)
+    if (changes.privateNote !== undefined) row[idx.privateNote] = String(changes.privateNote)
+    if (changes.carriedOver !== undefined) row[idx.carriedOver] = String(changes.carriedOver)
+    if (changes.attachmentUrl !== undefined) row[idx.attachmentUrl] = changes.attachmentUrl
     row[idx.updatedAt] = new Date().toISOString()
 
-    const sheetRowIndex = rowIndex + 2 // +1 for header, +1 for 1-based index
+    const sheetRowIndex = rowIndex + 2
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
-      range: `Notes!A${sheetRowIndex}:N${sheetRowIndex}`,
+      range: `Notes!A${sheetRowIndex}:R${sheetRowIndex}`,
       valueInputOption: 'RAW',
       requestBody: { values: [row] }
     })
