@@ -1,13 +1,75 @@
 'use strict'
 
-const { sheetsClient, hashPin, getRows, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, driveClient, hashPin, getRows, CORS, ok, err } = require('./_sheets')
 
-// Generate a random invite code
+const SHARED_DRIVE_ID = '0AHO7QedLJaIHUk9PVA'
+
 function makeInviteCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   let code = ''
   for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)]
   return code
+}
+
+async function ensureAuditionSetup(sheets, drive, sheetId, existing) {
+  const results = {}
+
+  // 1. Create Auditions folder if missing
+  let auditionFolderId = existing.auditionFolderId || ''
+  let headshotFolderId = existing.headshotFolderId || ''
+  const rootFolderId = existing.rootFolderId || ''
+
+  if (!auditionFolderId && rootFolderId) {
+    try {
+      const audFolder = await drive.files.create({
+        supportsAllDrives: true,
+        requestBody: { name: 'Auditions', mimeType: 'application/vnd.google-apps.folder', parents: [rootFolderId] },
+        fields: 'id'
+      })
+      auditionFolderId = audFolder.data.id
+      results.auditionFolderId = auditionFolderId
+    } catch (e) { console.warn('Could not create Auditions folder:', e.message) }
+  }
+
+  if (!headshotFolderId && auditionFolderId) {
+    try {
+      const hsFolder = await drive.files.create({
+        supportsAllDrives: true,
+        requestBody: { name: 'Headshots', mimeType: 'application/vnd.google-apps.folder', parents: [auditionFolderId] },
+        fields: 'id'
+      })
+      headshotFolderId = hsFolder.data.id
+      results.headshotFolderId = headshotFolderId
+    } catch (e) { console.warn('Could not create Headshots folder:', e.message) }
+  }
+
+  // 2. Create Auditioners sheet tab if missing
+  try {
+    await getRows(sheets, sheetId, 'Auditioners!A1:A1')
+  } catch (e) {
+    // Tab doesn't exist — create it
+    try {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: sheetId,
+        requestBody: {
+          requests: [
+            { addSheet: { properties: { title: 'Auditioners' } } },
+            { addSheet: { properties: { title: 'AuditionNotes' } } }
+          ]
+        }
+      })
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId, range: 'Auditioners!A1:P1', valueInputOption: 'RAW',
+        requestBody: { values: [['id','submittedAt','firstName','lastName','email','phone','grade','age','experience','conflicts','headshotUrl','editToken','customAnswers','role','castConfirmed','deleted']] }
+      })
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId, range: 'AuditionNotes!A1:F1', valueInputOption: 'RAW',
+        requestBody: { values: [['id','auditionerId','text','createdBy','createdAt','deleted']] }
+      })
+    } catch (e2) { console.warn('Could not create audition tabs:', e2.message) }
+  }
+
+  return results // folder IDs to merge back into config
 }
 
 exports.handler = async (event) => {
@@ -24,20 +86,33 @@ exports.handler = async (event) => {
     const sheets = await sheetsClient()
 
     if (config) {
-      // Read existing config first to preserve keys we don't manage (folder IDs, etc.)
+      // Read existing config first to preserve keys we don't manage
       const existing = {}
       try {
         const existingRows = await getRows(sheets, sheetId, 'Config!A:B')
         existingRows.forEach(([k, v]) => { if (k) existing[k] = v })
       } catch (e) { console.warn('Could not read existing config:', e.message) }
 
-      // Merge: existing keys preserved, incoming keys overwrite
+      // Check if auditions are being enabled for the first time
+      const wasAuditions = existing.useAuditions === 'true'
+      const nowAuditions = config.useAuditions === true || config.useAuditions === 'true'
+
+      let extraFolderIds = {}
+      if (nowAuditions && !wasAuditions) {
+        // Auditions just enabled — create folders and tabs
+        const drive = await driveClient()
+        extraFolderIds = await ensureAuditionSetup(sheets, drive, sheetId, existing)
+      }
+
+      // Merge: existing preserved, incoming overwrites, new folder IDs added
       const merged = { ...existing }
       Object.entries(config).forEach(([k, v]) => {
         merged[k] = typeof v === 'object' ? JSON.stringify(v)
           : typeof v === 'boolean' ? String(v)
           : (v ?? '')
       })
+      // Add any newly created folder IDs
+      Object.entries(extraFolderIds).forEach(([k, v]) => { merged[k] = v })
 
       const configData = Object.entries(merged).map(([k, v]) => [k, v])
       await sheets.spreadsheets.values.update({
@@ -49,7 +124,6 @@ exports.handler = async (event) => {
     }
 
     if (sharedWith !== undefined) {
-      // Read existing members to preserve their pinHash and inviteCode
       const existing = {}
       try {
         const existingRows = await getRows(sheets, sheetId, 'SharedWith!A:F')
@@ -60,21 +134,22 @@ exports.handler = async (event) => {
           const pinIdx = h.indexOf('pinHash')
           const inviteIdx = h.indexOf('inviteCode')
           const activatedIdx = h.indexOf('activated')
+          const roleIdx = h.indexOf('role')
           data.filter(r => r.some(Boolean)).forEach(r => {
             const key = (r[emailIdx] || r[nameIdx] || '').toLowerCase()
             if (key) existing[key] = {
               pinHash: r[pinIdx] || '',
               inviteCode: r[inviteIdx] || '',
-              activated: r[activatedIdx] || 'false'
+              activated: r[activatedIdx] || 'false',
+              role: r[roleIdx] || 'member'
             }
           })
         }
       } catch (e) { console.warn('Could not read existing members:', e.message) }
 
-      // Build new rows — generate invite codes for new members
       const header = ['name', 'email', 'pinHash', 'inviteCode', 'activated', 'role']
       const rows = [header]
-      const newInviteCodes = {} // name -> inviteCode for newly added members
+      const newInviteCodes = {}
 
       sharedWith.forEach((member) => {
         const { name, email, pin } = member
@@ -87,17 +162,14 @@ exports.handler = async (event) => {
         let activated = 'false'
 
         if (prev) {
-          // Existing member — preserve their credentials
           pinHash = prev.pinHash
           inviteCode = prev.inviteCode
           activated = prev.activated
         } else {
-          // New member — generate invite code, no PIN yet
           inviteCode = makeInviteCode()
           newInviteCodes[name || email] = inviteCode
         }
 
-        // If admin explicitly set a pin, hash it (legacy support)
         if (pin && !prev) pinHash = hashPin(pin)
 
         const memberRole = (prev?.role === 'admin' || member?.role === 'admin') ? 'admin' : 'member'
