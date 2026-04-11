@@ -31,18 +31,18 @@ export default function AuditionFormPage() {
   function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
   function setCustom(q, val) { setForm(f => ({ ...f, customAnswers: { ...f.customAnswers, [q]: val } })) }
 
-  // Wire stream to video element whenever both are ready
-  useEffect(() => {
-    if (cameraOpen && cameraStream && videoRef.current) {
-      videoRef.current.srcObject = cameraStream
-      videoRef.current.play().catch(e => console.warn('Video play failed:', e))
+  // Ref callback — fires the instant the video element mounts
+  const videoRefCallback = (node) => {
+    videoRef.current = node
+    if (node && cameraStream) {
+      node.srcObject = cameraStream
+      node.play().catch(e => console.warn('Video play:', e))
     }
-  }, [cameraOpen, cameraStream])
+  }
 
   async function openCamera() {
     setError('')
     if (!navigator.mediaDevices?.getUserMedia) {
-      // Fallback: use input capture
       cameraRef.current?.click()
       return
     }
@@ -52,8 +52,12 @@ export default function AuditionFormPage() {
       })
       setCameraStream(stream)
       setCameraOpen(true)
+      // Also try to attach immediately if video is already mounted
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.play().catch(() => {})
+      }
     } catch (e) {
-      // Any camera error: fall back silently to file input with capture
       cameraRef.current?.click()
     }
   }
@@ -237,7 +241,7 @@ export default function AuditionFormPage() {
               <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{ display: 'none' }} />
               {cameraOpen && (
                 <div style={{ marginBottom: 12 }}>
-                  <video ref={videoRef} autoPlay playsInline muted
+                  <video ref={videoRefCallback} autoPlay playsInline muted
                     style={{ width: '100%', maxWidth: 320, borderRadius: 'var(--radius)', border: '0.5px solid var(--border)', display: 'block', marginBottom: 8 }} />
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button type="button" className="btn btn-primary" onClick={snapPhoto}
