@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../lib/api'
+import CameraCapture from '../components/CameraCapture'
 
 export default function AuditionFormPage() {
   const { productionCode } = useParams()
@@ -239,18 +240,7 @@ export default function AuditionFormPage() {
               </label>
               <input ref={photoRef} type="file" accept="image/*" onChange={handlePhoto} style={{ display: 'none' }} />
               <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{ display: 'none' }} />
-              {cameraOpen && (
-                <div style={{ marginBottom: 12 }}>
-                  <video ref={videoRefCallback} autoPlay playsInline muted
-                    style={{ width: '100%', maxWidth: 320, borderRadius: 'var(--radius)', border: '0.5px solid var(--border)', display: 'block', marginBottom: 8 }} />
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button type="button" className="btn btn-primary" onClick={snapPhoto}
-                      style={{ fontSize: 14 }}>📸 Take photo</button>
-                    <button type="button" className="btn btn-sm" onClick={closeCamera}>Cancel</button>
-                  </div>
-                </div>
-              )}
-              {!photo && !cameraOpen ? (
+              {!photo ? (
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button type="button" className="btn btn-sm" onClick={openCamera}
                     style={{ fontSize: 14, padding: '10px 14px' }}>📷 Take photo</button>
@@ -280,6 +270,10 @@ export default function AuditionFormPage() {
           Your information is only shared with the production team.
         </p>
       </div>
+
+      {cameraOpen && cameraStream && (
+        <CameraCapture stream={cameraStream} onSnap={handleSnap} onClose={closeCamera} />
+      )}
     </div>
   )
 }
