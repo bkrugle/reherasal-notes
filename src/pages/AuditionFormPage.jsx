@@ -147,6 +147,7 @@ export default function AuditionFormPage() {
         appUrl: window.location.origin,
         productionTitle: formConfig.productionTitle,
         directorEmail: formConfig.directorEmail,
+        productionCode,
         ...form,
         headshotBase64: photo?.base64 || ''
       })
@@ -178,11 +179,22 @@ export default function AuditionFormPage() {
       <div style={{ textAlign: 'center', maxWidth: 400 }}>
         <div style={{ fontSize: 56, marginBottom: '1rem' }}>🎭</div>
         <h1 style={{ fontSize: 22, fontWeight: 600, marginBottom: 8 }}>You're all set!</h1>
-        <p style={{ color: 'var(--text2)', lineHeight: 1.6 }}>
+        <p style={{ color: 'var(--text2)', lineHeight: 1.6, marginBottom: '2rem' }}>
           Thanks for auditioning for <strong>{formConfig.productionTitle}</strong>!
           {form.email && ' A confirmation email is on its way to you.'}
         </p>
-        <p style={{ color: 'var(--text3)', fontSize: 13, marginTop: '1rem' }}>Good luck — we'll be in touch!</p>
+        <button
+          className="btn btn-primary btn-full"
+          onClick={() => {
+            setSubmitted(false)
+            setPhoto(null)
+            setForm({ firstName: '', lastName: '', email: '', phone: '', grade: '', age: '', experience: '', conflicts: '', customAnswers: {} })
+            window.scrollTo(0, 0)
+          }}
+        >
+          Submit another form →
+        </button>
+        <p style={{ color: 'var(--text3)', fontSize: 12, marginTop: '1rem' }}>Good luck — we'll be in touch!</p>
       </div>
     </div>
   )
