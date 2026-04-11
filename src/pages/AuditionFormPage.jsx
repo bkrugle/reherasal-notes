@@ -31,22 +31,34 @@ export default function AuditionFormPage() {
   function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
   function setCustom(q, val) { setForm(f => ({ ...f, customAnswers: { ...f.customAnswers, [q]: val } })) }
 
+  // Wire stream to video element whenever both are ready
+  useEffect(() => {
+    if (cameraOpen && cameraStream && videoRef.current) {
+      videoRef.current.srcObject = cameraStream
+      videoRef.current.play().catch(e => console.warn('Video play failed:', e))
+    }
+  }, [cameraOpen, cameraStream])
+
   async function openCamera() {
+    setError('')
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError('Camera not supported on this browser. Please use the Upload photo option.')
+      return
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
       })
       setCameraStream(stream)
       setCameraOpen(true)
-      // Attach stream to video element after render
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-          videoRef.current.play()
-        }
-      }, 100)
     } catch (e) {
-      setError('Camera not available: ' + e.message)
+      if (e.name === 'NotAllowedError') {
+        setError('Camera permission denied. Please allow camera access and try again, or use Upload photo.')
+      } else if (e.name === 'NotFoundError') {
+        setError('No camera found. Please use the Upload photo option.')
+      } else {
+        setError('Camera not available: ' + e.message + '. Please use Upload photo instead.')
+      }
     }
   }
 
