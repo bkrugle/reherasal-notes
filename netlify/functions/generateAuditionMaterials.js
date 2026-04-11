@@ -15,20 +15,19 @@ exports.handler = async (event) => {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) return err('ANTHROPIC_API_KEY not configured', 500)
 
-  // Short prompts to stay within 10s Netlify free tier timeout
   const prompts = {
-    sides: `List 3 audition sides for "${showTitle}" - character, scene description, why it works, length. Be concise.`,
-    monologues: `Suggest 4 contrasting monologues from other shows for auditioning for "${showTitle}". Show, character, what it tests. Be concise.`,
-    vocal: `Vocal audition guide for "${showTitle}": ranges per character, 16-bar cut suggestions, what to listen for. Be concise.`,
-    schedule: `Audition day schedule template for "${showTitle}" school/community theater production. Include timings. Be concise.`
+    sides: `You are a theater director preparing audition materials for "${showTitle}". Provide 3-4 suggested audition sides that would work well for this show. For each include: character name, scene description, why it works for auditions, approximate length.`,
+    monologues: `Suggest 4-5 contrasting monologues from other shows for auditioning for roles in "${showTitle}". For each: show title, character, description, what it tests in the actor, approximate length.`,
+    vocal: `Vocal audition guide for "${showTitle}": 1. Vocal ranges needed per character 2. Suggested 16-bar cuts 3. What qualities to listen for per role 4. Vocal challenges to watch for.`,
+    schedule: `Create an audition day schedule template for "${showTitle}" school/community theater including: check-in, warm-up, individual slots with timing, callback structure, what materials auditioners should prepare.`
   }
 
   const prompt = prompts[requestType] || prompts.sides
 
   try {
     const requestBody = JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',  // Haiku is much faster
-      max_tokens: 800,
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1500,
       messages: [{ role: 'user', content: prompt }]
     })
 
@@ -51,7 +50,7 @@ exports.handler = async (event) => {
         res.on('end', () => resolve({ status: res.statusCode, body: data }))
       })
       req.on('error', reject)
-      req.setTimeout(9000, () => { req.destroy(); reject(new Error('Timeout')) })
+      req.setTimeout(24000, () => { req.destroy(); reject(new Error('Request timed out')) })
       req.write(requestBody)
       req.end()
     })

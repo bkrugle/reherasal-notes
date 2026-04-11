@@ -80,6 +80,30 @@ exports.handler = async (event) => {
     const sheets = await sheetsClient()
     const drive = await driveClient()
 
+    // Ensure Auditioners and AuditionNotes tabs exist (for productions created before audition support)
+    try {
+      await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: 'Auditioners!A1' })
+    } catch (e) {
+      // Tab doesn't exist — create it
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: sheetId,
+        requestBody: {
+          requests: [
+            { addSheet: { properties: { title: 'Auditioners' } } },
+            { addSheet: { properties: { title: 'AuditionNotes' } } }
+          ]
+        }
+      }).catch(() => {}) // ignore if already exists
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId, range: 'Auditioners!A1:P1', valueInputOption: 'RAW',
+        requestBody: { values: [['id','submittedAt','firstName','lastName','email','phone','grade','age','experience','conflicts','headshotUrl','editToken','customAnswers','role','castConfirmed','deleted']] }
+      })
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId, range: 'AuditionNotes!A1:F1', valueInputOption: 'RAW',
+        requestBody: { values: [['id','auditionerId','text','createdBy','createdAt','deleted']] }
+      }).catch(() => {})
+    }
+
     const id = existingToken
       ? null // will find by token
       : Date.now().toString(36) + Math.random().toString(36).slice(2, 5)

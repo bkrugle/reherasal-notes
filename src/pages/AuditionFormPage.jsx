@@ -56,6 +56,7 @@ export default function AuditionFormPage() {
   async function submit(e) {
     e.preventDefault()
     if (!form.firstName.trim() || !form.lastName.trim()) return
+    if (!photo) { setError('Please add a headshot photo before submitting.'); return }
     setSubmitting(true)
     try {
       await api.submitAudition({
@@ -180,10 +181,10 @@ export default function AuditionFormPage() {
             {/* Headshot */}
             <div style={{ marginBottom: '1rem' }}>
               <label style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, display: 'block', marginBottom: 8 }}>
-                Headshot photo
+                Headshot photo *
               </label>
               <input ref={photoRef} type="file" accept="image/*" onChange={handlePhoto} style={{ display: 'none' }} />
-              <input ref={cameraRef} type="file" accept="image/*" capture="user" onChange={handlePhoto} style={{ display: 'none' }} />
+              <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{ display: 'none' }} />
               {!photo ? (
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button type="button" className="btn btn-sm" onClick={() => cameraRef.current?.click()}
