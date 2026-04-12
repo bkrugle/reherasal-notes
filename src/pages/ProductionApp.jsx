@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useSession } from '../lib/session'
 import LogTab from '../components/LogTab'
@@ -123,6 +123,17 @@ export default function ProductionApp() {
     try { return localStorage.getItem(showDayKey) === 'true' } catch { return false }
   })
 
+  // Handle ?showday=1 URL param (from Setup page launch button)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    if (params.get('showday') === '1') {
+      setShowDayMode(true)
+      try { localStorage.setItem(showDayKey, 'true') } catch {}
+      setTab(11)
+      navigate('/production', { replace: true })
+    }
+  }, [location.search])
+
   // Auto-activate Show Day mode when today is a show date
   useEffect(() => {
     if (!production?.config?.showDates) return
@@ -133,6 +144,14 @@ export default function ProductionApp() {
       setTab(11)
     }
   }, [production])
+
+  const isShowDay = isWithinShowDates(production?.config?.showDates || '')
+
+  function activateShowDay() {
+    setShowDayMode(true)
+    try { localStorage.setItem(showDayKey, 'true') } catch {}
+    setTab(11)
+  }
 
   function toggleShowDayMode() {
     const next = !showDayMode
@@ -306,7 +325,8 @@ export default function ProductionApp() {
         showDayMode={showDayMode}
         openNotesCount={openNotes.length}
         useAuditions={useAuditions}
-        onShowDay={toggleShowDayMode}
+        onShowDay={activateShowDay}
+        isShowDay={isShowDay}
         topBarContent={topBar}
       >
         <div className="page" style={{ paddingTop: '1.25rem' }}>
@@ -360,9 +380,11 @@ export default function ProductionApp() {
             <button className={`bottom-nav-btn ${activeTab === 2 ? 'active' : ''}`} onClick={() => setTab(2)}>
               <span style={{ fontSize: 20 }}>📋</span><span>Review</span>
             </button>
-            <button className={`bottom-nav-btn ${activeTab === 11 ? 'active' : ''}`} onClick={toggleShowDayMode}>
-              <span style={{ fontSize: 20 }}>🎬</span><span>Show Day</span>
-            </button>
+            {isShowDay && (
+              <button className={`bottom-nav-btn ${activeTab === 11 ? 'active' : ''}`} onClick={activateShowDay}>
+                <span style={{ fontSize: 20 }}>🎬</span><span>Show Day</span>
+              </button>
+            )}
             <button className={`bottom-nav-btn ${[3,4,5,6,7,8,9,10,12].includes(activeTab) ? 'active' : ''}`}
               onClick={() => setShowMoreMenu(m => !m)}>
               <span style={{ fontSize: 20 }}>⋯</span><span>More</span>

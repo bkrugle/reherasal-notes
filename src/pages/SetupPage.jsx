@@ -653,6 +653,16 @@ export default function SetupPage() {
             {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save changes'}
           </button>
 
+          <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--bg2)', borderRadius: 'var(--radius)', border: '0.5px solid var(--border)' }}>
+            <p style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Show Day mode</p>
+            <p style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
+              Show Day mode activates automatically on your show dates. You can also launch it manually here for setup and testing.
+            </p>
+            <button className="btn btn-sm" onClick={() => { navigate('/production?showday=1') }}>
+              Launch Show Day →
+            </button>
+          </div>
+
           <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '0.5px solid var(--border)' }}>
             <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--red-text)', marginBottom: 8 }}>Danger zone</p>
             <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: '1rem' }}>

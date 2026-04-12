@@ -51,7 +51,7 @@ function NavIcon({ name }) {
   )
 }
 
-export default function AppShell({ children, title, productionCode, activeTab, onTabChange, showDayMode, openNotesCount, useAuditions, topBarContent, onLogout, onShowDay }) {
+export default function AppShell({ children, title, productionCode, activeTab, onTabChange, showDayMode, openNotesCount, useAuditions, topBarContent, onLogout, onShowDay, showDates, isShowDay }) {
   const navigate = useNavigate()
   const { session, logout } = useSession()
   const isSetup = !onTabChange // Setup page doesn't pass onTabChange
@@ -89,6 +89,7 @@ export default function AppShell({ children, title, productionCode, activeTab, o
                   <div className="sidebar-section-label">{section.label}</div>
                   {items.map(item => {
                     if (item.special) {
+                      if (!isShowDay) return null
                       return (
                         <button key={item.idx}
                           className={`sidebar-nav-showday ${activeTab === 11 ? 'active' : ''}`}
