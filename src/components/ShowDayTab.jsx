@@ -349,7 +349,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
                 </div>
               )
             })
-          }}
+          }
         </div>
         <div>
           <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--green-text)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
