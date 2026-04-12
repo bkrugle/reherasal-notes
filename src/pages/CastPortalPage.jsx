@@ -31,11 +31,20 @@ export default function CastPortalPage() {
   useEffect(() => {
     if (!selectedCast || !production) return
     localStorage.setItem(`rn_portal_cast_${productionCode}`, selectedCast)
-    // Load notes for this cast member
-    api.getCastNotes?.({ productionCode, castName: selectedCast })
-      .then(d => setNotes(d.notes || []))
-      .catch(() => {})
-  }, [selectedCast, production])
+    // Load notes for this cast member via public checkin endpoint
+    // Notes are loaded from the sheet using the sheetId we get from checkin status
+    if (checkinStatus?.sheetId) {
+      api.getNotes(checkinStatus.sheetId)
+        .then(d => {
+          const all = d.notes || []
+          const mine = all.filter(n =>
+            n.characters?.includes(selectedCast) || n.text?.toLowerCase().includes(selectedCast.toLowerCase())
+          ).filter(n => n.status === 'open').slice(0, 10)
+          setNotes(mine)
+        })
+        .catch(() => {})
+    }
+  }, [selectedCast, production, checkinStatus])
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg3)' }}>

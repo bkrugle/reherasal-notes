@@ -18,7 +18,6 @@ const NAV_SECTIONS = [
   { label: 'Analytics', items: [
     { label: 'Trends', idx: 6, icon: 'trending' },
     { label: 'Attendance', idx: 7, icon: 'check-square' },
-    { label: 'Check-in', idx: 12, icon: 'clock' },
   ]},
   { label: 'Show', items: [
     { label: 'Show day', idx: 11, icon: 'video', special: true },
