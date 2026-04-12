@@ -503,7 +503,7 @@ textarea { resize: vertical; line-height: 1.5; }
 .app-sidebar {
   width: 220px;
   flex-shrink: 0;
-  background: #0f2340;
+  background: var(--sidebar-bg, #0f2340);
   display: flex;
   flex-direction: column;
   position: sticky;
@@ -644,6 +644,7 @@ textarea { resize: vertical; line-height: 1.5; }
 .app-main-topbar {
   background: var(--bg);
   border-bottom: 0.5px solid var(--border);
+  border-left: 3px solid var(--accent, #0f2340);
   padding: 0 1.5rem;
   height: 52px;
   display: flex;

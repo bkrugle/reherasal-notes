@@ -6,6 +6,7 @@ import { useSession } from '../lib/session'
 import AppShell from '../components/AppShell'
 import CastManager from '../components/CastManager'
 import { api } from '../lib/api'
+import { applyAccentColor } from './ProductionApp'
 
 // Parses showDates string into array of ISO date strings
 function parseShowDates(showDates) {
@@ -334,6 +335,252 @@ function NotificationContactForm({ onAdd, ntfyTopic, productionTitle }) {
   )
 }
 
+
+const STAFF_ROLES = ['Stage Manager', 'Assistant SM', 'Music Director', 'Choreographer', 'Director', 'Producer', 'Tech Director', 'Lights', 'Sound', 'Props', 'House Manager', 'Other']
+
+function RoleSelect({ value, onChange }) {
+  const [custom, setCustom] = useState(!STAFF_ROLES.includes(value) && !!value)
+  return (
+    <div>
+      {!custom ? (
+        <div style={{ display: 'flex', gap: 6 }}>
+          <select value={value} onChange={e => onChange(e.target.value)} style={{ flex: 1 }}>
+            {STAFF_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+          <button type="button" className="btn btn-sm" onClick={() => setCustom(true)} style={{ fontSize: 11, whiteSpace: 'nowrap' }}>Custom</button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 6 }}>
+          <input type="text" value={value} onChange={e => onChange(e.target.value)} placeholder="e.g. Fight Choreographer" style={{ flex: 1 }} />
+          <button type="button" className="btn btn-sm" onClick={() => { setCustom(false); onChange('Stage Manager') }} style={{ fontSize: 11 }}>↩</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TeamMemberRow({ member, index, onUpdate, onRemove, onResetPin, productionTitle }) {
+  const [expanded, setExpanded] = useState(false)
+  const [newPin, setNewPin] = useState('')
+  const [pinSaved, setPinSaved] = useState(false)
+
+  function savePin() {
+    if (!newPin.trim()) return
+    onResetPin(index, newPin.trim())
+    setNewPin('')
+    setPinSaved(true)
+    setTimeout(() => setPinSaved(false), 2000)
+  }
+
+  return (
+    <div style={{ border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: 8, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--bg)' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 14, fontWeight: 500 }}>{member.name}</span>
+            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20,
+              background: member.role === 'admin' ? 'var(--purple-bg)' : 'var(--bg2)',
+              color: member.role === 'admin' ? 'var(--purple-text)' : 'var(--text2)',
+              border: '0.5px solid var(--border)' }}>
+              {member.role === 'admin' ? '★ Admin' : (member.staffRole || 'Member')}
+            </span>
+            {member.ntfyTopic && <span style={{ fontSize: 11, color: 'var(--teal-text)' }}>📲</span>}
+            {member.phone && <span style={{ fontSize: 11, color: 'var(--text3)' }}>📞</span>}
+            {member.activated === false && <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 10, background: 'var(--amber-bg)', color: 'var(--amber-text)' }}>invite pending</span>}
+            {member.activated === true && <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 10, background: 'var(--green-bg)', color: 'var(--green-text)' }}>active</span>}
+          </div>
+          {member.email && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{member.email}</div>}
+        </div>
+        <button className="btn btn-sm" onClick={() => setExpanded(e => !e)} style={{ fontSize: 11, flexShrink: 0 }}>
+          {expanded ? 'Done' : 'Edit'}
+        </button>
+        <button className="btn btn-sm btn-danger" onClick={() => onRemove(index)} style={{ flexShrink: 0 }}>✕</button>
+      </div>
+
+      {expanded && (
+        <div style={{ padding: '12px', borderTop: '0.5px solid var(--border)', background: 'var(--bg2)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="grid2" style={{ gap: 8 }}>
+            <div className="field" style={{ margin: 0 }}>
+              <label>Name</label>
+              <input type="text" value={member.name} onChange={e => onUpdate(index, { ...member, name: e.target.value })} />
+            </div>
+            <div className="field" style={{ margin: 0 }}>
+              <label>Email</label>
+              <input type="email" value={member.email || ''} onChange={e => onUpdate(index, { ...member, email: e.target.value })} placeholder="optional" />
+            </div>
+          </div>
+
+          <div className="grid2" style={{ gap: 8 }}>
+            <div className="field" style={{ margin: 0 }}>
+              <label>Staff role</label>
+              <RoleSelect value={member.staffRole || 'Stage Manager'} onChange={v => onUpdate(index, { ...member, staffRole: v })} />
+            </div>
+            <div className="field" style={{ margin: 0 }}>
+              <label>Phone <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(optional)</span></label>
+              <input type="tel" value={member.phone || ''} onChange={e => onUpdate(index, { ...member, phone: e.target.value })} placeholder="4125550100" />
+            </div>
+          </div>
+
+          <div className="field" style={{ margin: 0 }}>
+            <label>ntfy push topic <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(for show day alerts)</span></label>
+            <input type="text" value={member.ntfyTopic || ''} onChange={e => onUpdate(index, { ...member, ntfyTopic: e.target.value })} placeholder="vhs-showname-xxxxxxxx" />
+            {member.ntfyTopic && <TestButton topic={member.ntfyTopic} productionTitle={productionTitle} />}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input type="checkbox" id={`admin-${index}`} checked={member.role === 'admin'}
+              onChange={e => onUpdate(index, { ...member, role: e.target.checked ? 'admin' : 'member' })}
+              style={{ width: 16, height: 16, cursor: 'pointer' }} />
+            <label htmlFor={`admin-${index}`} style={{ fontSize: 13, color: 'var(--text2)', cursor: 'pointer', marginBottom: 0 }}>
+              Admin access (can edit setup)
+            </label>
+          </div>
+
+          <div style={{ borderTop: '0.5px solid var(--border)', paddingTop: 10 }}>
+            <label style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, display: 'block', marginBottom: 6 }}>Reset PIN</label>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input type="text" value={newPin} onChange={e => setNewPin(e.target.value)}
+                placeholder="Enter new PIN" style={{ width: 140, fontSize: 13 }} />
+              <button className="btn btn-sm" onClick={savePin} disabled={!newPin.trim()}>Set PIN</button>
+              {pinSaved && <span style={{ fontSize: 12, color: 'var(--green-text)' }}>✓ Updated</span>}
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Leave blank to keep current PIN. Share the production code <strong>+ PIN</strong> with the team member.</p>
+          </div>
+
+          <button className="btn btn-sm" onClick={() => setExpanded(false)} style={{ fontSize: 11, color: 'var(--text3)' }}>↑ Collapse</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TeamTab({ config, setC, sharedWith, setSharedWith, newMember, setNewMember, addMember, removeMember, toggleMemberRole, save, saveTeam, saving, saved, session }) {
+  const [addForm, setAddForm] = useState({ name: '', email: '', pin: '', staffRole: 'Stage Manager', phone: '', ntfyTopic: '', role: 'member' })
+  const [customRole, setCustomRole] = useState(false)
+
+  function handleAdd() {
+    if (!addForm.name.trim()) return
+    // Add to sharedWith (access) + notificationContacts (alerts) if they have ntfy/phone
+    const memberData = {
+      name: addForm.name,
+      email: addForm.email,
+      pin: addForm.pin || undefined,
+      staffRole: addForm.staffRole,
+      phone: addForm.phone || undefined,
+      ntfyTopic: addForm.ntfyTopic || undefined,
+      role: addForm.role,
+    }
+    setSharedWith(sw => [...sw, memberData])
+    // Also add to notification contacts if they have ntfy or phone
+    if (addForm.ntfyTopic || addForm.phone) {
+      const nc = { name: addForm.name, role: addForm.staffRole, phone: addForm.phone || '', ntfyTopic: addForm.ntfyTopic || '' }
+      setC('notificationContacts', [...(config.notificationContacts || []), nc])
+    }
+    setAddForm({ name: '', email: '', pin: '', staffRole: 'Stage Manager', phone: '', ntfyTopic: '', role: 'member' })
+  }
+
+  function updateMember(i, updated) {
+    const next = [...sharedWith]
+    next[i] = updated
+    setSharedWith(next)
+  }
+
+  function resetPin(i, pin) {
+    const next = [...sharedWith]
+    next[i] = { ...next[i], pin }
+    setSharedWith(next)
+  }
+
+  return (
+    <div>
+      {/* ntfy topic for production */}
+      <div className="card" style={{ marginBottom: '1rem' }}>
+        <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>📲 Push notification topic</p>
+        {!config.ntfyTopic ? (
+          <div>
+            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>Generate a topic to enable free instant alerts via the ntfy app on show day.</p>
+            <button className="btn btn-sm" onClick={() => {
+              const topic = 'vhs-' + (config.title || 'show').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) + '-' + Math.random().toString(36).slice(2, 10)
+              setC('ntfyTopic', topic)
+            }}>Generate topic</button>
+          </div>
+        ) : (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg2)', borderRadius: 'var(--radius)', padding: '8px 10px' }}>
+              <code style={{ fontSize: 12, flex: 1, wordBreak: 'break-all', color: 'var(--text2)' }}>{config.ntfyTopic}</code>
+              <button className="btn btn-sm" style={{ fontSize: 10 }} onClick={() => navigator.clipboard?.writeText(config.ntfyTopic)}>Copy</button>
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Install the free ntfy app → Subscribe to this topic → receive show day alerts</p>
+          </div>
+        )}
+      </div>
+
+      {/* Current team members */}
+      {sharedWith.length > 0 && (
+        <div style={{ marginBottom: '1rem' }}>
+          <p className="section-label" style={{ marginBottom: 8 }}>Team members ({sharedWith.length})</p>
+          {sharedWith.map((m, i) => (
+            <TeamMemberRow key={i} member={m} index={i}
+              onUpdate={updateMember} onRemove={removeMember}
+              onResetPin={resetPin} productionTitle={config.title} />
+          ))}
+        </div>
+      )}
+
+      {/* Add new member */}
+      <div className="card" style={{ marginBottom: '1rem' }}>
+        <p style={{ fontSize: 14, fontWeight: 500, marginBottom: '0.75rem' }}>Add team member</p>
+        <div className="grid2" style={{ gap: 8, marginBottom: 8 }}>
+          <div className="field" style={{ margin: 0 }}>
+            <label>Name *</label>
+            <input type="text" value={addForm.name} onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))} placeholder="Erica" />
+          </div>
+          <div className="field" style={{ margin: 0 }}>
+            <label>Email</label>
+            <input type="email" value={addForm.email} onChange={e => setAddForm(f => ({ ...f, email: e.target.value }))} placeholder="erica@school.edu" />
+          </div>
+        </div>
+        <div className="grid2" style={{ gap: 8, marginBottom: 8 }}>
+          <div className="field" style={{ margin: 0 }}>
+            <label>Staff role</label>
+            <RoleSelect value={addForm.staffRole} onChange={v => setAddForm(f => ({ ...f, staffRole: v }))} />
+          </div>
+          <div className="field" style={{ margin: 0 }}>
+            <label>Phone <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(optional)</span></label>
+            <input type="tel" value={addForm.phone} onChange={e => setAddForm(f => ({ ...f, phone: e.target.value }))} placeholder="4125550100" />
+          </div>
+        </div>
+        <div className="grid2" style={{ gap: 8, marginBottom: 8 }}>
+          <div className="field" style={{ margin: 0 }}>
+            <label>PIN <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(leave blank, they'll set their own)</span></label>
+            <input type="text" value={addForm.pin} onChange={e => setAddForm(f => ({ ...f, pin: e.target.value }))} placeholder="optional" />
+          </div>
+          <div className="field" style={{ margin: 0 }}>
+            <label>ntfy topic <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(for alerts)</span></label>
+            <input type="text" value={addForm.ntfyTopic} onChange={e => setAddForm(f => ({ ...f, ntfyTopic: e.target.value }))} placeholder={config.ntfyTopic || 'optional'} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <input type="checkbox" id="new-admin" checked={addForm.role === 'admin'}
+            onChange={e => setAddForm(f => ({ ...f, role: e.target.checked ? 'admin' : 'member' }))}
+            style={{ width: 16, height: 16, cursor: 'pointer' }} />
+          <label htmlFor="new-admin" style={{ fontSize: 13, color: 'var(--text2)', cursor: 'pointer', marginBottom: 0 }}>
+            Admin access (can edit setup and manage team)
+          </label>
+        </div>
+        <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>
+          Share production code <strong>{session.productionCode}</strong> + their PIN to give access.
+        </p>
+        <button className="btn" onClick={handleAdd} disabled={!addForm.name.trim()}>+ Add member</button>
+      </div>
+
+      <button className="btn btn-primary" onClick={saveTeam} disabled={saving}>
+        {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save team'}
+      </button>
+    </div>
+  )
+}
+
 export default function SetupPage() {
   const { session, logout } = useSession()
   const navigate = useNavigate()
@@ -383,6 +630,7 @@ export default function SetupPage() {
         notificationContacts: Array.isArray(data.config.notificationContacts) ? data.config.notificationContacts : []
       })
       setSharedWith((data.sharedWith || []).map(m => ({ ...m, role: m.role || 'member' })))
+      if (data.config.accentColor) applyAccentColor(data.config.accentColor, data.config.accentBg)
     } catch (e) {
       setError('Failed to load production settings')
     } finally {
@@ -586,9 +834,10 @@ export default function SetupPage() {
           </div>
           {/* Appearance */}
           <div className="field" style={{ marginBottom: '1.25rem' }}>
-            <label>Accent color <span style={{ fontWeight: 400, color: 'var(--text3)', fontSize: 11 }}>— used in the top bar and nav</span></label>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
+            <label>Accent color <span style={{ fontWeight: 400, color: 'var(--text3)', fontSize: 11 }}>— sets the sidebar and nav colors</span></label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
               {[
+                { color: '#1a365d', bg: '#EBF4FF', name: 'Navy (default)' },
                 { color: '#7C3AED', bg: '#EDE9FE', name: 'Purple' },
                 { color: '#DC2626', bg: '#FEE2E2', name: 'Crimson' },
                 { color: '#0369A1', bg: '#E0F2FE', name: 'Blue' },
@@ -596,32 +845,51 @@ export default function SetupPage() {
                 { color: '#D97706', bg: '#FEF3C7', name: 'Amber' },
                 { color: '#DB2777', bg: '#FCE7F3', name: 'Pink' },
                 { color: '#374151', bg: '#F3F4F6', name: 'Slate' },
-                { color: '#1a1a1a', bg: '#f5f4f1', name: 'Default' },
               ].map(({ color, bg, name }) => (
                 <button key={color} type="button" title={name}
                   onClick={() => {
                     setC('accentColor', color)
                     setC('accentBg', bg)
-                    document.documentElement.style.setProperty('--accent', color)
-                    document.documentElement.style.setProperty('--accent-bg', bg)
+                    applyAccentColor(color, bg)
                   }}
                   style={{
                     width: 32, height: 32, borderRadius: '50%',
-                    background: color, border: config.accentColor === color ? '3px solid var(--text)' : '2px solid transparent',
-                    cursor: 'pointer', transition: 'transform 0.1s',
-                    outline: 'none'
+                    background: color,
+                    border: config.accentColor === color ? '3px solid var(--text)' : '2px solid transparent',
+                    cursor: 'pointer', outline: 'none', flexShrink: 0
                   }} />
               ))}
             </div>
-            {config.accentColor && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 'var(--radius)', background: config.accentColor }}>
-                <span style={{ fontSize: 18 }}>🎭</span>
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.95)', margin: 0 }}>{config.title || 'Your Production'}</p>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', margin: 0 }}>{config.showDates || 'Show dates'}</p>
-                </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+              <label style={{ fontSize: 11, color: 'var(--text2)', margin: 0, whiteSpace: 'nowrap' }}>Custom hex</label>
+              <input type="text" placeholder="#1a365d"
+                value={config.accentColor || ''}
+                onChange={e => {
+                  const val = e.target.value
+                  setC('accentColor', val)
+                  if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+                    setC('accentBg', val + '20')
+                    applyAccentColor(val, val + '20')
+                  }
+                }}
+                style={{ width: 110, fontSize: 13, fontFamily: 'monospace' }} />
+              <input type="color"
+                value={/^#[0-9a-fA-F]{6}$/.test(config.accentColor) ? config.accentColor : '#1a365d'}
+                onChange={e => {
+                  const val = e.target.value
+                  setC('accentColor', val)
+                  setC('accentBg', val + '20')
+                  applyAccentColor(val, val + '20')
+                }}
+                style={{ width: 36, height: 32, padding: 2, borderRadius: 6, border: '0.5px solid var(--border2)', cursor: 'pointer', background: 'var(--bg)' }} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 'var(--radius)', background: config.accentColor || '#1a365d' }}>
+              <span style={{ fontSize: 18 }}>🎭</span>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.95)', margin: 0 }}>{config.title || 'Your Production'}</p>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', margin: 0 }}>{config.showDates || 'Show dates'}</p>
               </div>
-            )}
+            </div>
           </div>
 
           <div className="field" style={{ marginBottom: '1.25rem' }}>
@@ -772,134 +1040,14 @@ export default function SetupPage() {
 
       {activeTab === 'team' && (
         <div>
-
-          {/* ── SMS NOTIFICATIONS ───────────────────────────────── */}
-          <div className="card" style={{ marginBottom: '1rem' }}>
-            <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>📱 SMS Notifications</p>
-            <p className="muted" style={{ fontSize: 13, marginBottom: '0.75rem' }}>
-              These people receive automatic alerts on show day — 1 hour before curtain, and on demand. Add your Stage Manager first.
-            </p>
-            {!config.ntfyTopic && (
-              <div style={{ background: 'var(--amber-bg)', border: '0.5px solid var(--amber-text)', borderRadius: 'var(--radius)', padding: '0.75rem', marginBottom: '1rem' }}>
-                <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--amber-text)', marginBottom: 6 }}>⚡ Generate a push notification topic</p>
-                <p style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8 }}>Your production doesn't have a push notification topic yet. Generate one to enable free instant alerts via the ntfy app.</p>
-                <button className="btn btn-sm" onClick={() => {
-                  const topic = 'vhs-' + (config.title || 'show').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) + '-' + Math.random().toString(36).slice(2, 10)
-                  setC('ntfyTopic', topic)
-                }}>Generate topic</button>
-              </div>
-            )}
-            {config.ntfyTopic && (
-              <div style={{ background: 'var(--bg2)', borderRadius: 'var(--radius)', padding: '0.75rem', marginBottom: '1rem' }}>
-                <p style={{ fontSize: 12, fontWeight: 500, marginBottom: 4 }}>📲 Push notification topic</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <code style={{ fontSize: 12, flex: 1, wordBreak: 'break-all', color: 'var(--text2)' }}>{config.ntfyTopic}</code>
-                  <button className="btn btn-sm" style={{ fontSize: 10 }} onClick={() => navigator.clipboard?.writeText(config.ntfyTopic)}>Copy</button>
-                </div>
-                <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Install the free ntfy app → Subscribe to this topic → Done</p>
-              </div>
-            )}
-            {(config.notificationContacts || []).map((contact, i) => (
-              <div key={i} style={{ marginBottom: 8, padding: '8px 10px', background: 'var(--bg2)', borderRadius: 'var(--radius)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 14, fontWeight: 500, flex: '0 0 auto', minWidth: 100 }}>{contact.name}</span>
-                  <span style={{ fontSize: 12, color: 'var(--text3)', flex: 1 }}>
-                    {contact.ntfyTopic ? '📲 ntfy' : contact.smsGateway || contact.phone || 'No contact'}
-                  </span>
-                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--green-bg)', color: 'var(--green-text)', flex: '0 0 auto' }}>
-                    {contact.role || 'Staff'}
-                  </span>
-                  {contact.ntfyTopic && (
-                    <TestButton topic={contact.ntfyTopic} productionTitle={config.title} />
-                  )}
-                  <button className="btn btn-sm btn-danger" onClick={() => {
-                    const updated = config.notificationContacts.filter((_, idx) => idx !== i)
-                    setC('notificationContacts', updated)
-                  }} style={{ flex: '0 0 auto' }}>✕</button>
-                </div>
-                {contact.ntfyTopic && (
-                  <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4 }}>Topic: {contact.ntfyTopic}</p>
-                )}
-              </div>
-            ))}
-            <NotificationContactForm onAdd={contact => setC('notificationContacts', [...(config.notificationContacts || []), contact])} ntfyTopic={config.ntfyTopic} productionTitle={config.title} />
-            <div style={{ marginTop: 12 }}>
-              <button className="btn btn-primary btn-sm" onClick={save} disabled={saving}>
-                {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save notification contacts'}
-              </button>
-            </div>
-          </div>
-
-          <div className="card" style={{ marginBottom: '1rem' }}>
-            <p style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>Share access with a team member</p>
-            <p className="muted" style={{ marginBottom: '1rem', fontSize: 13 }}>
-              Give them the production code <strong>{session.productionCode}</strong> plus the PIN you set below.
-            </p>
-            <div className="grid3" style={{ marginBottom: '0.75rem' }}>
-              <div className="field">
-                <label>Name *</label>
-                <input type="text" value={newMember.name} onChange={e => setNewMember(m => ({ ...m, name: e.target.value }))} placeholder="Erica" />
-              </div>
-              <div className="field">
-                <label>Email</label>
-                <input type="email" value={newMember.email} onChange={e => setNewMember(m => ({ ...m, email: e.target.value }))} placeholder="erica@school.edu" />
-              </div>
-              <div className="field">
-                <label>Their PIN <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(optional — they'll set their own)</span></label>
-                <input type="text" value={newMember.pin} onChange={e => setNewMember(m => ({ ...m, pin: e.target.value }))} placeholder="Leave blank to send invite" />
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.75rem' }}>
-              <input type="checkbox" id="new-member-admin" checked={newMember.role === 'admin'}
-                onChange={e => setNewMember(m => ({ ...m, role: e.target.checked ? 'admin' : 'member' }))}
-                style={{ width: 16, height: 16, cursor: 'pointer' }} />
-              <label htmlFor="new-member-admin" style={{ fontSize: 13, color: 'var(--text2)', cursor: 'pointer', marginBottom: 0 }}>
-                Grant admin access (can edit setup and manage team)
-              </label>
-            </div>
-            <div style={{ display: 'none' }}>
-            </div>
-            <button className="btn" onClick={addMember}>+ Add team member</button>
-          </div>
-
-          {sharedWith.length > 0 && (
-            <div className="card" style={{ marginBottom: '1rem' }}>
-              <p className="section-label" style={{ marginBottom: '0.75rem' }}>Current team members</p>
-              {sharedWith.map((m, i) => (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '8px 0',
-                  borderBottom: i < sharedWith.length - 1 ? '0.5px solid var(--border)' : 'none'
-                }}>
-                  <div>
-                    <span style={{ fontSize: 14, fontWeight: 500 }}>{m.name}</span>
-                    {m.email && <span style={{ fontSize: 13, color: 'var(--text3)', marginLeft: 8 }}>{m.email}</span>}
-                    {m.activated === false && (
-                      <span style={{ fontSize: 11, marginLeft: 8, padding: '2px 8px', borderRadius: 20, background: 'var(--amber-bg)', color: 'var(--amber-text)', fontWeight: 500 }}>
-                        invite pending
-                      </span>
-                    )}
-                    {m.activated === true && (
-                      <span style={{ fontSize: 11, marginLeft: 8, padding: '2px 8px', borderRadius: 20, background: 'var(--green-bg)', color: 'var(--green-text)', fontWeight: 500 }}>
-                        active
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                      <button className="btn btn-sm" onClick={() => toggleMemberRole(i)}
-                        style={m.role === 'admin' ? { background: 'var(--purple-bg)', color: 'var(--purple-text)', borderColor: 'transparent' } : {}}>
-                        {m.role === 'admin' ? '★ Admin' : 'Make admin'}
-                      </button>
-                      <button className="btn btn-sm btn-danger" onClick={() => removeMember(i)}>Remove</button>
-                    </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <button className="btn btn-primary" onClick={saveTeam} disabled={saving}>
-            {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save team'}
-          </button>
+          <TeamTab
+            config={config} setC={setC}
+            sharedWith={sharedWith} setSharedWith={setSharedWith}
+            newMember={newMember} setNewMember={setNewMember}
+            addMember={addMember} removeMember={removeMember} toggleMemberRole={toggleMemberRole}
+            save={save} saveTeam={saveTeam} saving={saving} saved={saved}
+            session={session}
+          />
         </div>
       )}
     </div>

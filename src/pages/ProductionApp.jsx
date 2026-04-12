@@ -96,6 +96,21 @@ function isWithinShowDates(showDates) {
   return false
 }
 
+function darkenColor(hex, amount = 30) {
+  try {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16)
+    const d = (v) => Math.max(0, v - amount).toString(16).padStart(2,'0')
+    return '#' + d(r) + d(g) + d(b)
+  } catch { return '#0f2340' }
+}
+
+export function applyAccentColor(color, bg) {
+  if (!color) return
+  document.documentElement.style.setProperty('--accent', color)
+  document.documentElement.style.setProperty('--accent-bg', bg || color + '20')
+  document.documentElement.style.setProperty('--sidebar-bg', darkenColor(color, 40))
+}
+
 export default function ProductionApp() {
   const { session, logout } = useSession()
   const navigate = useNavigate()
@@ -186,8 +201,7 @@ export default function ProductionApp() {
       setProduction(data)
       // Apply accent color from production config
       if (data?.config?.accentColor) {
-        document.documentElement.style.setProperty('--accent', data.config.accentColor)
-        document.documentElement.style.setProperty('--accent-bg', data.config.accentBg || data.config.accentColor + '20')
+        applyAccentColor(data.config.accentColor, data.config.accentBg)
       }
       const calId = data?.config?.calendarId
       if (calId) {
