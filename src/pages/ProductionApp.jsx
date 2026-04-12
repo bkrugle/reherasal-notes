@@ -10,6 +10,7 @@ import MeetingMode from '../components/MeetingMode'
 import TrendsTab from '../components/TrendsTab'
 import AttendanceTab from '../components/AttendanceTab'
 import ShowDayTab from '../components/ShowDayTab'
+import CheckinTab from '../components/CheckinTab'
 import ReportTab from '../components/ReportTab'
 import SceneTimer from '../components/SceneTimer'
 import { castNameList, normalizeCast } from '../lib/castUtils'
@@ -20,7 +21,7 @@ import AuditionsTab from '../components/AuditionsTab'
 import CastDirectory from '../components/CastDirectory'
 import WrapUp from '../components/WrapUp'
 
-const TABS = ['Home', 'Log', 'Review', 'By cast', 'Calendar', 'Documents', 'Trends', 'Attendance', 'Report', 'Send', 'Auditions', 'Show Day']
+const TABS = ['Home', 'Log', 'Review', 'By cast', 'Calendar', 'Documents', 'Trends', 'Attendance', 'Report', 'Send', 'Auditions', 'Show Day', 'Check-in']
 
 function ShowCountdown({ showDates }) {
   if (!showDates) return null
@@ -285,7 +286,8 @@ export default function ProductionApp() {
         {activeTab === 8 && <ReportTab notes={notes} production={production} sheetId={session.sheetId} session={session} />}
         {activeTab === 9 && <SendTab notes={notes} characters={characters} characterNames={characterNames} sheetId={session.sheetId} production={production} session={session} />}
         {activeTab === 10 && useAuditions && <AuditionsTab sheetId={session.sheetId} productionCode={session.productionCode} session={session} production={production} onCastAssigned={loadProduction} />}
-        {activeTab === 11 && <ShowDayTab sheetId={session.sheetId} productionCode={session.productionCode} production={production} session={session} showDayMode={showDayMode} />}
+        {activeTab === 11 && <ShowDayTab sheetId={session.sheetId} productionCode={session.productionCode} production={production} session={session} showDayMode={showDayMode} onGoToCheckin={() => setTab(12)} />}
+        {activeTab === 12 && <CheckinTab sheetId={session.sheetId} productionCode={session.productionCode} production={production} session={session} />}
       </div>
       {/* Bottom nav — mobile only */}
       <nav className="bottom-nav" style={showDayMode ? { background: 'var(--bg)', borderTop: '2px solid var(--amber-text)' } : {}}>
@@ -359,6 +361,7 @@ export default function ProductionApp() {
             { icon: '📄', label: 'Report', idx: 8 },
             { icon: '✉️', label: 'Send', idx: 9 },
             ...(useAuditions ? [{ icon: '🎭', label: 'Auditions', idx: 10 }] : []),
+            { icon: '✅', label: 'Check-in', idx: 12 },
           ].map(({ icon, label, idx }) => (
             <button key={label}
               className={`bottom-nav-btn ${activeTab === idx ? 'active' : ''}`}

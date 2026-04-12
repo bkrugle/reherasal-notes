@@ -30,6 +30,10 @@ export default function CheckinPage() {
     finally { setLoading(false) }
   }
 
+  // Detect mobile
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ||
+    (window.innerWidth < 768 && 'ontouchstart' in window)
+
   // Auto-return countdown after check-in
   useEffect(() => {
     if (!done) return
@@ -38,7 +42,14 @@ export default function CheckinPage() {
       setCountdown(c => {
         if (c <= 1) {
           clearInterval(countdownRef.current)
-          returnToList()
+          if (isMobile) {
+            // Try to close tab (works if opened via QR/link)
+            window.close()
+            // If close didn't work (direct nav), return to list
+            setTimeout(returnToList, 300)
+          } else {
+            returnToList()
+          }
           return 0
         }
         return c - 1
@@ -51,7 +62,7 @@ export default function CheckinPage() {
     clearInterval(countdownRef.current)
     setDone(null)
     setSearch('')
-    loadStatus() // refresh cast list
+    loadStatus()
   }
 
   async function checkin(castEntry) {
@@ -146,13 +157,19 @@ export default function CheckinPage() {
         <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 12 }}>Break a leg tonight! 🌟</p>
 
         {/* Auto-return countdown */}
-        <button onClick={returnToList} style={{
-          background: 'none', border: '0.5px solid var(--border)',
-          borderRadius: 'var(--radius)', padding: '8px 20px',
-          fontSize: 13, color: 'var(--text3)', cursor: 'pointer'
-        }}>
-          Back to list ({countdown}s)
-        </button>
+        {isMobile ? (
+          <p style={{ fontSize: 12, color: 'var(--text3)' }}>
+            Closing in {countdown}s… or <button onClick={returnToList} style={{ background: 'none', border: 'none', color: 'var(--text2)', cursor: 'pointer', textDecoration: 'underline', fontSize: 12, padding: 0 }}>stay on list</button>
+          </p>
+        ) : (
+          <button onClick={returnToList} style={{
+            background: 'none', border: '0.5px solid var(--border)',
+            borderRadius: 'var(--radius)', padding: '8px 20px',
+            fontSize: 13, color: 'var(--text3)', cursor: 'pointer'
+          }}>
+            Back to list ({countdown}s)
+          </button>
+        )}
       </div>
     )
   }

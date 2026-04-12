@@ -18,7 +18,7 @@ function minutesUntil(target) {
   return Math.round((target - new Date()) / 60000)
 }
 
-export default function ShowDayTab({ sheetId, productionCode, production, session, showDayMode }) {
+export default function ShowDayTab({ sheetId, productionCode, production, session, showDayMode, onGoToCheckin }) {
   const [now, setNow] = useState(new Date())
   const [showDate, setShowDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [status, setStatus] = useState(null)
@@ -225,6 +225,25 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
           : castList.length > 0 && <p style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>{missingCast.length} still needed</p>
         }
       </div>
+
+      {/* Go to Check-in */}
+      <button
+        onClick={onGoToCheckin}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          width: '100%', padding: '0.875rem 1rem', marginBottom: 14,
+          background: 'var(--bg2)', border: '0.5px solid var(--border2)',
+          borderRadius: 'var(--radius-lg)', cursor: 'pointer', color: 'var(--text)'
+        }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 22 }}>✅</span>
+          <div style={{ textAlign: 'left' }}>
+            <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Cast Check-in</p>
+            <p style={{ fontSize: 12, color: 'var(--text3)', margin: 0 }}>QR code, live list, manual check-in</p>
+          </div>
+        </div>
+        <span style={{ fontSize: 18, color: 'var(--text3)' }}>→</span>
+      </button>
 
       {/* QR Code */}
       <div style={{ background: 'var(--bg2)', borderRadius: 'var(--radius)', padding: '0.75rem 1rem', marginBottom: 16 }}>
