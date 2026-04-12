@@ -50,4 +50,5 @@ export const api = {
   getCheckinStatus: (sheetId, showDate) => call(`/getCheckinStatus?sheetId=${sheetId}&showDate=${showDate}`),
   getPublicCheckinStatus: (productionCode, showDate) => call(`/showCheckin?productionCode=${productionCode}&showDate=${showDate}`),
   sendCheckinAlerts: (data) => call('/sendCheckinAlerts', 'POST', data),
+  sendTestNotification: (data) => call('/sendTestNotification', 'POST', data),
 }

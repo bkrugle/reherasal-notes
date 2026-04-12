@@ -2,6 +2,7 @@
 
 const { sheetsClient, getRows, REGISTRY_SHEET_ID, CORS, ok, err } = require('./_sheets')
 const { sendSMS } = require('./_sms')
+const { sendNtfy } = require('./_ntfy')
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
@@ -54,18 +55,28 @@ exports.handler = async (event) => {
     const timeStr = curtainTime ? ` Curtain at ${curtainTime}.` : ''
 
     for (const sm of staffWithSMS) {
-      const smsTo = sm.smsGateway || sm.phone
       const missingNames = missing.map(c => c.castMember ? `${c.castMember} (${c.name})` : c.name).join(', ')
       const autoNote = body.autoFired ? ' [Auto 1-hr alert]' : ''
-      const msg = missing.length === 0
+      const allClear = missing.length === 0
+      const msg = allClear
         ? `✅ ${productionTitle}${timeStr} — ALL CAST CHECKED IN! 🎭${autoNote}`
         : `⚠️ ${productionTitle}${timeStr} — ${missing.length} NOT checked in: ${missingNames}.${autoNote}`
 
       try {
-        await sendSMS(smsTo, msg)
-        results.alerted.push(sm.name || smsTo)
+        if (sm.ntfyTopic) {
+          // Send via ntfy push notification
+          await sendNtfy(sm.ntfyTopic, msg, {
+            title: allClear ? '✅ All cast in!' : `⚠️ ${missing.length} missing`,
+            priority: allClear ? 'default' : missing.length > 3 ? 'high' : 'default',
+            tags: allClear ? ['white_check_mark'] : ['warning']
+          })
+        } else {
+          const smsTo = sm.smsGateway || sm.phone
+          await sendSMS(smsTo, msg)
+        }
+        results.alerted.push(sm.name || sm.ntfyTopic || sm.phone)
       } catch (e) {
-        results.failed.push({ name: sm.name || smsTo, error: e.message })
+        results.failed.push({ name: sm.name, error: e.message })
       }
     }
 

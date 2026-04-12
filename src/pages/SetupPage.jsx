@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import CastManager from '../components/CastManager'
+import { api } from '../lib/api'
 
 // Parses showDates string into array of ISO date strings
 function parseShowDates(showDates) {
@@ -164,8 +165,23 @@ function TagInput({ label, values, onChange, placeholder }) {
   )
 }
 
-function NotificationContactForm({ onAdd }) {
-  const [form, setForm] = useState({ name: '', role: 'Stage Manager', phone: '', smsGateway: '' })
+function NotificationContactForm({ onAdd, ntfyTopic, productionTitle }) {
+  const [form, setForm] = useState({ name: '', role: 'Stage Manager', phone: '', smsGateway: '', ntfyTopic: '' })
+  const [testSending, setTestSending] = useState(false)
+  const [testResult, setTestResult] = useState(null)
+
+  async function sendTest(topic) {
+    setTestSending(true)
+    setTestResult(null)
+    try {
+      await api.sendTestNotification({ ntfyTopic: topic, productionTitle })
+      setTestResult('success')
+    } catch (e) {
+      setTestResult('failed')
+    } finally {
+      setTestSending(false)
+    }
+  }
   const carriers = [
     { label: 'Verizon', suffix: '@vtext.com' },
     { label: 'AT&T', suffix: '@txt.att.net' },
@@ -254,7 +270,43 @@ function NotificationContactForm({ onAdd }) {
           </p>
         )}
       </div>
-      <button className="btn btn-primary btn-sm" onClick={add} disabled={!form.name || (!form.phone && !form.smsGateway)}>
+      {/* ntfy push notifications */}
+      <div style={{ borderTop: '0.5px solid var(--border)', paddingTop: '0.75rem', marginTop: '0.75rem' }}>
+        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>
+          📲 Push notifications (free, recommended)
+        </p>
+        <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8, lineHeight: 1.5 }}>
+          Install the free <strong>ntfy</strong> app on their phone, then subscribe to the topic below.
+          Instant push notifications — no cost, no registration.
+        </p>
+        {ntfyTopic && (
+          <div style={{ background: 'var(--bg3)', borderRadius: 'var(--radius)', padding: '8px 10px', marginBottom: 8 }}>
+            <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>Production topic (subscribe to this in the ntfy app):</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <code style={{ fontSize: 12, fontWeight: 600, flex: 1, wordBreak: 'break-all' }}>{ntfyTopic}</code>
+              <button className="btn btn-sm" style={{ fontSize: 10, flexShrink: 0 }}
+                onClick={() => navigator.clipboard?.writeText(ntfyTopic)}>Copy</button>
+            </div>
+          </div>
+        )}
+        <div className="field" style={{ marginBottom: 8 }}>
+          <label>Their ntfy topic <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(paste from above, or leave blank)</span></label>
+          <input type="text" value={form.ntfyTopic}
+            onChange={e => setForm(f => ({ ...f, ntfyTopic: e.target.value }))}
+            placeholder={ntfyTopic || 'vhs-25thop3-xxxxxxxx'} />
+        </div>
+        {form.ntfyTopic && (
+          <div style={{ marginBottom: 8 }}>
+            <button className="btn btn-sm" onClick={() => sendTest(form.ntfyTopic)} disabled={testSending}>
+              {testSending ? 'Sending…' : '📲 Send test notification'}
+            </button>
+            {testResult === 'success' && <span style={{ fontSize: 12, color: 'var(--green-text)', marginLeft: 8 }}>✓ Sent! Check the ntfy app.</span>}
+            {testResult === 'failed' && <span style={{ fontSize: 12, color: 'var(--red-text)', marginLeft: 8 }}>✗ Failed — check the topic name.</span>}
+          </div>
+        )}
+      </div>
+
+      <button className="btn btn-primary btn-sm" onClick={add} disabled={!form.name || (!form.phone && !form.smsGateway && !form.ntfyTopic)}>
         + Add contact
       </button>
     </div>
@@ -300,6 +352,7 @@ export default function SetupPage() {
         calendarId: data.config.calendarId || '',
         useAuditions: (data.config.useAuditions === true || data.config.useAuditions === 'true' || String(data.config.useAuditions) === 'true') ? true : false,
         curtainTimes: typeof data.config.curtainTimes === 'object' ? data.config.curtainTimes : {},
+        ntfyTopic: data.config.ntfyTopic || '',
         auditionQuestions: Array.isArray(data.config.auditionQuestions) ? data.config.auditionQuestions : [],
         scenes: Array.isArray(data.config.scenes) ? data.config.scenes : [],
         characters: normalizeCast(Array.isArray(data.config.characters) ? data.config.characters : []),
@@ -651,9 +704,29 @@ export default function SetupPage() {
           {/* ── SMS NOTIFICATIONS ───────────────────────────────── */}
           <div className="card" style={{ marginBottom: '1rem' }}>
             <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>📱 SMS Notifications</p>
-            <p className="muted" style={{ fontSize: 13, marginBottom: '1rem' }}>
-              These people receive automatic SMS alerts on show day — 1 hour before curtain, and on demand. Add your Stage Manager first.
+            <p className="muted" style={{ fontSize: 13, marginBottom: '0.75rem' }}>
+              These people receive automatic alerts on show day — 1 hour before curtain, and on demand. Add your Stage Manager first.
             </p>
+            {!config.ntfyTopic && (
+              <div style={{ background: 'var(--amber-bg)', border: '0.5px solid var(--amber-text)', borderRadius: 'var(--radius)', padding: '0.75rem', marginBottom: '1rem' }}>
+                <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--amber-text)', marginBottom: 6 }}>⚡ Generate a push notification topic</p>
+                <p style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8 }}>Your production doesn't have a push notification topic yet. Generate one to enable free instant alerts via the ntfy app.</p>
+                <button className="btn btn-sm" onClick={() => {
+                  const topic = 'vhs-' + (config.title || 'show').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) + '-' + Math.random().toString(36).slice(2, 10)
+                  setC('ntfyTopic', topic)
+                }}>Generate topic</button>
+              </div>
+            )}
+            {config.ntfyTopic && (
+              <div style={{ background: 'var(--bg2)', borderRadius: 'var(--radius)', padding: '0.75rem', marginBottom: '1rem' }}>
+                <p style={{ fontSize: 12, fontWeight: 500, marginBottom: 4 }}>📲 Push notification topic</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <code style={{ fontSize: 12, flex: 1, wordBreak: 'break-all', color: 'var(--text2)' }}>{config.ntfyTopic}</code>
+                  <button className="btn btn-sm" style={{ fontSize: 10 }} onClick={() => navigator.clipboard?.writeText(config.ntfyTopic)}>Copy</button>
+                </div>
+                <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Install the free ntfy app → Subscribe to this topic → Done</p>
+              </div>
+            )}
             {(config.notificationContacts || []).map((contact, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, padding: '8px 10px', background: 'var(--bg2)', borderRadius: 'var(--radius)', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 14, fontWeight: 500, flex: '0 0 auto', minWidth: 100 }}>{contact.name}</span>
@@ -667,7 +740,7 @@ export default function SetupPage() {
                 }} style={{ flex: '0 0 auto' }}>✕</button>
               </div>
             ))}
-            <NotificationContactForm onAdd={contact => setC('notificationContacts', [...(config.notificationContacts || []), contact])} />
+            <NotificationContactForm onAdd={contact => setC('notificationContacts', [...(config.notificationContacts || []), contact])} ntfyTopic={config.ntfyTopic} productionTitle={config.title} />
             <div style={{ marginTop: 12 }}>
               <button className="btn btn-primary btn-sm" onClick={save} disabled={saving}>
                 {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save notification contacts'}
