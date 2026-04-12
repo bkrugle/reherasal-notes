@@ -83,8 +83,12 @@ function MemberSelector({ members, allNames, onChange }) {
   )
 }
 
-function CastEntry({ entry, allNames, onChange, onRemove }) {
+function CastEntry({ entry: rawEntry, allNames, onChange, onRemove }) {
   const [expanded, setExpanded] = useState(false)
+  // Normalize — entry might be a plain string from tag input
+  const entry = typeof rawEntry === 'string'
+    ? { name: rawEntry, emails: [], members: [], isGroup: false, phone: '', smsGateway: '' }
+    : { phone: '', smsGateway: '', ...rawEntry }
   const name = castName(entry)
   const emails = castEmails(entry)
   const members = castMembers(entry)
