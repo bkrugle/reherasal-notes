@@ -220,20 +220,26 @@ function NotificationContactForm({ onAdd }) {
           onChange={e => setForm(f => ({ ...f, smsGateway: e.target.value }))}
           placeholder="e.g. 4125550100@vtext.com" />
         <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-          {carriers.map(c => (
-            <button key={c.label} type="button" className="btn btn-sm"
-              onClick={() => {
-                const gw = buildGateway(form.phone, c.suffix)
-                if (gw) setForm(f => ({ ...f, smsGateway: gw }))
-              }}
-              style={{ fontSize: 11 }}>
-              {c.label} →
-            </button>
-          ))}
+          {carriers.map(c => {
+            const gw = buildGateway(form.phone, c.suffix)
+            return (
+              <button key={c.label} type="button" className="btn btn-sm"
+                onClick={() => {
+                  if (gw) setForm(f => ({ ...f, smsGateway: gw }))
+                  else alert('Enter a valid 10-digit phone number first')
+                }}
+                style={{ fontSize: 11, opacity: gw ? 1 : 0.5 }}
+                title={gw || 'Enter phone number first'}>
+                {c.label} →
+              </button>
+            )
+          })}
         </div>
-        <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4 }}>
-          Enter phone number above then tap carrier to auto-fill gateway
-        </p>
+        {form.smsGateway && (
+          <p style={{ fontSize: 11, color: 'var(--green-text)', marginTop: 4 }}>
+            ✓ Gateway: {form.smsGateway}
+          </p>
+        )}
       </div>
       <button className="btn btn-primary btn-sm" onClick={add} disabled={!form.name || (!form.phone && !form.smsGateway)}>
         + Add contact
