@@ -345,7 +345,7 @@ export default function SetupPage() {
 
   const [config, setConfig] = useState({
     title: '', directorName: '', directorEmail: '',
-    showDates: '', venue: '', calendarId: '', useAuditions: 'false', auditionQuestions: [], scenes: [], characters: [], staff: [], curtainTimes: {}, notificationContacts: []
+    showDates: '', venue: '', calendarId: '', useAuditions: 'false', auditionQuestions: [], scenes: [], characters: [], staff: [], curtainTimes: {}, notificationContacts: [], accentColor: '', accentBg: ''
   })
   const [sharedWith, setSharedWith] = useState([])
   const [newMember, setNewMember] = useState({ name: '', email: '', pin: '', role: 'member' })
@@ -369,6 +369,8 @@ export default function SetupPage() {
         useAuditions: (data.config.useAuditions === true || data.config.useAuditions === 'true' || String(data.config.useAuditions) === 'true') ? true : false,
         curtainTimes: typeof data.config.curtainTimes === 'object' ? data.config.curtainTimes : {},
         ntfyTopic: data.config.ntfyTopic || '',
+        accentColor: data.config.accentColor || '',
+        accentBg: data.config.accentBg || '',
         auditionQuestions: Array.isArray(data.config.auditionQuestions) ? data.config.auditionQuestions : [],
         scenes: Array.isArray(data.config.scenes) ? data.config.scenes : [],
         characters: normalizeCast(Array.isArray(data.config.characters) ? data.config.characters : []),
@@ -569,6 +571,46 @@ export default function SetupPage() {
               onChange={v => setC('curtainTimes', v)}
             />
           </div>
+          {/* Appearance */}
+          <div className="field" style={{ marginBottom: '1.25rem' }}>
+            <label>Accent color <span style={{ fontWeight: 400, color: 'var(--text3)', fontSize: 11 }}>— used in the top bar and nav</span></label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
+              {[
+                { color: '#7C3AED', bg: '#EDE9FE', name: 'Purple' },
+                { color: '#DC2626', bg: '#FEE2E2', name: 'Crimson' },
+                { color: '#0369A1', bg: '#E0F2FE', name: 'Blue' },
+                { color: '#059669', bg: '#D1FAE5', name: 'Green' },
+                { color: '#D97706', bg: '#FEF3C7', name: 'Amber' },
+                { color: '#DB2777', bg: '#FCE7F3', name: 'Pink' },
+                { color: '#374151', bg: '#F3F4F6', name: 'Slate' },
+                { color: '#1a1a1a', bg: '#f5f4f1', name: 'Default' },
+              ].map(({ color, bg, name }) => (
+                <button key={color} type="button" title={name}
+                  onClick={() => {
+                    setC('accentColor', color)
+                    setC('accentBg', bg)
+                    document.documentElement.style.setProperty('--accent', color)
+                    document.documentElement.style.setProperty('--accent-bg', bg)
+                  }}
+                  style={{
+                    width: 32, height: 32, borderRadius: '50%',
+                    background: color, border: config.accentColor === color ? '3px solid var(--text)' : '2px solid transparent',
+                    cursor: 'pointer', transition: 'transform 0.1s',
+                    outline: 'none'
+                  }} />
+              ))}
+            </div>
+            {config.accentColor && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 'var(--radius)', background: config.accentColor }}>
+                <span style={{ fontSize: 18 }}>🎭</span>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.95)', margin: 0 }}>{config.title || 'Your Production'}</p>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', margin: 0 }}>{config.showDates || 'Show dates'}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="field" style={{ marginBottom: '1.25rem' }}>
             <label>Google Calendar ID (optional)</label>
             <input type="text" value={config.calendarId} onChange={e => setC('calendarId', e.target.value)}

@@ -354,3 +354,142 @@ textarea { resize: vertical; line-height: 1.5; }
   .bottom-nav { display: none !important; }
   .tabs-desktop-only { display: flex !important; }
 }
+
+/* ── Accent theme system ─────────────────────────────── */
+:root {
+  --accent: #1a1a1a;
+  --accent-bg: rgba(0,0,0,0.06);
+  --accent-text: #ffffff;
+}
+
+/* ── New top bar ─────────────────────────────────────── */
+.app-topbar {
+  background: var(--accent);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: none;
+}
+.app-topbar-inner {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.app-topbar-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.95);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.app-topbar-sub {
+  font-size: 11px;
+  color: rgba(255,255,255,0.6);
+  margin-top: 1px;
+}
+.app-topbar-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius);
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: rgba(255,255,255,0.9);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.app-topbar-icon:hover { background: rgba(255,255,255,0.25); }
+.app-topbar-badge {
+  background: rgba(255,255,255,0.18);
+  border-radius: var(--radius);
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.9);
+  white-space: nowrap;
+  border: none;
+  cursor: pointer;
+}
+.app-topbar-badge:hover { background: rgba(255,255,255,0.28); }
+
+/* ── New pill tab bar ────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  padding: 0.75rem 1rem 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  max-width: 880px;
+  margin: 0 auto;
+}
+.tab-bar::-webkit-scrollbar { display: none; }
+.tab-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border: 0.5px solid var(--border2);
+  background: transparent;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tab-pill:hover { background: var(--bg2); color: var(--text); }
+.tab-pill.active {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: transparent;
+}
+.tab-pill-showday {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.tab-pill-showday.active {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+/* ── New bottom nav ──────────────────────────────────── */
+@media (max-width: 640px) {
+  .bottom-nav-btn.active {
+    color: var(--accent) !important;
+  }
+  .show-day-nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px 8px;
+    border-radius: 10px;
+    border: 2px solid var(--accent);
+    background: var(--accent);
+    color: white !important;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    min-width: 64px;
+    margin: 4px 2px;
+  }
+  .show-day-nav-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+}

@@ -164,7 +164,11 @@ export default function ProductionApp() {
     try {
       const data = await api.getProduction(session.sheetId)
       setProduction(data)
-      // Load calendar events if configured
+      // Apply accent color from production config
+      if (data?.config?.accentColor) {
+        document.documentElement.style.setProperty('--accent', data.config.accentColor)
+        document.documentElement.style.setProperty('--accent-bg', data.config.accentBg || data.config.accentColor + '20')
+      }
       const calId = data?.config?.calendarId
       if (calId) {
         api.getCalendar(calId, 2).then(d => setCalendarEvents(d.events || [])).catch(() => {})
@@ -222,43 +226,36 @@ export default function ProductionApp() {
   return (
     <div style={{ minHeight: '100vh' }}>
       {/* Top bar */}
-      <div style={{ background: 'var(--bg)', borderBottom: '0.5px solid var(--border)', padding: '0 1rem', position: 'sticky', top: 0, zIndex: 10 }}>
-        <div className="topbar-inner" style={{ maxWidth: 880, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 52 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-            <span style={{ fontSize: 20, flexShrink: 0 }}>🎭</span>
+      <div className="app-topbar">
+        <div className="app-topbar-inner">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+            <span style={{ fontSize: 22, flexShrink: 0 }}>🎭</span>
             <div style={{ minWidth: 0 }}>
-              <span className="topbar-title" style={{ fontSize: 15, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{title}</span>
-              <span style={{ fontSize: 11, color: 'var(--text3)' }}>{session.productionCode}</span>
+              <div className="app-topbar-title">{title}</div>
+              <div className="app-topbar-sub">{session.productionCode}{showDates ? ` · ${showDates}` : ''}</div>
             </div>
-            <ShowCountdown showDates={showDates} />
           </div>
-          <div className="topbar-controls" style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             {/* Stopwatch */}
-            <div className="stopwatch-wrap" style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg2)', border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '4px 8px' }}>
-              <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 500, minWidth: 44, color: swRunning ? '#e24b4a' : 'var(--text)' }}>{swDisplay}</span>
-              <button className="btn btn-sm" style={{ padding: '2px 7px', fontSize: 12 }} onClick={swToggle}>
-                {swRunning ? '⏸' : swElapsed > 0 ? '▶' : '▶'}
-              </button>
-              <button className="btn btn-sm" style={{ padding: '2px 7px', fontSize: 12 }} onClick={swReset}>↺</button>
-            </div>
-            <button className="btn btn-sm" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => setShowSceneTimer(t => !t)}>
-              ⏱
+            <button className="app-topbar-badge" onClick={swToggle}
+              style={{ fontFamily: 'monospace', minWidth: 52, color: swRunning ? '#fca5a5' : 'rgba(255,255,255,0.9)' }}>
+              {swRunning ? '⏸ ' : '▶ '}{swDisplay}
             </button>
+            {swElapsed > 0 && <button className="app-topbar-icon" onClick={swReset} style={{ fontSize: 14 }}>↺</button>}
             {openNotes.length > 0 && (
-              <button className="btn btn-sm" onClick={() => setMeetingMode(true)}
-                style={{ background: 'var(--purple-bg)', color: 'var(--purple-text)', borderColor: 'transparent', fontWeight: 500, fontSize: 12, padding: '4px 8px' }}>
+              <button className="app-topbar-badge" onClick={() => setMeetingMode(true)}>
                 📋 {openNotes.length}
               </button>
             )}
-            <button className="btn btn-sm" style={{ fontSize: 12, padding: '4px 8px', background: 'var(--amber-bg)', color: 'var(--amber-text)', borderColor: 'transparent', fontWeight: 500 }}
-              onClick={() => setWrapUp(true)}>
-              Wrap up
-            </button>
+            <button className="app-topbar-badge" onClick={() => setWrapUp(true)}>Wrap up</button>
             {session.role === 'admin' && (
-              <button className="btn btn-sm" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => navigate('/setup')}>⚙️</button>
+              <button className="app-topbar-icon" onClick={() => navigate('/setup')}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+              </button>
             )}
-            <button className="btn btn-sm" style={{ fontSize: 12, padding: '4px 8px' }} onClick={() => { logout(); navigate('/') }}>
-              {session.name ? session.name.split(' ')[0] : 'Sign out'}
+            <button className="app-topbar-icon" onClick={() => { logout(); navigate('/') }}
+              style={{ fontWeight: 700, fontSize: 12 }}>
+              {session.name ? session.name.split(' ')[0].slice(0,2).toUpperCase() : '↩'}
             </button>
           </div>
         </div>
@@ -269,10 +266,17 @@ export default function ProductionApp() {
 
         {showSceneTimer && <SceneTimer scenes={scenes} />}
 
-        <div className="tabs tabs-desktop-only">
-          {TABS.map((t, i) => (
-            <button key={t} className={`tab-btn ${activeTab === i ? 'active' : ''}`} onClick={() => setTab(i)}>{t}</button>
-          ))}
+        <div className="tab-bar tabs-desktop-only">
+          {TABS.map((t, i) => {
+            const isShowDay = t === 'Show Day'
+            return (
+              <button key={t}
+                className={`tab-pill ${isShowDay ? 'tab-pill-showday' : ''} ${activeTab === i ? 'active' : ''}`}
+                onClick={() => setTab(i)}>
+                {isShowDay ? '🎬 ' : ''}{t}
+              </button>
+            )
+          })}
         </div>
 
         {activeTab === 0 && <Dashboard notes={notes} production={production} session={session} calendarEvents={calendarEvents} onNavigate={setTab} onLogForDate={onLogForDate} openNotes={openNotes} />}
@@ -299,17 +303,9 @@ export default function ProductionApp() {
             <button className={`bottom-nav-btn ${activeTab === 1 ? 'active' : ''}`} onClick={() => setTab(1)}>
               <span style={{ fontSize: 20 }}>✏️</span><span>Log</span>
             </button>
-            <button onClick={() => setTab(11)} style={{
-              flex: '0 0 auto', display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', padding: '4px 8px',
-              background: activeTab === 11 ? 'var(--amber-text)' : 'var(--bg2)',
-              border: '2px solid var(--amber-text)', borderRadius: 'var(--radius)',
-              color: activeTab === 11 ? 'var(--bg)' : 'var(--amber-text)',
-              fontWeight: 700, cursor: 'pointer', minWidth: 72, margin: '4px',
-              fontSize: 10, gap: 2
-            }}>
-              <span style={{ fontSize: 22 }}>🎬</span>
-              <span>SHOW DAY</span>
+            <button className="show-day-nav-btn" onClick={() => setTab(11)}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              Show day
             </button>
             <button className={`bottom-nav-btn ${activeTab === 9 ? 'active' : ''}`} onClick={() => setTab(9)}>
               <span style={{ fontSize: 20 }}>✉️</span><span>Send</span>
@@ -332,7 +328,7 @@ export default function ProductionApp() {
             <button
               onClick={toggleShowDayMode}
               className={`bottom-nav-btn ${activeTab === 11 ? 'active' : ''}`}
-              style={{ color: 'var(--amber-text)' }}>
+              style={{}}>
               <span style={{ fontSize: 20 }}>🎬</span><span>Show Day</span>
             </button>
             <button className={`bottom-nav-btn ${[3,4,5,6,7,8,9,10].includes(activeTab) ? 'active' : ''}`}
