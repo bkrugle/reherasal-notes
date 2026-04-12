@@ -104,6 +104,7 @@ export default function ProductionApp() {
 
   function setTab(idx) {
     setActiveTab(idx)
+    setShowMoreMenu(false)
     try { sessionStorage.setItem(tabKey, String(idx)) } catch {}
   }
   const [production, setProduction] = useState(null)
@@ -114,6 +115,7 @@ export default function ProductionApp() {
   const [showSceneTimer, setShowSceneTimer] = useState(false)
   const [wrapUp, setWrapUp] = useState(false)
   const [calendarEvents, setCalendarEvents] = useState([])
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
   const showDayKey = 'rn_showday_' + (session?.sheetId || 'default')
   const [showDayMode, setShowDayMode] = useState(() => {
     try { return localStorage.getItem(showDayKey) === 'true' } catch { return false }
@@ -288,76 +290,87 @@ export default function ProductionApp() {
       {/* Bottom nav — mobile only */}
       <nav className="bottom-nav" style={showDayMode ? { background: 'var(--bg)', borderTop: '2px solid var(--amber-text)' } : {}}>
         {showDayMode ? (
-          // ── SHOW DAY MODE nav ──────────────────────────────────────
           <>
             <button className={`bottom-nav-btn ${activeTab === 0 ? 'active' : ''}`} onClick={() => setTab(0)}>
-              <span style={{ fontSize: 18 }}>🏠</span>
-              <span>Home</span>
+              <span style={{ fontSize: 20 }}>🏠</span><span>Home</span>
             </button>
             <button className={`bottom-nav-btn ${activeTab === 1 ? 'active' : ''}`} onClick={() => setTab(1)}>
-              <span style={{ fontSize: 18 }}>✏️</span>
-              <span>Log</span>
+              <span style={{ fontSize: 20 }}>✏️</span><span>Log</span>
             </button>
-            {/* Big Show Day button */}
-            <button
-              onClick={() => setTab(11)}
-              style={{
-                flex: '0 0 auto',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                padding: '4px 0',
-                background: activeTab === 11 ? 'var(--amber-text)' : 'var(--bg2)',
-                border: '2px solid var(--amber-text)',
-                borderRadius: 'var(--radius)',
-                color: activeTab === 11 ? 'var(--bg)' : 'var(--amber-text)',
-                fontWeight: 700, cursor: 'pointer',
-                minWidth: 80, margin: '4px 4px',
-                fontSize: 11,
-              }}>
+            <button onClick={() => setTab(11)} style={{
+              flex: '0 0 auto', display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', padding: '4px 8px',
+              background: activeTab === 11 ? 'var(--amber-text)' : 'var(--bg2)',
+              border: '2px solid var(--amber-text)', borderRadius: 'var(--radius)',
+              color: activeTab === 11 ? 'var(--bg)' : 'var(--amber-text)',
+              fontWeight: 700, cursor: 'pointer', minWidth: 72, margin: '4px',
+              fontSize: 10, gap: 2
+            }}>
               <span style={{ fontSize: 22 }}>🎬</span>
               <span>SHOW DAY</span>
             </button>
             <button className={`bottom-nav-btn ${activeTab === 9 ? 'active' : ''}`} onClick={() => setTab(9)}>
-              <span style={{ fontSize: 18 }}>✉️</span>
-              <span>Send</span>
+              <span style={{ fontSize: 20 }}>✉️</span><span>Send</span>
             </button>
-            <button
-              onClick={toggleShowDayMode}
-              className="bottom-nav-btn"
-              style={{ color: 'var(--text3)' }}>
-              <span style={{ fontSize: 18 }}>🔄</span>
-              <span>Rehearsal</span>
+            <button className="bottom-nav-btn" onClick={toggleShowDayMode} style={{ color: 'var(--text3)' }}>
+              <span style={{ fontSize: 20 }}>🔄</span><span>Exit</span>
             </button>
           </>
         ) : (
-          // ── REHEARSAL MODE nav ─────────────────────────────────────
           <>
-            {[
-              { icon: '🏠', label: 'Home',     idx: 0 },
-              { icon: '✏️', label: 'Log',      idx: 1 },
-              { icon: '📋', label: 'Review',   idx: 2 },
-              { icon: '👤', label: 'Cast',     idx: 3 },
-              ...(useAuditions
-                ? [{ icon: '🎭', label: 'Auditions', idx: 10 }]
-                : [{ icon: '✉️', label: 'Send', idx: 9 }]
-              ),
-            ].map(({ icon, label, idx }) => (
-              <button key={label} className={`bottom-nav-btn ${activeTab === idx ? 'active' : ''}`}
-                onClick={() => setTab(idx)}>
-                <span style={{ fontSize: 20 }}>{icon}</span>
-                <span>{label}</span>
-              </button>
-            ))}
-            {/* Show Day button — smaller in rehearsal mode */}
+            <button className={`bottom-nav-btn ${activeTab === 0 ? 'active' : ''}`} onClick={() => setTab(0)}>
+              <span style={{ fontSize: 20 }}>🏠</span><span>Home</span>
+            </button>
+            <button className={`bottom-nav-btn ${activeTab === 1 ? 'active' : ''}`} onClick={() => setTab(1)}>
+              <span style={{ fontSize: 20 }}>✏️</span><span>Log</span>
+            </button>
+            <button className={`bottom-nav-btn ${activeTab === 2 ? 'active' : ''}`} onClick={() => setTab(2)}>
+              <span style={{ fontSize: 20 }}>📋</span><span>Review</span>
+            </button>
             <button
               onClick={toggleShowDayMode}
               className={`bottom-nav-btn ${activeTab === 11 ? 'active' : ''}`}
               style={{ color: 'var(--amber-text)' }}>
-              <span style={{ fontSize: 20 }}>🎬</span>
-              <span>Show Day</span>
+              <span style={{ fontSize: 20 }}>🎬</span><span>Show Day</span>
+            </button>
+            <button className={`bottom-nav-btn ${[3,4,5,6,7,8,9,10].includes(activeTab) ? 'active' : ''}`}
+              onClick={() => setShowMoreMenu(m => !m)}
+              style={{ position: 'relative' }}>
+              <span style={{ fontSize: 20 }}>⋯</span><span>More</span>
             </button>
           </>
         )}
       </nav>
+
+      {/* More menu drawer */}
+      {showMoreMenu && !showDayMode && (
+        <div style={{
+          position: 'fixed', bottom: 60, left: 0, right: 0, zIndex: 200,
+          background: 'var(--bg)', borderTop: '0.5px solid var(--border)',
+          padding: '0.75rem', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8
+        }}
+          onClick={() => setShowMoreMenu(false)}>
+          {[
+            { icon: '👤', label: 'Cast', idx: 3 },
+            { icon: '📅', label: 'Calendar', idx: 4 },
+            { icon: '📁', label: 'Docs', idx: 5 },
+            { icon: '📈', label: 'Trends', idx: 6 },
+            { icon: '✅', label: 'Attendance', idx: 7 },
+            { icon: '📄', label: 'Report', idx: 8 },
+            { icon: '✉️', label: 'Send', idx: 9 },
+            ...(useAuditions ? [{ icon: '🎭', label: 'Auditions', idx: 10 }] : []),
+          ].map(({ icon, label, idx }) => (
+            <button key={label}
+              className={`bottom-nav-btn ${activeTab === idx ? 'active' : ''}`}
+              onClick={() => setTab(idx)}
+              style={{ flexDirection: 'column', padding: '8px 4px', borderRadius: 'var(--radius)', background: activeTab === idx ? 'var(--bg2)' : 'transparent' }}>
+              <span style={{ fontSize: 22 }}>{icon}</span>
+              <span style={{ fontSize: 10 }}>{label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {showMoreMenu && <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setShowMoreMenu(false)} />}
     </div>
   )
 }

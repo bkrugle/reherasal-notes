@@ -107,9 +107,15 @@ exports.handler = async (event) => {
       // Merge: existing preserved, incoming overwrites, new folder IDs added
       const merged = { ...existing }
       Object.entries(config).forEach(([k, v]) => {
-        merged[k] = typeof v === 'object' ? JSON.stringify(v)
-          : typeof v === 'boolean' ? String(v)
-          : (v ?? '')
+        if (v === null || v === undefined) {
+          merged[k] = ''
+        } else if (Array.isArray(v) || (typeof v === 'object')) {
+          merged[k] = JSON.stringify(v)
+        } else if (typeof v === 'boolean') {
+          merged[k] = String(v)
+        } else {
+          merged[k] = String(v)  // force string — never lose a value
+        }
       })
       // Add any newly created folder IDs
       Object.entries(extraFolderIds).forEach(([k, v]) => { merged[k] = v })
