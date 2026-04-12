@@ -223,61 +223,158 @@ export default function ProductionApp() {
     return <MeetingMode notes={notes} sheetId={session.sheetId} onUpdated={onNoteUpdated} onClose={() => setMeetingMode(false)} />
   }
 
+  const SIDEBAR_TABS = [
+    { section: 'Rehearsal', items: [
+      { label: 'Home', idx: 0, icon: 'home' },
+      { label: 'Log note', idx: 1, icon: 'edit' },
+      { label: 'Review', idx: 2, icon: 'clipboard' },
+      { label: 'By cast', idx: 3, icon: 'users' },
+      { label: 'Calendar', idx: 4, icon: 'calendar' },
+    ]},
+    { section: 'Communications', items: [
+      { label: 'Send notes', idx: 9, icon: 'send' },
+      { label: 'Report', idx: 8, icon: 'file' },
+      { label: 'Documents', idx: 5, icon: 'folder' },
+    ]},
+    { section: 'Analytics', items: [
+      { label: 'Trends', idx: 6, icon: 'trending' },
+      { label: 'Attendance', idx: 7, icon: 'check-square' },
+      { label: 'Check-in', idx: 12, icon: 'clock' },
+    ]},
+    { section: 'Show', items: [
+      ...(useAuditions ? [{ label: 'Auditions', idx: 10, icon: 'star' }] : []),
+    ]},
+  ]
+
+  const SidebarIcon = ({ name }) => {
+    const icons = {
+      home: <path d="M3 12L12 3l9 9M5 10v10h5v-6h4v6h5V10"/>,
+      edit: <><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
+      clipboard: <><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></>,
+      users: <><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></>,
+      calendar: <><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>,
+      send: <><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>,
+      file: <><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></>,
+      folder: <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>,
+      trending: <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>,
+      'check-square': <><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></>,
+      clock: <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>,
+      star: <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>,
+      video: <><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></>,
+    }
+    return (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
+        {icons[name]}
+      </svg>
+    )
+  }
+
   return (
-    <div style={{ minHeight: '100vh' }}>
-      {/* Top bar */}
-      <div className="app-topbar">
-        <div className="app-topbar-inner">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-            <span style={{ fontSize: 22, flexShrink: 0 }}>🎭</span>
-            <div style={{ minWidth: 0 }}>
-              <div className="app-topbar-title">{title}</div>
-              <div className="app-topbar-sub">{session.productionCode}{showDates ? ` · ${showDates}` : ''}</div>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+
+      {/* ── DESKTOP SIDEBAR LAYOUT ───────────────────────── */}
+      <div className="desktop-layout">
+
+        {/* Sidebar */}
+        <aside className="app-sidebar">
+          {/* Logo / show info */}
+          <div className="sidebar-header">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div className="sidebar-logo-icon">🎭</div>
+              <div style={{ minWidth: 0 }}>
+                <div className="sidebar-show-title">{title}</div>
+                <div className="sidebar-show-sub">{session.productionCode}</div>
+              </div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-            {/* Stopwatch */}
-            <button className="app-topbar-badge" onClick={swToggle}
-              style={{ fontFamily: 'monospace', minWidth: 52, color: swRunning ? '#fca5a5' : 'rgba(255,255,255,0.9)' }}>
-              {swRunning ? '⏸ ' : '▶ '}{swDisplay}
-            </button>
-            {swElapsed > 0 && <button className="app-topbar-icon" onClick={swReset} style={{ fontSize: 14 }}>↺</button>}
-            {openNotes.length > 0 && (
-              <button className="app-topbar-badge" onClick={() => setMeetingMode(true)}>
-                📋 {openNotes.length}
+
+          {/* Nav sections */}
+          <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+            {SIDEBAR_TABS.filter(s => s.items.length > 0).map(section => (
+              <div key={section.section} className="sidebar-section">
+                <div className="sidebar-section-label">{section.section}</div>
+                {section.items.map(item => (
+                  <button key={item.idx}
+                    className={`sidebar-nav-item ${activeTab === item.idx ? 'active' : ''}`}
+                    onClick={() => setTab(item.idx)}>
+                    <SidebarIcon name={item.icon} />
+                    {item.label}
+                    {item.idx === 0 && openNotes.length > 0 && (
+                      <span className="sidebar-badge sidebar-badge-red">{openNotes.length}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            ))}
+
+            {/* Show Day button */}
+            <div className="sidebar-section">
+              <div className="sidebar-section-label">Show</div>
+              <button
+                className={`sidebar-nav-showday ${activeTab === 11 ? 'active' : ''}`}
+                onClick={toggleShowDayMode}>
+                <SidebarIcon name="video" />
+                Show day
+                {showDayMode && <span style={{ marginLeft: 'auto', fontSize: 9, background: 'rgba(255,255,255,0.2)', borderRadius: 4, padding: '1px 5px' }}>ON</span>}
               </button>
-            )}
-            <button className="app-topbar-badge" onClick={() => setWrapUp(true)}>Wrap up</button>
+            </div>
+          </nav>
+
+          {/* Footer */}
+          <div className="sidebar-footer">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <button className="sidebar-nav-item" style={{ flex: 1 }}
+                onClick={() => setShowSceneTimer(t => !t)}>
+                <SidebarIcon name="clock" /> Scene timer
+              </button>
+            </div>
             {session.role === 'admin' && (
-              <button className="app-topbar-icon" onClick={() => navigate('/setup')}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+              <button className="sidebar-nav-item" style={{ width: '100%' }} onClick={() => navigate('/setup')}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2"/></svg>
+                Settings
               </button>
             )}
-            <button className="app-topbar-icon" onClick={() => { logout(); navigate('/') }}
-              style={{ fontWeight: 700, fontSize: 12 }}>
-              {session.name ? session.name.split(' ')[0].slice(0,2).toUpperCase() : '↩'}
+            <button className="sidebar-nav-item" style={{ width: '100%' }} onClick={() => { logout(); navigate('/') }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+              {session.name || 'Sign out'}
             </button>
           </div>
-        </div>
-      </div>
+        </aside>
 
-      <div className="page" style={{ paddingTop: '1.25rem' }}>
-        {error && <p style={{ fontSize: 13, color: 'var(--red-text)', background: 'var(--red-bg)', padding: '8px 12px', borderRadius: 'var(--radius)', marginBottom: '1rem' }}>{error}</p>}
-
-        {showSceneTimer && <SceneTimer scenes={scenes} />}
-
-        <div className="tab-bar tabs-desktop-only">
-          {TABS.map((t, i) => {
-            const isShowDay = t === 'Show Day'
-            return (
-              <button key={t}
-                className={`tab-pill ${isShowDay ? 'tab-pill-showday' : ''} ${activeTab === i ? 'active' : ''}`}
-                onClick={() => setTab(i)}>
-                {isShowDay ? '🎬 ' : ''}{t}
+        {/* Main content */}
+        <div className="app-main">
+          {/* Top bar */}
+          <header className="app-main-topbar">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text2)' }}>
+                {TABS[activeTab] || 'Home'}
+              </span>
+              <ShowCountdown showDates={showDates} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg2)', border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '5px 10px' }}>
+                <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 500, minWidth: 44, color: swRunning ? 'var(--red-text)' : 'var(--text)' }}>{swDisplay}</span>
+                <button className="btn btn-sm" style={{ padding: '2px 7px', fontSize: 12 }} onClick={swToggle}>{swRunning ? '⏸' : '▶'}</button>
+                {swElapsed > 0 && <button className="btn btn-sm" style={{ padding: '2px 7px', fontSize: 12 }} onClick={swReset}>↺</button>}
+              </div>
+              {openNotes.length > 0 && (
+                <button className="btn btn-sm" onClick={() => setMeetingMode(true)}
+                  style={{ background: 'var(--purple-bg)', color: 'var(--purple-text)', borderColor: 'transparent', fontWeight: 500 }}>
+                  📋 {openNotes.length}
+                </button>
+              )}
+              <button className="btn btn-sm" style={{ background: 'var(--amber-bg)', color: 'var(--amber-text)', borderColor: 'transparent', fontWeight: 500 }}
+                onClick={() => setWrapUp(true)}>Wrap up</button>
+              <button className="btn btn-sm" style={{ fontWeight: 700, fontSize: 12 }}
+                onClick={() => { logout(); navigate('/') }}>
+                {session.name ? session.name.split(' ')[0].slice(0,2).toUpperCase() : '↩'}
               </button>
-            )
-          })}
-        </div>
+            </div>
+          </header>
+
+          <div className="page" style={{ paddingTop: '1.25rem' }}>
+            {error && <p style={{ fontSize: 13, color: 'var(--red-text)', background: 'var(--red-bg)', padding: '8px 12px', borderRadius: 'var(--radius)', marginBottom: '1rem' }}>{error}</p>}
+            {showSceneTimer && <SceneTimer scenes={scenes} />}
 
         {activeTab === 0 && <Dashboard notes={notes} production={production} session={session} calendarEvents={calendarEvents} onNavigate={setTab} onLogForDate={onLogForDate} openNotes={openNotes} />}
         {activeTab === 1 && <LogTab sheetId={session.sheetId} scenes={scenes} characters={[...characterNames, ...staff]} swDisplay={swDisplay} swRunning={swRunning} createdBy={session.name || session.role} onNoteAdded={onNoteAdded} attachFolderId={attachFolderId} />}
@@ -369,7 +466,12 @@ export default function ProductionApp() {
           ))}
         </div>
       )}
-      {showMoreMenu && <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setShowMoreMenu(false)} />}
+            {showMoreMenu && <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setShowMoreMenu(false)} />}
+          </div>{/* end .page */}
+        </div>{/* end .app-main */}
+      </div>{/* end .desktop-layout */}
+
+      {/* ── MOBILE BOTTOM NAV ───────────────────────────── */}
     </div>
   )
 }

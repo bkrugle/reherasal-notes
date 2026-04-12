@@ -55,14 +55,17 @@ export const api = {
     const res = await fetch(`https://ntfy.sh/${ntfyTopic}`, {
       method: 'POST',
       headers: {
-        'Title': '🎭 Rehearsal Notes — Test',
-        'Tags': 'tada',
+        'Title': 'Rehearsal Notes Test',
+        'Tags': 'tada,white_check_mark',
         'Priority': 'default',
         'Content-Type': 'text/plain'
       },
-      body: `✅ ${productionTitle || 'Your production'} — Rehearsal Notes alerts are working! You'll receive cast check-in updates here on show day.`
+      body: `Test successful! ${productionTitle || 'Your production'} alerts are working. You will receive cast check-in updates here on show day.`
     })
-    if (!res.ok) throw new Error('ntfy error ' + res.status)
+    if (!res.ok) {
+      const txt = await res.text()
+      throw new Error(`ntfy ${res.status}: ${txt}`)
+    }
     return res.json()
   },
 }

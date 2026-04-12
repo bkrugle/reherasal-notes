@@ -167,21 +167,25 @@ function TagInput({ label, values, onChange, placeholder }) {
 function TestButton({ topic, productionTitle }) {
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState(null)
+  const [errorMsg, setErrorMsg] = useState('')
   async function test() {
-    setSending(true); setResult(null)
+    setSending(true); setResult(null); setErrorMsg('')
     try {
       await api.sendTestNotification({ ntfyTopic: topic, productionTitle })
       setResult('success')
-    } catch { setResult('failed') }
+    } catch (e) {
+      setResult('failed')
+      setErrorMsg(e.message)
+    }
     finally { setSending(false) }
   }
   return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+    <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
       <button className="btn btn-sm" onClick={test} disabled={sending} style={{ fontSize: 11 }}>
         {sending ? '…' : '📲 Test'}
       </button>
       {result === 'success' && <span style={{ fontSize: 11, color: 'var(--green-text)' }}>✓ Sent!</span>}
-      {result === 'failed' && <span style={{ fontSize: 11, color: 'var(--red-text)' }}>✗ Failed</span>}
+      {result === 'failed' && <span style={{ fontSize: 11, color: 'var(--red-text)' }} title={errorMsg}>✗ {errorMsg || 'Failed'}</span>}
     </span>
   )
 }
