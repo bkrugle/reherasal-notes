@@ -30,12 +30,15 @@ export function castNameList(characters) {
 export function normalizeCast(characters) {
   if (!Array.isArray(characters)) return []
   return characters.map(c => {
-    if (typeof c === 'string') return { name: c, emails: [], members: [], isGroup: false }
+    if (typeof c === 'string') return { name: c, emails: [], members: [], isGroup: false, phone: '', smsGateway: '' }
     return {
       name: c.name || '',
       emails: Array.isArray(c.emails) ? c.emails : [],
       members: Array.isArray(c.members) ? c.members : [],
-      isGroup: c.isGroup || false
+      isGroup: c.isGroup || false,
+      phone: c.phone || '',
+      smsGateway: c.smsGateway || '',
+      castMember: c.castMember || '',
     }
   }).filter(c => c.name)
 }
