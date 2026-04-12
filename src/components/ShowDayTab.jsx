@@ -32,7 +32,10 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
 
   // Curtain times per day — stored in config as JSON: {"2026-04-16":"19:00","2026-04-17":"19:00",...}
   const curtainTimes = (() => {
-    try { return JSON.parse(production?.config?.curtainTimes || '{}') } catch { return {} }
+    const raw = production?.config?.curtainTimes
+    if (!raw) return {}
+    if (typeof raw === 'object') return raw
+    try { return JSON.parse(raw) } catch { return {} }
   })()
   const [curtainTime, setCurtainTime] = useState(curtainTimes[showDate] || '')
 
