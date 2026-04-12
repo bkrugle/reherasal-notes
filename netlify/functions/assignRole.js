@@ -43,6 +43,12 @@ exports.handler = async (event) => {
       const email = auditioner[idx.email] || ''
       const phone = auditioner[idx.phone] || ''
       const fullName = `${firstName} ${lastName}`.trim()
+      // Pull smsGateway from customAnswers if stored there
+      let smsGateway = ''
+      try {
+        const ca = JSON.parse(auditioner[idx.customAnswers] || '{}')
+        smsGateway = ca.smsGateway || ''
+      } catch {}
 
       // Read current config
       const configRows = await getRows(sheets, sheetId, 'Config!A:B')
@@ -75,6 +81,7 @@ exports.handler = async (event) => {
           // Also track who is cast in this role via a castMember field
           existing.castMember = fullName
           existing.phone = phone
+          if (smsGateway) existing.smsGateway = smsGateway
         }
         characters[existingRoleIdx] = existing
       } else {
@@ -85,7 +92,8 @@ exports.handler = async (event) => {
           members: [],
           isGroup: false,
           castMember: fullName,
-          phone: phone
+          phone: phone,
+          smsGateway: smsGateway
         })
       }
 

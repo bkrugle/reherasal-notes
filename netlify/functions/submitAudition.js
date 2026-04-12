@@ -91,7 +91,7 @@ exports.handler = async (event) => {
 
   const { sheetId, headshotFolderId, appUrl, productionTitle, directorEmail, productionCode,
     firstName, lastName, email, phone, grade, age, experience, conflicts, customAnswers,
-    headshotBase64, editToken: existingToken } = body
+    headshotBase64, editToken: existingToken, smsGateway } = body
 
   if (!sheetId || !firstName || !lastName) return err('sheetId, firstName, and lastName required')
 
@@ -180,7 +180,7 @@ exports.handler = async (event) => {
       firstName, lastName, email || '', phone || '',
       grade || '', age || '', experience || '', conflicts || '',
       headshotUrl, editToken,
-      JSON.stringify(customAnswers || {}),
+      JSON.stringify({ ...(customAnswers || {}), smsGateway: smsGateway || '' }),
       '', 'false', 'false'
     ]
 

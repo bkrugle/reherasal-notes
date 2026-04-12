@@ -136,6 +136,19 @@ export default function AuditionFormPage() {
     reader.readAsDataURL(file)
   }
 
+  function buildSmsGateway(phone, carrier) {
+    const digits = phone.replace(/\D/g, '')
+    const num = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits
+    if (num.length !== 10 || !carrier || carrier === 'other') return ''
+    const suffixes = {
+      verizon: '@vtext.com',
+      att: '@txt.att.net',
+      tmobile: '@tmomail.net',
+      sprint: '@messaging.sprintpcs.com'
+    }
+    return suffixes[carrier] ? num + suffixes[carrier] : ''
+  }
+
   async function submit(e) {
     e.preventDefault()
     if (!form.firstName.trim() || !form.lastName.trim()) return
@@ -149,7 +162,8 @@ export default function AuditionFormPage() {
         directorEmail: formConfig.directorEmail,
         productionCode,
         ...form,
-        headshotBase64: photo?.base64 || ''
+        headshotBase64: photo?.base64 || '',
+        smsGateway: buildSmsGateway(form.phone, form.carrier)
       })
       setSubmitted(true)
     } catch (e) {
@@ -188,7 +202,7 @@ export default function AuditionFormPage() {
           onClick={() => {
             setSubmitted(false)
             setPhoto(null)
-            setForm({ firstName: '', lastName: '', email: '', phone: '', grade: '', age: '', experience: '', conflicts: '', customAnswers: {} })
+            setForm({ firstName: '', lastName: '', email: '', phone: '', carrier: '', grade: '', age: '', experience: '', conflicts: '', customAnswers: {} })
             window.scrollTo(0, 0)
           }}
         >
@@ -229,10 +243,35 @@ export default function AuditionFormPage() {
                 <input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="For confirmation email" />
               </div>
               <div className="field">
-                <label>Phone</label>
-                <input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} />
+                <label>Phone <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(optional)</span></label>
+                <input type="tel" value={form.phone} onChange={e => { set('phone', e.target.value); set('carrier', '') }} placeholder="412-555-0100" />
               </div>
             </div>
+
+            {/* Carrier — only show if phone entered */}
+            {form.phone.replace(/\D/g, '').length >= 10 && (
+              <div className="field" style={{ marginBottom: '1rem' }}>
+                <label>Phone carrier <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(for text message updates)</span></label>
+                <select value={form.carrier || ''} onChange={e => set('carrier', e.target.value)}>
+                  <option value="">Select carrier…</option>
+                  <option value="verizon">Verizon</option>
+                  <option value="att">AT&T</option>
+                  <option value="tmobile">T-Mobile</option>
+                  <option value="sprint">Sprint / Boost</option>
+                  <option value="other">Other / Unknown</option>
+                </select>
+                {form.carrier === 'other' && (
+                  <p style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
+                    No problem — we'll use email for updates instead.
+                  </p>
+                )}
+                {form.carrier && form.carrier !== 'other' && (
+                  <p style={{ fontSize: 12, color: 'var(--green-text)', marginTop: 4 }}>
+                    ✓ You may receive text message updates
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Grade / Age */}
             <div className="grid2" style={{ marginBottom: '1rem' }}>
