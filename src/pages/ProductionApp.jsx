@@ -306,6 +306,7 @@ export default function ProductionApp() {
         showDayMode={showDayMode}
         openNotesCount={openNotes.length}
         useAuditions={useAuditions}
+        onShowDay={toggleShowDayMode}
         topBarContent={topBar}
       >
         <div className="page" style={{ paddingTop: '1.25rem' }}>
