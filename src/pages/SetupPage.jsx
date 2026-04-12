@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import CastManager from '../components/CastManager'
+import { api } from '../lib/api'
 
 // Parses showDates string into array of ISO date strings
 function parseShowDates(showDates) {
@@ -118,7 +119,6 @@ function LookupResultPanel({ result, existing, onApply, onDismiss }) {
 import AuditionMaterials from '../components/AuditionMaterials'
 import { castNameList, normalizeCast } from '../lib/castUtils'
 import { useNavigate } from 'react-router-dom'
-import { api } from '../lib/api'
 import { useSession } from '../lib/session'
 
 function TagInput({ label, values, onChange, placeholder }) {
@@ -164,6 +164,28 @@ function TagInput({ label, values, onChange, placeholder }) {
   )
 }
 
+function TestButton({ topic, productionTitle }) {
+  const [sending, setSending] = useState(false)
+  const [result, setResult] = useState(null)
+  async function test() {
+    setSending(true); setResult(null)
+    try {
+      await api.sendTestNotification({ ntfyTopic: topic, productionTitle })
+      setResult('success')
+    } catch { setResult('failed') }
+    finally { setSending(false) }
+  }
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <button className="btn btn-sm" onClick={test} disabled={sending} style={{ fontSize: 11 }}>
+        {sending ? '…' : '📲 Test'}
+      </button>
+      {result === 'success' && <span style={{ fontSize: 11, color: 'var(--green-text)' }}>✓ Sent!</span>}
+      {result === 'failed' && <span style={{ fontSize: 11, color: 'var(--red-text)' }}>✗ Failed</span>}
+    </span>
+  )
+}
+
 function NotificationContactForm({ onAdd, ntfyTopic, productionTitle }) {
   const [form, setForm] = useState({ name: '', role: 'Stage Manager', phone: '', smsGateway: '', ntfyTopic: '' })
   const [testSending, setTestSending] = useState(false)
@@ -183,9 +205,6 @@ function NotificationContactForm({ onAdd, ntfyTopic, productionTitle }) {
   }
   const carriers = [
     { label: 'Verizon', suffix: '@vtext.com' },
-    { label: 'AT&T', suffix: '@txt.att.net' },
-    { label: 'T-Mobile', suffix: '@tmomail.net' },
-    { label: 'Sprint', suffix: '@messaging.sprintpcs.com' },
   ]
 
   function buildGateway(phone, suffix) {
@@ -240,28 +259,26 @@ function NotificationContactForm({ onAdd, ntfyTopic, productionTitle }) {
           placeholder="e.g. 4125550100@vtext.com"
           autoComplete="off" />
         <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-          {['Verizon', 'AT&T', 'T-Mobile', 'Sprint'].map((label, i) => {
-            const suffix = ['@vtext.com','@txt.att.net','@tmomail.net','@messaging.sprintpcs.com'][i]
+          {carriers.map(c => {
             const digits = form.phone.replace(/\D/g, '')
             const num = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits
-            const gw = num.length === 10 ? num + suffix : ''
+            const gw = num.length === 10 ? num + c.suffix : ''
             return (
-              <button key={label} type="button" className="btn btn-sm"
+              <button key={c.label} type="button" className="btn btn-sm"
                 onClick={() => {
-                  // Re-read phone from state at click time
                   const d = form.phone.replace(/\D/g, '')
                   const n = d.length === 11 && d.startsWith('1') ? d.slice(1) : d
-                  if (n.length === 10) {
-                    setForm(f => ({ ...f, smsGateway: n + suffix }))
-                  } else {
-                    alert(`Enter your 10-digit phone number first (got ${d.length} digits)`)
-                  }
+                  if (n.length === 10) setForm(f => ({ ...f, smsGateway: n + c.suffix }))
+                  else alert(`Enter your 10-digit phone number first (got ${d.length} digits)`)
                 }}
                 style={{ fontSize: 11, opacity: gw ? 1 : 0.5 }}>
-                {label} →
+                {c.label} →
               </button>
             )
           })}
+          <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4 }}>
+            Note: Most carrier gateways (AT&T, T-Mobile, Sprint) were shut down in 2024-2025. Use ntfy push notifications instead.
+          </p>
         </div>
         {form.smsGateway && (
           <p style={{ fontSize: 11, color: 'var(--green-text)', marginTop: 4 }}>
@@ -727,16 +744,26 @@ export default function SetupPage() {
               </div>
             )}
             {(config.notificationContacts || []).map((contact, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, padding: '8px 10px', background: 'var(--bg2)', borderRadius: 'var(--radius)', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 14, fontWeight: 500, flex: '0 0 auto', minWidth: 100 }}>{contact.name}</span>
-                <span style={{ fontSize: 12, color: 'var(--text3)', flex: 1 }}>{contact.smsGateway || contact.phone || 'No number'}</span>
-                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--green-bg)', color: 'var(--green-text)', flex: '0 0 auto' }}>
-                  {contact.role || 'Staff'}
-                </span>
-                <button className="btn btn-sm btn-danger" onClick={() => {
-                  const updated = config.notificationContacts.filter((_, idx) => idx !== i)
-                  setC('notificationContacts', updated)
-                }} style={{ flex: '0 0 auto' }}>✕</button>
+              <div key={i} style={{ marginBottom: 8, padding: '8px 10px', background: 'var(--bg2)', borderRadius: 'var(--radius)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 14, fontWeight: 500, flex: '0 0 auto', minWidth: 100 }}>{contact.name}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text3)', flex: 1 }}>
+                    {contact.ntfyTopic ? '📲 ntfy' : contact.smsGateway || contact.phone || 'No contact'}
+                  </span>
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--green-bg)', color: 'var(--green-text)', flex: '0 0 auto' }}>
+                    {contact.role || 'Staff'}
+                  </span>
+                  {contact.ntfyTopic && (
+                    <TestButton topic={contact.ntfyTopic} productionTitle={config.title} />
+                  )}
+                  <button className="btn btn-sm btn-danger" onClick={() => {
+                    const updated = config.notificationContacts.filter((_, idx) => idx !== i)
+                    setC('notificationContacts', updated)
+                  }} style={{ flex: '0 0 auto' }}>✕</button>
+                </div>
+                {contact.ntfyTopic && (
+                  <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4 }}>Topic: {contact.ntfyTopic}</p>
+                )}
               </div>
             ))}
             <NotificationContactForm onAdd={contact => setC('notificationContacts', [...(config.notificationContacts || []), contact])} ntfyTopic={config.ntfyTopic} productionTitle={config.title} />
