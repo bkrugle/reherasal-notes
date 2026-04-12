@@ -19,7 +19,7 @@ export default function ReportTab({ notes, production, sheetId, session }) {
   const [includeResolved, setIncludeResolved] = useState(false)
 
   const rehearsalDates = [...new Set(notes.map(n => n.date))].sort().reverse()
-  const filteredNotes = notes.filter(n => n.date === selectedDate && (includeResolved || !n.resolved))
+  const filteredNotes = notes.filter(n => n.date === selectedDate && !n.privateNote && (includeResolved || !n.resolved))
 
   function saveEmails(val) {
     setEmails(val)

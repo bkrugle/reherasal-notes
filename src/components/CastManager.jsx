@@ -134,7 +134,7 @@ function CastEntry({ entry, allNames, onChange, onRemove }) {
           </div>
 
           {/* Email addresses */}
-          <div style={{ marginBottom: group ? 10 : 0 }}>
+          <div style={{ marginBottom: 10 }}>
             <p style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, marginBottom: 2 }}>
               Email addresses {group ? '(sent to all when group is selected)' : '(for sending notes)'}
             </p>
@@ -143,6 +143,29 @@ function CastEntry({ entry, allNames, onChange, onRemove }) {
               onChange={newEmails => onChange({ ...entry, name, emails: newEmails, members, isGroup: group })}
             />
           </div>
+
+          {/* Phone / SMS */}
+          {!group && (
+            <div style={{ marginBottom: 10 }}>
+              <p style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, marginBottom: 4 }}>
+                Phone number <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(for show day SMS alerts)</span>
+              </p>
+              <input type="tel" value={entry.phone || ''}
+                onChange={e => onChange({ ...entry, name, emails, members, isGroup: group, phone: e.target.value })}
+                placeholder="e.g. 412-555-0100"
+                style={{ fontSize: 13, marginBottom: 6 }} />
+              <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>
+                Or use free email-to-SMS gateway:
+              </p>
+              <input type="text" value={entry.smsGateway || ''}
+                onChange={e => onChange({ ...entry, name, emails, members, isGroup: group, smsGateway: e.target.value })}
+                placeholder="e.g. 4125550100@vtext.com (Verizon)"
+                style={{ fontSize: 13 }} />
+              <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 3 }}>
+                AT&T: @txt.att.net · Verizon: @vtext.com · T-Mobile: @tmomail.net
+              </p>
+            </div>
+          )}
 
           {/* Group members */}
           {group && (

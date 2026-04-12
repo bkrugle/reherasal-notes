@@ -15,10 +15,16 @@
   timeout = 26
   node_bundler = "esbuild"
 
+[functions."sendCheckinAlerts"]
+  timeout = 26
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
+
+[functions."sendCheckinAlerts"]
+  timeout = 26
 
 [[redirects]]
   from = "/*"

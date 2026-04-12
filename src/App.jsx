@@ -7,6 +7,7 @@ import SetupPage from './pages/SetupPage'
 import AuditionFormPage from './pages/AuditionFormPage'
 import AuditionEditPage from './pages/AuditionEditPage'
 import ImportPage from './pages/ImportPage'
+import CheckinPage from './pages/CheckinPage'
 
 function RequireAuth({ children }) {
   const { session } = useSession()
@@ -26,6 +27,7 @@ export default function App() {
         <Route path="/audition/:productionCode" element={<AuditionFormPage />} />
         <Route path="/audition-edit/:token" element={<AuditionEditPage />} />
         <Route path="/import" element={<RequireAuth><ImportPage /></RequireAuth>} />
+        <Route path="/checkin/:productionCode/:showDate" element={<CheckinPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </SessionProvider>

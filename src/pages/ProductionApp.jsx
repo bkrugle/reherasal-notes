@@ -9,6 +9,7 @@ import SendTab from '../components/SendTab'
 import MeetingMode from '../components/MeetingMode'
 import TrendsTab from '../components/TrendsTab'
 import AttendanceTab from '../components/AttendanceTab'
+import ShowDayTab from '../components/ShowDayTab'
 import ReportTab from '../components/ReportTab'
 import SceneTimer from '../components/SceneTimer'
 import { castNameList, normalizeCast } from '../lib/castUtils'
@@ -209,6 +210,7 @@ export default function ProductionApp() {
         {activeTab === 8 && <ReportTab notes={notes} production={production} sheetId={session.sheetId} session={session} />}
         {activeTab === 9 && <SendTab notes={notes} characters={characters} characterNames={characterNames} sheetId={session.sheetId} production={production} session={session} />}
         {activeTab === 10 && useAuditions && <AuditionsTab sheetId={session.sheetId} productionCode={session.productionCode} session={session} production={production} onCastAssigned={loadProduction} />}
+        {activeTab === 11 && <ShowDayTab sheetId={session.sheetId} productionCode={session.productionCode} production={production} session={session} />}
       </div>
       {/* Bottom nav — mobile only */}
       <nav className="bottom-nav">
@@ -220,6 +222,7 @@ export default function ProductionApp() {
           { icon: '📅', label: 'Calendar', idx: 4 },
           { icon: '✉️', label: 'Send',     idx: 9 },
           ...(useAuditions ? [{ icon: '🎭', label: 'Auditions', idx: 10 }] : []),
+          { icon: '🎬', label: 'Show Day', idx: 11 },
         ].map(({ icon, label, idx }) => (
           <button key={label} className={`bottom-nav-btn ${activeTab === idx ? 'active' : ''}`}
             onClick={() => setTab(idx)}>

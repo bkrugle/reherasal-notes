@@ -46,4 +46,8 @@ export const api = {
   recoverProductionCode: (email, appUrl) => call('/recoverProductionCode', 'POST', { email, appUrl }),
   lookupShowCast: (showTitle) => call('/lookupShowCast', 'POST', { showTitle }),
   lookupShowScenes: (showTitle) => call('/lookupShowScenes', 'POST', { showTitle }),
+  showCheckin: (data) => call('/showCheckin', 'POST', data),
+  getCheckinStatus: (sheetId, showDate) => call(`/getCheckinStatus?sheetId=${sheetId}&showDate=${showDate}`),
+  getPublicCheckinStatus: (productionCode, showDate) => call(`/showCheckin?productionCode=${productionCode}&showDate=${showDate}`),
+  sendCheckinAlerts: (data) => call('/sendCheckinAlerts', 'POST', data),
 }
