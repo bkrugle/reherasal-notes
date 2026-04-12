@@ -1,4 +1,9 @@
 import { useState, useEffect } from 'react'
+import AuditionMaterials from '../components/AuditionMaterials'
+import { castNameList, normalizeCast } from '../lib/castUtils'
+import { useNavigate } from 'react-router-dom'
+import { useSession } from '../lib/session'
+import AppShell from '../components/AppShell'
 import CastManager from '../components/CastManager'
 import { api } from '../lib/api'
 
@@ -77,7 +82,7 @@ function LookupResultPanel({ result, existing, onApply, onDismiss }) {
     <div style={{ background: 'var(--purple-bg)', border: '0.5px solid var(--purple-text)', borderRadius: 'var(--radius-lg)', padding: '1rem', marginBottom: '1rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
         <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--purple-text)' }}>
-          ✨ Found {result.characters.length} characters for <em>{result.showTitle}</em>
+          Found {result.characters.length} characters for <em>{result.showTitle}</em>
         </p>
         <button className="btn btn-sm" onClick={onDismiss} style={{ fontSize: 11 }}>Dismiss</button>
       </div>
@@ -112,14 +117,10 @@ function LookupResultPanel({ result, existing, onApply, onDismiss }) {
           style={{ marginLeft: 'auto' }}>
           Add {selected.length} character{selected.length !== 1 ? 's' : ''} →
         </button>
-      </div>
+        </div>
     </div>
   )
 }
-import AuditionMaterials from '../components/AuditionMaterials'
-import { castNameList, normalizeCast } from '../lib/castUtils'
-import { useNavigate } from 'react-router-dom'
-import { useSession } from '../lib/session'
 
 function TagInput({ label, values, onChange, placeholder }) {
   const [input, setInput] = useState('')
@@ -518,12 +519,20 @@ export default function SetupPage() {
   )
 
   return (
-    <div className="page">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1.5rem' }}>
-        <button className="btn btn-sm" onClick={() => navigate('/production')}>← Back</button>
-        <h1 style={{ fontSize: 20, fontWeight: 600 }}>Production setup</h1>
-        <span style={{ fontSize: 12, color: 'var(--text3)', marginLeft: 4 }}>{session.productionCode}</span>
-      </div>
+    <AppShell
+      title={config.title || 'Production'}
+      topBarContent={
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button onClick={() => navigate('/production')}
+            style={{ background: 'var(--bg2)', border: '0.5px solid var(--border)', borderRadius: 6, padding: '5px 10px', fontSize: 12, color: 'var(--text2)', cursor: 'pointer', fontFamily: 'inherit' }}>
+            ← Back
+          </button>
+          <span style={{ fontSize: 14, fontWeight: 600 }}>Production setup</span>
+          <span style={{ fontSize: 12, color: 'var(--text3)' }}>{session.productionCode}</span>
+        </div>
+      }
+    >
+      <div className="page" style={{ maxWidth: 900 }}>
 
       <div className="tabs">
         {['details', 'scenes', 'characters', 'team', ...((config.useAuditions === true || config.useAuditions === 'true') ? ['auditions'] : [])].map(t => (
@@ -893,5 +902,6 @@ export default function SetupPage() {
         </div>
       )}
     </div>
+    </AppShell>
   )
 }

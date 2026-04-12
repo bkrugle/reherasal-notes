@@ -656,6 +656,12 @@ textarea { resize: vertical; line-height: 1.5; }
   flex-shrink: 0;
 }
 
+/* When inside sidebar layout, page content fills full width */
+.desktop-layout .page {
+  max-width: none;
+  padding: 1.25rem 1.5rem 3rem;
+}
+
 /* Hide sidebar on mobile, show bottom nav */
 @media (max-width: 768px) {
   .app-sidebar { display: none; }
@@ -666,4 +672,17 @@ textarea { resize: vertical; line-height: 1.5; }
 
 @media (min-width: 769px) {
   .bottom-nav { display: none !important; }
+}
+
+/* ── Wide screen (sidebar layout) ───────────────────── */
+@media (min-width: 1024px) {
+  .desktop-layout .grid2 {
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1023px) {
+  .desktop-layout .grid2 {
+    grid-template-columns: 1fr 1fr;
+  }
 }

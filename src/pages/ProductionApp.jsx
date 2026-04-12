@@ -10,6 +10,7 @@ import MeetingMode from '../components/MeetingMode'
 import TrendsTab from '../components/TrendsTab'
 import AttendanceTab from '../components/AttendanceTab'
 import ShowDayTab from '../components/ShowDayTab'
+import AppShell from '../components/AppShell'
 import CheckinTab from '../components/CheckinTab'
 import ReportTab from '../components/ReportTab'
 import SceneTimer from '../components/SceneTimer'
@@ -269,129 +270,60 @@ export default function ProductionApp() {
     )
   }
 
+  const topBar = (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text2)' }}>{TABS[activeTab] || 'Home'}</span>
+        <ShowCountdown showDates={showDates} />
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg2)', border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '5px 10px' }}>
+          <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 500, minWidth: 44, color: swRunning ? 'var(--red-text)' : 'var(--text)' }}>{swDisplay}</span>
+          <button className="btn btn-sm" style={{ padding: '2px 7px', fontSize: 12 }} onClick={swToggle}>{swRunning ? '⏸' : '▶'}</button>
+          {swElapsed > 0 && <button className="btn btn-sm" style={{ padding: '2px 7px', fontSize: 12 }} onClick={swReset}>↺</button>}
+        </div>
+        {openNotes.length > 0 && (
+          <button className="btn btn-sm" onClick={() => setMeetingMode(true)}
+            style={{ background: 'var(--purple-bg)', color: 'var(--purple-text)', borderColor: 'transparent', fontWeight: 500 }}>
+            📋 {openNotes.length}
+          </button>
+        )}
+        <button className="btn btn-sm" style={{ background: 'var(--amber-bg)', color: 'var(--amber-text)', borderColor: 'transparent', fontWeight: 500 }}
+          onClick={() => setWrapUp(true)}>Wrap up</button>
+      </div>
+    </div>
+  )
+
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-
-      {/* ── DESKTOP SIDEBAR LAYOUT ───────────────────────── */}
-      <div className="desktop-layout">
-
-        {/* Sidebar */}
-        <aside className="app-sidebar">
-          {/* Logo / show info */}
-          <div className="sidebar-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div className="sidebar-logo-icon">🎭</div>
-              <div style={{ minWidth: 0 }}>
-                <div className="sidebar-show-title">{title}</div>
-                <div className="sidebar-show-sub">{session.productionCode}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Nav sections */}
-          <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
-            {SIDEBAR_TABS.filter(s => s.items.length > 0).map(section => (
-              <div key={section.section} className="sidebar-section">
-                <div className="sidebar-section-label">{section.section}</div>
-                {section.items.map(item => (
-                  <button key={item.idx}
-                    className={`sidebar-nav-item ${activeTab === item.idx ? 'active' : ''}`}
-                    onClick={() => setTab(item.idx)}>
-                    <SidebarIcon name={item.icon} />
-                    {item.label}
-                    {item.idx === 0 && openNotes.length > 0 && (
-                      <span className="sidebar-badge sidebar-badge-red">{openNotes.length}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            ))}
-
-            {/* Show Day button */}
-            <div className="sidebar-section">
-              <div className="sidebar-section-label">Show</div>
-              <button
-                className={`sidebar-nav-showday ${activeTab === 11 ? 'active' : ''}`}
-                onClick={toggleShowDayMode}>
-                <SidebarIcon name="video" />
-                Show day
-                {showDayMode && <span style={{ marginLeft: 'auto', fontSize: 9, background: 'rgba(255,255,255,0.2)', borderRadius: 4, padding: '1px 5px' }}>ON</span>}
-              </button>
-            </div>
-          </nav>
-
-          {/* Footer */}
-          <div className="sidebar-footer">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <button className="sidebar-nav-item" style={{ flex: 1 }}
-                onClick={() => setShowSceneTimer(t => !t)}>
-                <SidebarIcon name="clock" /> Scene timer
-              </button>
-            </div>
-            {session.role === 'admin' && (
-              <button className="sidebar-nav-item" style={{ width: '100%' }} onClick={() => navigate('/setup')}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2"/></svg>
-                Settings
-              </button>
-            )}
-            <button className="sidebar-nav-item" style={{ width: '100%' }} onClick={() => { logout(); navigate('/') }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-              {session.name || 'Sign out'}
-            </button>
-          </div>
-        </aside>
-
-        {/* Main content */}
-        <div className="app-main">
-          {/* Top bar */}
-          <header className="app-main-topbar">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text2)' }}>
-                {TABS[activeTab] || 'Home'}
-              </span>
-              <ShowCountdown showDates={showDates} />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg2)', border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', padding: '5px 10px' }}>
-                <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 500, minWidth: 44, color: swRunning ? 'var(--red-text)' : 'var(--text)' }}>{swDisplay}</span>
-                <button className="btn btn-sm" style={{ padding: '2px 7px', fontSize: 12 }} onClick={swToggle}>{swRunning ? '⏸' : '▶'}</button>
-                {swElapsed > 0 && <button className="btn btn-sm" style={{ padding: '2px 7px', fontSize: 12 }} onClick={swReset}>↺</button>}
-              </div>
-              {openNotes.length > 0 && (
-                <button className="btn btn-sm" onClick={() => setMeetingMode(true)}
-                  style={{ background: 'var(--purple-bg)', color: 'var(--purple-text)', borderColor: 'transparent', fontWeight: 500 }}>
-                  📋 {openNotes.length}
-                </button>
-              )}
-              <button className="btn btn-sm" style={{ background: 'var(--amber-bg)', color: 'var(--amber-text)', borderColor: 'transparent', fontWeight: 500 }}
-                onClick={() => setWrapUp(true)}>Wrap up</button>
-              <button className="btn btn-sm" style={{ fontWeight: 700, fontSize: 12 }}
-                onClick={() => { logout(); navigate('/') }}>
-                {session.name ? session.name.split(' ')[0].slice(0,2).toUpperCase() : '↩'}
-              </button>
-            </div>
-          </header>
-
-          <div className="page" style={{ paddingTop: '1.25rem' }}>
-            {error && <p style={{ fontSize: 13, color: 'var(--red-text)', background: 'var(--red-bg)', padding: '8px 12px', borderRadius: 'var(--radius)', marginBottom: '1rem' }}>{error}</p>}
-            {showSceneTimer && <SceneTimer scenes={scenes} />}
-
-        {activeTab === 0 && <Dashboard notes={notes} production={production} session={session} calendarEvents={calendarEvents} onNavigate={setTab} onLogForDate={onLogForDate} openNotes={openNotes} />}
-        {activeTab === 1 && <LogTab sheetId={session.sheetId} scenes={scenes} characters={[...characterNames, ...staff]} swDisplay={swDisplay} swRunning={swRunning} createdBy={session.name || session.role} onNoteAdded={onNoteAdded} attachFolderId={attachFolderId} />}
-        {activeTab === 2 && <ReviewTab {...tabProps} loading={loadingNotes} onRefresh={loadNotes} />}
-        {activeTab === 3 && <ByCastTab {...tabProps} loading={loadingNotes} />}
-        {activeTab === 4 && <CalendarTab calendarId={calendarId} scenes={scenes} notes={notes} onLogForDate={onLogForDate} />}
-        {activeTab === 5 && <div><DocumentsTab docsFolderId={docsFolderId} attachFolderId={attachFolderId} isAdmin={session.role === 'admin'} /><div style={{marginTop:'1rem'}}><CastDirectory sheetId={session.sheetId} production={production} session={session} /></div></div>}
-        {activeTab === 6 && <TrendsTab notes={notes} />}
-        {activeTab === 7 && <AttendanceTab characters={characters} notes={notes} sheetId={session.sheetId} />}
-        {activeTab === 8 && <ReportTab notes={notes} production={production} sheetId={session.sheetId} session={session} />}
-        {activeTab === 9 && <SendTab notes={notes} characters={characters} characterNames={characterNames} sheetId={session.sheetId} production={production} session={session} />}
-        {activeTab === 10 && useAuditions && <AuditionsTab sheetId={session.sheetId} productionCode={session.productionCode} session={session} production={production} onCastAssigned={loadProduction} />}
-        {activeTab === 11 && <ShowDayTab sheetId={session.sheetId} productionCode={session.productionCode} production={production} session={session} showDayMode={showDayMode} onGoToCheckin={() => setTab(12)} />}
-        {activeTab === 12 && <CheckinTab sheetId={session.sheetId} productionCode={session.productionCode} production={production} session={session} />}
-          </div>{/* .page */}
-        </div>{/* .app-main */}
-      </div>{/* .desktop-layout */}
+    <>
+      <AppShell
+        title={title}
+        productionCode={session.productionCode}
+        activeTab={activeTab}
+        onTabChange={setTab}
+        showDayMode={showDayMode}
+        openNotesCount={openNotes.length}
+        useAuditions={useAuditions}
+        topBarContent={topBar}
+      >
+        <div className="page" style={{ paddingTop: '1.25rem' }}>
+          {error && <p style={{ fontSize: 13, color: 'var(--red-text)', background: 'var(--red-bg)', padding: '8px 12px', borderRadius: 'var(--radius)', marginBottom: '1rem' }}>{error}</p>}
+          {showSceneTimer && <SceneTimer scenes={scenes} />}
+          {activeTab === 0 && <Dashboard notes={notes} production={production} session={session} calendarEvents={calendarEvents} onNavigate={setTab} onLogForDate={onLogForDate} openNotes={openNotes} />}
+          {activeTab === 1 && <LogTab sheetId={session.sheetId} scenes={scenes} characters={[...characterNames, ...staff]} swDisplay={swDisplay} swRunning={swRunning} createdBy={session.name || session.role} onNoteAdded={onNoteAdded} attachFolderId={attachFolderId} />}
+          {activeTab === 2 && <ReviewTab {...tabProps} loading={loadingNotes} onRefresh={loadNotes} />}
+          {activeTab === 3 && <ByCastTab {...tabProps} loading={loadingNotes} />}
+          {activeTab === 4 && <CalendarTab calendarId={calendarId} scenes={scenes} notes={notes} onLogForDate={onLogForDate} />}
+          {activeTab === 5 && <div><DocumentsTab docsFolderId={docsFolderId} attachFolderId={attachFolderId} isAdmin={session.role === 'admin'} /><div style={{marginTop:'1rem'}}><CastDirectory sheetId={session.sheetId} production={production} session={session} /></div></div>}
+          {activeTab === 6 && <TrendsTab notes={notes} />}
+          {activeTab === 7 && <AttendanceTab characters={characters} notes={notes} sheetId={session.sheetId} />}
+          {activeTab === 8 && <ReportTab notes={notes} production={production} sheetId={session.sheetId} session={session} />}
+          {activeTab === 9 && <SendTab notes={notes} characters={characters} characterNames={characterNames} sheetId={session.sheetId} production={production} session={session} />}
+          {activeTab === 10 && useAuditions && <AuditionsTab sheetId={session.sheetId} productionCode={session.productionCode} session={session} production={production} onCastAssigned={loadProduction} />}
+          {activeTab === 11 && <ShowDayTab sheetId={session.sheetId} productionCode={session.productionCode} production={production} session={session} showDayMode={showDayMode} onGoToCheckin={() => setTab(12)} />}
+          {activeTab === 12 && <CheckinTab sheetId={session.sheetId} productionCode={session.productionCode} production={production} session={session} />}
+        </div>
+      </AppShell>
 
       {/* Mobile bottom nav */}
       <nav className="bottom-nav" style={showDayMode ? { borderTop: '2px solid var(--accent)' } : {}}>
@@ -464,6 +396,6 @@ export default function ProductionApp() {
         </div>
       )}
       {showMoreMenu && <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setShowMoreMenu(false)} />}
-    </div>
+    </>
   )
 }
