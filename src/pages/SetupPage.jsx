@@ -209,8 +209,12 @@ function NotificationContactForm({ onAdd }) {
       </div>
       <div className="field" style={{ marginBottom: 8 }}>
         <label>Phone number</label>
-        <input type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-          placeholder="412-555-0100" />
+        <input type="tel" value={form.phone}
+          onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+          onInput={e => setForm(f => ({ ...f, phone: e.target.value }))}
+          onBlur={e => setForm(f => ({ ...f, phone: e.target.value }))}
+          placeholder="4125550100"
+          autoComplete="off" />
       </div>
       <div className="field" style={{ marginBottom: 8 }}>
         <label>
@@ -218,26 +222,35 @@ function NotificationContactForm({ onAdd }) {
         </label>
         <input type="text" value={form.smsGateway}
           onChange={e => setForm(f => ({ ...f, smsGateway: e.target.value }))}
-          placeholder="e.g. 4125550100@vtext.com" />
+          placeholder="e.g. 4125550100@vtext.com"
+          autoComplete="off" />
         <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-          {carriers.map(c => {
-            const gw = buildGateway(form.phone, c.suffix)
+          {['Verizon', 'AT&T', 'T-Mobile', 'Sprint'].map((label, i) => {
+            const suffix = ['@vtext.com','@txt.att.net','@tmomail.net','@messaging.sprintpcs.com'][i]
+            const digits = form.phone.replace(/\D/g, '')
+            const num = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits
+            const gw = num.length === 10 ? num + suffix : ''
             return (
-              <button key={c.label} type="button" className="btn btn-sm"
+              <button key={label} type="button" className="btn btn-sm"
                 onClick={() => {
-                  if (gw) setForm(f => ({ ...f, smsGateway: gw }))
-                  else alert('Enter a valid 10-digit phone number first')
+                  // Re-read phone from state at click time
+                  const d = form.phone.replace(/\D/g, '')
+                  const n = d.length === 11 && d.startsWith('1') ? d.slice(1) : d
+                  if (n.length === 10) {
+                    setForm(f => ({ ...f, smsGateway: n + suffix }))
+                  } else {
+                    alert(`Enter your 10-digit phone number first (got ${d.length} digits)`)
+                  }
                 }}
-                style={{ fontSize: 11, opacity: gw ? 1 : 0.5 }}
-                title={gw || 'Enter phone number first'}>
-                {c.label} →
+                style={{ fontSize: 11, opacity: gw ? 1 : 0.5 }}>
+                {label} →
               </button>
             )
           })}
         </div>
         {form.smsGateway && (
           <p style={{ fontSize: 11, color: 'var(--green-text)', marginTop: 4 }}>
-            ✓ Gateway: {form.smsGateway}
+            ✓ {form.smsGateway}
           </p>
         )}
       </div>

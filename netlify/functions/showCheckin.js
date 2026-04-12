@@ -21,12 +21,21 @@ exports.handler = async (event) => {
       const config = await getConfig(sheets, sheetId)
       let characters = []
       try { characters = JSON.parse(config.characters || '[]') } catch {}
-      const castList = characters
-        .map(c => typeof c === 'string'
-          ? { name: c, castMember: '' }
-          : { name: c.name || '', castMember: c.castMember || '' }
-        )
-        .filter(c => c.name)
+      // Expand groups into individual members for check-in
+      const castList = []
+      for (const c of characters) {
+        const char = typeof c === 'string' ? { name: c } : c
+        if (char.isGroup && Array.isArray(char.members) && char.members.length > 0) {
+          // Expand group members as individual entries
+          for (const member of char.members) {
+            const memberName = typeof member === 'string' ? member : member.name
+            if (memberName) castList.push({ name: memberName, castMember: '', group: char.name })
+          }
+        } else if (!char.isGroup) {
+          castList.push({ name: char.name || '', castMember: char.castMember || '' })
+        }
+        // Groups with no members listed are skipped (can't check in an abstract group)
+      }
       return ok({ checkins: todayCheckins.map(r => ({
         castName: r[idx.castName],
         checkedInAt: r[idx.checkedInAt],
