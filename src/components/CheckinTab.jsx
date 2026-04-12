@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { api } from '../lib/api'
+import CustomAlertPanel from './CustomAlertPanel'
 
 const POLL_INTERVAL = 20000
 
@@ -221,6 +222,9 @@ export default function CheckinTab({ sheetId, productionCode, production, sessio
           </div>
         </div>
       </div>
+
+      {/* Custom alert */}
+      <CustomAlertPanel sheetId={sheetId} production={production} isShowDay={isShowDate} />
 
       {/* Two columns */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>

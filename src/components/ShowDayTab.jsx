@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { api } from '../lib/api'
+import CustomAlertPanel from './CustomAlertPanel'
 
 const POLL_INTERVAL = 20000
 
@@ -26,9 +27,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   const [alerting, setAlerting] = useState(false)
   const [alertResult, setAlertResult] = useState(null)
   const [showQR, setShowQR] = useState(false)
-  const [autoAlertFired, setAutoAlertFired] = useState(false)
   const pollRef = useRef(null)
-  const autoAlertRef = useRef(null)
 
   // Curtain times per day — stored in config as JSON: {"2026-04-16":"19:00","2026-04-17":"19:00",...}
   const curtainTimes = (() => {
@@ -58,24 +57,49 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
     return () => clearInterval(pollRef.current)
   }, [sheetId, showDate])
 
-  // Auto-alert at 1 hour before curtain
+  // Track which alerts have fired
+  const [alertsFired, setAlertsFired] = useState({ 60: false, 30: false, 15: false })
+  const alertRefs = useRef({})
+
+  // Schedule all three alerts when curtainTime is set
   useEffect(() => {
-    if (!curtainTime || !showDate || autoAlertFired) return
-    clearTimeout(autoAlertRef.current)
+    if (!curtainTime || !showDate) return
+
+    // Clear any existing timers
+    Object.values(alertRefs.current).forEach(t => clearTimeout(t))
+    alertRefs.current = {}
+
     const curtain = todayAt(curtainTime, showDate)
     if (!curtain) return
-    const alertAt = new Date(curtain.getTime() - 60 * 60000) // 1 hour before
-    const msUntilAlert = alertAt - new Date()
-    if (msUntilAlert <= 0) return // already past
-    autoAlertRef.current = setTimeout(async () => {
-      setAutoAlertFired(true)
-      try {
-        await api.sendCheckinAlerts({ sheetId, showDate, curtainTime, alertMinutes: 60, autoFired: true })
-        console.log('Auto curtain alert sent')
-      } catch (e) { console.warn('Auto alert failed:', e.message) }
-    }, msUntilAlert)
-    return () => clearTimeout(autoAlertRef.current)
-  }, [curtainTime, showDate, autoAlertFired])
+
+    const alerts = [
+      { minutes: 60, label: '60 minutes to curtain' },
+      { minutes: 30, label: '30 minutes to curtain' },
+      { minutes: 15, label: '15 minutes to curtain' },
+    ]
+
+    alerts.forEach(({ minutes, label }) => {
+      const alertAt = new Date(curtain.getTime() - minutes * 60000)
+      const msUntil = alertAt - new Date()
+      if (msUntil <= 0) return // already past
+
+      alertRefs.current[minutes] = setTimeout(async () => {
+        setAlertsFired(prev => ({ ...prev, [minutes]: true }))
+        try {
+          await api.sendCheckinAlerts({
+            sheetId, showDate, curtainTime,
+            alertMinutes: minutes,
+            autoFired: true,
+            alertLabel: label,
+            breakALeg: minutes === 15
+          })
+          console.log(`Auto alert sent: ${label}`)
+        } catch (e) { console.warn('Auto alert failed:', e.message) }
+      }, msUntil)
+    })
+
+    return () => Object.values(alertRefs.current).forEach(t => clearTimeout(t))
+  }, [curtainTime, showDate])
 
   async function load() {
     try {
@@ -147,7 +171,11 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
               {isPast ? '🎭 Show is running!' : '🎬 Show Day'}
             </p>
             <p style={{ fontSize: 12, margin: 0, opacity: 0.85 }}>{production?.config?.title}</p>
-            {autoAlertFired && <p style={{ fontSize: 11, margin: '2px 0 0', opacity: 0.8 }}>✓ 1-hour alert sent</p>}
+            {Object.entries(alertsFired).some(([,v]) => v) && (
+              <p style={{ fontSize: 11, margin: '2px 0 0', opacity: 0.85 }}>
+                ✓ Alerts sent: {Object.entries(alertsFired).filter(([,v]) => v).map(([k]) => `${k}min`).join(', ')}
+              </p>
+            )}
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 22, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
@@ -194,11 +222,17 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
 
         {curtainTime && !isPast && minsUntil !== null && (
           <div style={{ marginTop: 8, padding: '6px 10px', background: 'var(--bg3)', borderRadius: 'var(--radius)', fontSize: 12, color: 'var(--text3)' }}>
-            {minsUntil > 60
-              ? `📱 Auto SMS alert will fire in ${Math.floor((minsUntil - 60))}h ${(minsUntil - 60) % 60}m (1 hour before curtain)`
-              : minsUntil <= 60 && !autoAlertFired
-              ? '📱 Auto SMS alert firing within the hour…'
-              : '✓ Auto alert sent'}
+            📲 Auto alerts scheduled:
+            {[60, 30, 15].map(m => {
+              const fired = alertsFired[m]
+              const alertAt = curtain ? new Date(curtain.getTime() - m * 60000) : null
+              const timeLabel = alertAt ? alertAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''
+              return (
+                <span key={m} style={{ marginLeft: 8, color: fired ? 'var(--green-text)' : 'var(--text2)' }}>
+                  {fired ? '✓' : '○'} {m}min ({timeLabel}){m === 15 ? ' 🌟' : ''}
+                </span>
+              )
+            })}
           </div>
         )}
       </div>
@@ -265,6 +299,9 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
           </div>
         )}
       </div>
+
+      {/* Custom alert */}
+      <CustomAlertPanel sheetId={sheetId} production={production} isShowDay={true} />
 
       {/* Manual alert button */}
       <div style={{ marginBottom: 16 }}>

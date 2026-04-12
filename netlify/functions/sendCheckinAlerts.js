@@ -10,7 +10,7 @@ exports.handler = async (event) => {
   let body
   try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
 
-  const { sheetId, showDate, curtainTime, alertMinutes = 30 } = body
+  const { sheetId, showDate, curtainTime, alertMinutes = 30, alertLabel, breakALeg } = body
   if (!sheetId || !showDate) return err('sheetId and showDate required')
 
   try {
@@ -55,17 +55,22 @@ exports.handler = async (event) => {
 
     for (const sm of staffWithSMS) {
       const missingNames = missing.map(c => c.castMember ? `${c.castMember} (${c.name})` : c.name).join(', ')
-      const autoNote = body.autoFired ? ' [Auto 1-hr alert]' : ''
       const allClear = missing.length === 0
+      const curtainNote = curtainTime ? ` — Curtain at ${curtainTime}` : ''
+      const countdownNote = alertLabel ? ` — ${alertLabel}` : ''
+      const breakNote = breakALeg ? ' 🌟 Break a leg!' : ''
+      const title = allClear
+        ? `✅ All cast checked in!${countdownNote}`
+        : `⚠️ ${missing.length} cast member${missing.length !== 1 ? 's' : ''} missing${countdownNote}`
       const msg = allClear
-        ? `✅ ${productionTitle}${timeStr} — ALL CAST CHECKED IN! 🎭${autoNote}`
-        : `⚠️ ${productionTitle}${timeStr} — ${missing.length} NOT checked in: ${missingNames}.${autoNote}`
+        ? `✅ ${productionTitle}${curtainNote}${countdownNote} — ALL CAST CHECKED IN! 🎭${breakNote}`
+        : `⚠️ ${productionTitle}${curtainNote}${countdownNote} — ${missing.length} NOT checked in: ${missingNames}.${breakNote}`
 
       try {
         if (sm.ntfyTopic) {
           // Send via ntfy email gateway (ntfy.sh accepts email → push)
           // Format: topic@ntfy.sh receives email and delivers as push notification
-          await sendEmailToNtfy(sm.ntfyTopic, allClear ? '✅ All cast in!' : `⚠️ ${missing.length} missing`, msg)
+          await sendEmailToNtfy(sm.ntfyTopic, title, msg)
         } else {
           const smsTo = sm.smsGateway || sm.phone
           await sendSMS(smsTo, msg)
