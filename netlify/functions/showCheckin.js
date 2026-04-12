@@ -19,11 +19,19 @@ exports.handler = async (event) => {
       const idx = {}; header.forEach((c, i) => { idx[c] = i })
       const todayCheckins = data.filter(r => r[idx.showDate] === showDate && r.some(Boolean))
       const config = await getConfig(sheets, sheetId)
+      let characters = []
+      try { characters = JSON.parse(config.characters || '[]') } catch {}
+      const castList = characters
+        .map(c => typeof c === 'string'
+          ? { name: c, castMember: '' }
+          : { name: c.name || '', castMember: c.castMember || '' }
+        )
+        .filter(c => c.name)
       return ok({ checkins: todayCheckins.map(r => ({
         castName: r[idx.castName],
         checkedInAt: r[idx.checkedInAt],
         note: r[idx.note] || ''
-      })), productionTitle: config.title || '', showDate })
+      })), productionTitle: config.title || '', showDate, castList })
     } catch (e) { return err(e.message, 500) }
   }
 
