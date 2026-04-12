@@ -108,7 +108,11 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   const castList = status?.castList || []
   const checkins = status?.checkins || []
   const checkedInNames = new Set(checkins.map(c => c.castName))
-  const missingCast = castList.filter(n => !checkedInNames.has(n))
+  // castList may be objects {name, castMember} or plain strings
+  const missingCast = castList.filter(c => {
+    const n = typeof c === 'string' ? c : c.name
+    return !checkedInNames.has(n)
+  })
   const pct = castList.length ? Math.round((checkedInNames.size / castList.length) * 100) : 0
   const checkinUrl = `${window.location.origin}/checkin/${productionCode}/${showDate}`
   const curtain = todayAt(curtainTime, showDate)
@@ -279,11 +283,17 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
           </p>
           {missingCast.length === 0
             ? <p style={{ fontSize: 13, color: 'var(--text3)' }}>Everyone's in! 🎉</p>
-            : missingCast.map(name => (
-              <div key={name} style={{ padding: '8px 10px', marginBottom: 4, borderRadius: 'var(--radius)', background: 'var(--red-bg)', border: '0.5px solid var(--red-text)', fontSize: 13, color: 'var(--red-text)' }}>
-                {name}
-              </div>
-            ))}
+            : missingCast.map(c => {
+              const roleName = typeof c === 'string' ? c : c.name
+              const actorName = typeof c === 'object' && c.castMember ? c.castMember : null
+              return (
+                <div key={roleName} style={{ padding: '8px 10px', marginBottom: 4, borderRadius: 'var(--radius)', background: 'var(--red-bg)', border: '0.5px solid var(--red-text)', fontSize: 13, color: 'var(--red-text)' }}>
+                  <span style={{ fontWeight: 500 }}>{actorName || roleName}</span>
+                  {actorName && <span style={{ fontSize: 11, opacity: 0.8, marginLeft: 6 }}>{roleName}</span>}
+                </div>
+              )
+            })
+          }}
         </div>
         <div>
           <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--green-text)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
