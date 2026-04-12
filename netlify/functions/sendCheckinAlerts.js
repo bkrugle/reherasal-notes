@@ -57,9 +57,10 @@ exports.handler = async (event) => {
     for (const sm of staffWithSMS) {
       const smsTo = sm.smsGateway || sm.phone
       const missingNames = missing.map(c => c.name).join(', ')
+      const autoNote = body.autoFired ? ' [Auto 1-hr alert]' : ''
       const msg = missing.length === 0
-        ? `✅ ${productionTitle} — All cast checked in!${timeStr}`
-        : `⚠️ ${productionTitle} — ${missing.length} cast not checked in: ${missingNames}.${timeStr}`
+        ? `✅ ${productionTitle}${timeStr} — ALL CAST CHECKED IN! 🎭${autoNote}`
+        : `⚠️ ${productionTitle}${timeStr} — ${missing.length} NOT checked in: ${missingNames}.${autoNote}`
 
       try {
         await sendSMS(smsTo, msg)

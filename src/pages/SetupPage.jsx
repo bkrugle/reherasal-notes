@@ -1,6 +1,67 @@
 import { useState, useEffect } from 'react'
 import CastManager from '../components/CastManager'
 
+// Parses showDates string into array of ISO date strings
+function parseShowDates(showDates) {
+  if (!showDates) return []
+  try {
+    const yearMatch = showDates.match(/(20\d{2})/)
+    const year = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear()
+    const sameMonth = showDates.match(/([A-Za-z]+)\s+(\d+)\s*[-–]\s*(\d+)/)
+    if (sameMonth) {
+      const [, month, d1, d2] = sameMonth
+      const dates = []
+      for (let d = parseInt(d1); d <= parseInt(d2); d++) {
+        const dt = new Date(`${month} ${d}, ${year}`)
+        if (!isNaN(dt)) dates.push(dt.toISOString().slice(0, 10))
+      }
+      return dates
+    }
+    const crossMonth = showDates.match(/([A-Za-z]+)\s+(\d+)\s*[-–]\s*([A-Za-z]+)\s+(\d+)/)
+    if (crossMonth) {
+      const [, m1, d1, m2, d2] = crossMonth
+      const start = new Date(`${m1} ${d1}, ${year}`)
+      const end = new Date(`${m2} ${d2}, ${year}`)
+      const dates = []
+      for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+        dates.push(dt.toISOString().slice(0, 10))
+      }
+      return dates
+    }
+    const single = new Date(showDates)
+    if (!isNaN(single)) return [single.toISOString().slice(0, 10)]
+  } catch (e) {}
+  return []
+}
+
+function CurtainTimesEditor({ curtainTimes, showDates, onChange }) {
+  const dates = parseShowDates(showDates)
+  if (!dates.length) return (
+    <p style={{ fontSize: 12, color: 'var(--text3)' }}>Enter show dates above to set curtain times per day.</p>
+  )
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {dates.map(date => {
+        const dt = new Date(date + 'T00:00:00')
+        const label = dt.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+        return (
+          <div key={date} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 13, color: 'var(--text2)', minWidth: 100 }}>{label}</span>
+            <input type="time" value={curtainTimes[date] || ''}
+              onChange={e => onChange({ ...curtainTimes, [date]: e.target.value })}
+              style={{ fontSize: 13, padding: '4px 8px', width: 110 }} />
+            {curtainTimes[date] && (
+              <span style={{ fontSize: 12, color: 'var(--text3)' }}>
+                {new Date(`1970-01-01T${curtainTimes[date]}`).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+              </span>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function LookupResultPanel({ result, existing, onApply, onDismiss }) {
   const existingNames = existing.map(c => typeof c === 'string' ? c : c.name)
   const [selected, setSelected] = useState(() =>
@@ -119,7 +180,7 @@ export default function SetupPage() {
 
   const [config, setConfig] = useState({
     title: '', directorName: '', directorEmail: '',
-    showDates: '', venue: '', calendarId: '', useAuditions: 'false', auditionQuestions: [], scenes: [], characters: [], staff: []
+    showDates: '', venue: '', calendarId: '', useAuditions: 'false', auditionQuestions: [], scenes: [], characters: [], staff: [], curtainTimes: {}
   })
   const [sharedWith, setSharedWith] = useState([])
   const [newMember, setNewMember] = useState({ name: '', email: '', pin: '', role: 'member' })
@@ -141,6 +202,7 @@ export default function SetupPage() {
         venue: data.config.venue || '',
         calendarId: data.config.calendarId || '',
         useAuditions: (data.config.useAuditions === true || data.config.useAuditions === 'true' || String(data.config.useAuditions) === 'true') ? true : false,
+        curtainTimes: typeof data.config.curtainTimes === 'object' ? data.config.curtainTimes : {},
         auditionQuestions: Array.isArray(data.config.auditionQuestions) ? data.config.auditionQuestions : [],
         scenes: Array.isArray(data.config.scenes) ? data.config.scenes : [],
         characters: normalizeCast(Array.isArray(data.config.characters) ? data.config.characters : []),

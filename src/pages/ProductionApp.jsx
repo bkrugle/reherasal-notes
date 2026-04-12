@@ -20,7 +20,7 @@ import AuditionsTab from '../components/AuditionsTab'
 import CastDirectory from '../components/CastDirectory'
 import WrapUp from '../components/WrapUp'
 
-const TABS = ['Home', 'Log', 'Review', 'By cast', 'Calendar', 'Documents', 'Trends', 'Attendance', 'Report', 'Send', 'Auditions']
+const TABS = ['Home', 'Log', 'Review', 'By cast', 'Calendar', 'Documents', 'Trends', 'Attendance', 'Report', 'Send', 'Auditions', 'Show Day']
 
 function ShowCountdown({ showDates }) {
   if (!showDates) return null
@@ -43,6 +43,57 @@ function ShowCountdown({ showDates }) {
   } catch { return null }
 }
 
+
+/**
+ * Parse show dates string and check if today falls within the range.
+ * Handles formats like:
+ *   "April 16-19, 2026"
+ *   "April 16 - 19, 2026"
+ *   "April 16 - May 2, 2026"
+ *   "May 1-4, 2026"
+ *   "April 16, 2026"
+ */
+function isWithinShowDates(showDates) {
+  if (!showDates) return false
+  try {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const str = showDates.trim()
+
+    // Try to extract year
+    const yearMatch = str.match(/\b(20\d{2})\b/)
+    const year = yearMatch ? parseInt(yearMatch[1]) : today.getFullYear()
+
+    // Match: "Month D1 - D2, Year" or "Month D1-D2, Year"
+    const sameMonthRange = str.match(/([A-Za-z]+)\s+(\d+)\s*[-–]\s*(\d+)/)
+    if (sameMonthRange) {
+      const [, month, d1, d2] = sameMonthRange
+      const start = new Date(`${month} ${d1}, ${year}`)
+      const end = new Date(`${month} ${d2}, ${year}`)
+      start.setHours(0,0,0,0); end.setHours(0,0,0,0)
+      if (!isNaN(start) && !isNaN(end)) return today >= start && today <= end
+    }
+
+    // Match: "Month1 D1 - Month2 D2, Year"
+    const crossMonthRange = str.match(/([A-Za-z]+)\s+(\d+)\s*[-–]\s*([A-Za-z]+)\s+(\d+)/)
+    if (crossMonthRange) {
+      const [, m1, d1, m2, d2] = crossMonthRange
+      const start = new Date(`${m1} ${d1}, ${year}`)
+      const end = new Date(`${m2} ${d2}, ${year}`)
+      start.setHours(0,0,0,0); end.setHours(0,0,0,0)
+      if (!isNaN(start) && !isNaN(end)) return today >= start && today <= end
+    }
+
+    // Single date: "April 16, 2026"
+    const single = new Date(str)
+    if (!isNaN(single)) {
+      single.setHours(0,0,0,0)
+      return today.getTime() === single.getTime()
+    }
+  } catch (e) { console.warn('showDates parse failed:', e.message) }
+  return false
+}
+
 export default function ProductionApp() {
   const { session, logout } = useSession()
   const navigate = useNavigate()
@@ -63,6 +114,28 @@ export default function ProductionApp() {
   const [showSceneTimer, setShowSceneTimer] = useState(false)
   const [wrapUp, setWrapUp] = useState(false)
   const [calendarEvents, setCalendarEvents] = useState([])
+  const showDayKey = 'rn_showday_' + (session?.sheetId || 'default')
+  const [showDayMode, setShowDayMode] = useState(() => {
+    try { return localStorage.getItem(showDayKey) === 'true' } catch { return false }
+  })
+
+  // Auto-activate Show Day mode when today is a show date
+  useEffect(() => {
+    if (!production?.config?.showDates) return
+    const isShowDay = isWithinShowDates(production.config.showDates)
+    if (isShowDay && !showDayMode) {
+      setShowDayMode(true)
+      try { localStorage.setItem(showDayKey, 'true') } catch {}
+      setTab(11)
+    }
+  }, [production])
+
+  function toggleShowDayMode() {
+    const next = !showDayMode
+    setShowDayMode(next)
+    try { localStorage.setItem(showDayKey, String(next)) } catch {}
+    if (next) setTab(11)
+  }
 
   const [swRunning, setSwRunning] = useState(false)
   const [swElapsed, setSwElapsed] = useState(0)
@@ -210,26 +283,80 @@ export default function ProductionApp() {
         {activeTab === 8 && <ReportTab notes={notes} production={production} sheetId={session.sheetId} session={session} />}
         {activeTab === 9 && <SendTab notes={notes} characters={characters} characterNames={characterNames} sheetId={session.sheetId} production={production} session={session} />}
         {activeTab === 10 && useAuditions && <AuditionsTab sheetId={session.sheetId} productionCode={session.productionCode} session={session} production={production} onCastAssigned={loadProduction} />}
-        {activeTab === 11 && <ShowDayTab sheetId={session.sheetId} productionCode={session.productionCode} production={production} session={session} />}
+        {activeTab === 11 && <ShowDayTab sheetId={session.sheetId} productionCode={session.productionCode} production={production} session={session} showDayMode={showDayMode} />}
       </div>
       {/* Bottom nav — mobile only */}
-      <nav className="bottom-nav">
-        {[
-          { icon: '🏠', label: 'Home',     idx: 0 },
-          { icon: '✏️', label: 'Log',      idx: 1 },
-          { icon: '📋', label: 'Review',   idx: 2 },
-          { icon: '👤', label: 'Cast',     idx: 3 },
-          { icon: '📅', label: 'Calendar', idx: 4 },
-          { icon: '✉️', label: 'Send',     idx: 9 },
-          ...(useAuditions ? [{ icon: '🎭', label: 'Auditions', idx: 10 }] : []),
-          { icon: '🎬', label: 'Show Day', idx: 11 },
-        ].map(({ icon, label, idx }) => (
-          <button key={label} className={`bottom-nav-btn ${activeTab === idx ? 'active' : ''}`}
-            onClick={() => setTab(idx)}>
-            <span style={{ fontSize: 20 }}>{icon}</span>
-            <span>{label}</span>
-          </button>
-        ))}
+      <nav className="bottom-nav" style={showDayMode ? { background: 'var(--bg)', borderTop: '2px solid var(--amber-text)' } : {}}>
+        {showDayMode ? (
+          // ── SHOW DAY MODE nav ──────────────────────────────────────
+          <>
+            <button className={`bottom-nav-btn ${activeTab === 0 ? 'active' : ''}`} onClick={() => setTab(0)}>
+              <span style={{ fontSize: 18 }}>🏠</span>
+              <span>Home</span>
+            </button>
+            <button className={`bottom-nav-btn ${activeTab === 1 ? 'active' : ''}`} onClick={() => setTab(1)}>
+              <span style={{ fontSize: 18 }}>✏️</span>
+              <span>Log</span>
+            </button>
+            {/* Big Show Day button */}
+            <button
+              onClick={() => setTab(11)}
+              style={{
+                flex: '0 0 auto',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                padding: '4px 0',
+                background: activeTab === 11 ? 'var(--amber-text)' : 'var(--bg2)',
+                border: '2px solid var(--amber-text)',
+                borderRadius: 'var(--radius)',
+                color: activeTab === 11 ? 'var(--bg)' : 'var(--amber-text)',
+                fontWeight: 700, cursor: 'pointer',
+                minWidth: 80, margin: '4px 4px',
+                fontSize: 11,
+              }}>
+              <span style={{ fontSize: 22 }}>🎬</span>
+              <span>SHOW DAY</span>
+            </button>
+            <button className={`bottom-nav-btn ${activeTab === 9 ? 'active' : ''}`} onClick={() => setTab(9)}>
+              <span style={{ fontSize: 18 }}>✉️</span>
+              <span>Send</span>
+            </button>
+            <button
+              onClick={toggleShowDayMode}
+              className="bottom-nav-btn"
+              style={{ color: 'var(--text3)' }}>
+              <span style={{ fontSize: 18 }}>🔄</span>
+              <span>Rehearsal</span>
+            </button>
+          </>
+        ) : (
+          // ── REHEARSAL MODE nav ─────────────────────────────────────
+          <>
+            {[
+              { icon: '🏠', label: 'Home',     idx: 0 },
+              { icon: '✏️', label: 'Log',      idx: 1 },
+              { icon: '📋', label: 'Review',   idx: 2 },
+              { icon: '👤', label: 'Cast',     idx: 3 },
+              ...(useAuditions
+                ? [{ icon: '🎭', label: 'Auditions', idx: 10 }]
+                : [{ icon: '✉️', label: 'Send', idx: 9 }]
+              ),
+            ].map(({ icon, label, idx }) => (
+              <button key={label} className={`bottom-nav-btn ${activeTab === idx ? 'active' : ''}`}
+                onClick={() => setTab(idx)}>
+                <span style={{ fontSize: 20 }}>{icon}</span>
+                <span>{label}</span>
+              </button>
+            ))}
+            {/* Show Day button — smaller in rehearsal mode */}
+            <button
+              onClick={toggleShowDayMode}
+              className={`bottom-nav-btn ${activeTab === 11 ? 'active' : ''}`}
+              style={{ color: 'var(--amber-text)' }}>
+              <span style={{ fontSize: 20 }}>🎬</span>
+              <span>Show Day</span>
+            </button>
+          </>
+        )}
       </nav>
     </div>
   )
