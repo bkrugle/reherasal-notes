@@ -22,6 +22,10 @@ const NAV_SECTIONS = [
   ]},
   { label: 'Show', items: [
     { label: 'Show day', idx: 11, icon: 'video', special: true },
+    { label: 'Check-in', idx: 12, icon: 'clock' },
+    { label: 'Mic tracker', idx: 13, icon: 'mic' },
+    { label: 'Pre-show', idx: 14, icon: 'list' },
+    { label: 'Intermission', idx: 15, icon: 'coffee' },
     { label: 'Auditions', idx: 10, icon: 'star', auditionsOnly: true },
   ]},
 ]
@@ -40,6 +44,9 @@ const ICONS = {
   clock: <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>,
   star: <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>,
   video: <><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></>,
+  mic: <><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></>,
+  list: <><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>,
+  coffee: <><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></>,
   settings: <><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></>,
   logout: <><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></>,
 }
@@ -99,9 +106,9 @@ export default function AppShell({ children, title, productionCode, activeTab, o
         {/* Sidebar */}
         <aside className="app-sidebar">
           <div className="sidebar-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
               <div className="sidebar-logo-icon">🎭</div>
-              <div style={{ minWidth: 0 }}>
+              <div style={{ minWidth: 0, overflow: 'hidden' }}>
                 <div className="sidebar-show-title">{title || 'Rehearsal Notes'}</div>
                 <div className="sidebar-show-sub">{productionCode || session?.productionCode}</div>
               </div>

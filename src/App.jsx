@@ -8,6 +8,7 @@ import AuditionFormPage from './pages/AuditionFormPage'
 import AuditionEditPage from './pages/AuditionEditPage'
 import ImportPage from './pages/ImportPage'
 import CheckinPage from './pages/CheckinPage'
+import CastPortalPage from './pages/CastPortalPage'
 import CheckinRedirectPage from './pages/CheckinRedirectPage'
 
 function RequireAuth({ children }) {
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="/import" element={<RequireAuth><ImportPage /></RequireAuth>} />
         <Route path="/checkin/:productionCode/:showDate" element={<CheckinPage />} />
         <Route path="/checkin/:productionCode" element={<CheckinRedirectPage />} />
+        <Route path="/portal/:productionCode" element={<CastPortalPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </SessionProvider>
