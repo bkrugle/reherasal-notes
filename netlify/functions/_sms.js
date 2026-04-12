@@ -63,14 +63,14 @@ async function sendSMS(to, message) {
   })
 }
 
-async function sendEmailSMS(to, message) {
+async function sendEmailSMS(to, message, subject) {
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) throw new Error('RESEND_API_KEY not configured')
 
   const body = JSON.stringify({
     from: 'Rehearsal Notes <noreply@notes.vhsdrama.org>',
     to: [to],
-    subject: 'Rehearsal Notes Alert',
+    subject: subject || 'Rehearsal Notes Alert',
     text: message,
     html: `<p>${message}</p>`
   })
@@ -100,4 +100,10 @@ async function sendEmailSMS(to, message) {
   })
 }
 
-module.exports = { sendSMS }
+// Send to ntfy via email gateway (topic@ntfy.sh)
+// This works from server-side without needing direct ntfy.sh HTTP access
+async function sendEmailToNtfy(topic, subject, message) {
+  return sendEmailSMS(`${topic}@ntfy.sh`, message, subject)
+}
+
+module.exports = { sendSMS, sendEmailToNtfy }

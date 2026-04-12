@@ -1,8 +1,7 @@
 'use strict'
 
 const { sheetsClient, getRows, REGISTRY_SHEET_ID, CORS, ok, err } = require('./_sheets')
-const { sendSMS } = require('./_sms')
-const { sendNtfy } = require('./_ntfy')
+const { sendSMS, sendEmailToNtfy } = require('./_sms')
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
@@ -64,12 +63,9 @@ exports.handler = async (event) => {
 
       try {
         if (sm.ntfyTopic) {
-          // Send via ntfy push notification
-          await sendNtfy(sm.ntfyTopic, msg, {
-            title: allClear ? '✅ All cast in!' : `⚠️ ${missing.length} missing`,
-            priority: allClear ? 'default' : missing.length > 3 ? 'high' : 'default',
-            tags: allClear ? ['white_check_mark'] : ['warning']
-          })
+          // Send via ntfy email gateway (ntfy.sh accepts email → push)
+          // Format: topic@ntfy.sh receives email and delivers as push notification
+          await sendEmailToNtfy(sm.ntfyTopic, allClear ? '✅ All cast in!' : `⚠️ ${missing.length} missing`, msg)
         } else {
           const smsTo = sm.smsGateway || sm.phone
           await sendSMS(smsTo, msg)

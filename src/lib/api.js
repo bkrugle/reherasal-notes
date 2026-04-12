@@ -50,5 +50,19 @@ export const api = {
   getCheckinStatus: (sheetId, showDate) => call(`/getCheckinStatus?sheetId=${sheetId}&showDate=${showDate}`),
   getPublicCheckinStatus: (productionCode, showDate) => call(`/showCheckin?productionCode=${productionCode}&showDate=${showDate}`),
   sendCheckinAlerts: (data) => call('/sendCheckinAlerts', 'POST', data),
-  sendTestNotification: (data) => call('/sendTestNotification', 'POST', data),
+  sendTestNotification: async ({ ntfyTopic, productionTitle }) => {
+    // Call ntfy directly from browser — no server needed
+    const res = await fetch(`https://ntfy.sh/${ntfyTopic}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: `👋 Test from Rehearsal Notes! Alerts for ${productionTitle || 'your production'} are working!`,
+        title: '🎭 Rehearsal Notes',
+        priority: 'default',
+        tags: ['tada']
+      })
+    })
+    if (!res.ok) throw new Error('ntfy error ' + res.status)
+    return res.json()
+  },
 }
