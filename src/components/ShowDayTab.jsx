@@ -41,7 +41,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   // Update curtain time when date changes
   useEffect(() => {
     setCurtainTime(curtainTimes[showDate] || '')
-    setAutoAlertFired(false)
+    setAlertsFired({ 60: false, 30: false, 15: false })
   }, [showDate, production])
 
   // Ticking clock
@@ -205,7 +205,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
             <input type="time" value={curtainTime}
               onChange={e => {
                 setCurtainTime(e.target.value)
-                setAutoAlertFired(false)
+                setAlertsFired({ 60: false, 30: false, 15: false })
               }}
               onBlur={e => { if (e.target.value) saveCurtainTime(showDate, e.target.value) }}
               style={{ fontSize: 13, padding: '5px 8px', width: 110 }} />
