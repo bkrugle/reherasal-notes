@@ -142,7 +142,7 @@ export default function Dashboard({
       )}
 
       {/* Quick actions */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+      <div className="quicknav-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <button className="btn" onClick={() => onNavigate(1)}
           style={{ height: 64, flexDirection: 'column', gap: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <span style={{ fontSize: 20 }}>📋</span>

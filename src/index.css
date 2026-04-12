@@ -686,3 +686,19 @@ textarea { resize: vertical; line-height: 1.5; }
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ── Responsive quick-nav grid in sidebar layout ────── */
+@media (min-width: 1100px) {
+  .desktop-layout .quicknav-grid {
+    grid-template-columns: 1fr 1fr 1fr 1fr !important;
+  }
+  .desktop-layout .stats-bar {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1099px) {
+  .desktop-layout .quicknav-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
