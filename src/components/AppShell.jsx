@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../lib/session'
 
@@ -54,7 +55,34 @@ function NavIcon({ name }) {
 export default function AppShell({ children, title, productionCode, activeTab, onTabChange, showDayMode, openNotesCount, useAuditions, topBarContent, onLogout, onShowDay, showDates, isShowDay }) {
   const navigate = useNavigate()
   const { session, logout } = useSession()
-  const isSetup = !onTabChange // Setup page doesn't pass onTabChange
+  const isSetup = !onTabChange
+
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('rn_darkmode')
+    if (saved === 'dark') return 'dark'
+    if (saved === 'light') return 'light'
+    return 'system'
+  })
+
+  useEffect(() => {
+    const html = document.documentElement
+    if (darkMode === 'dark') {
+      html.classList.add('dark'); html.classList.remove('light')
+    } else if (darkMode === 'light') {
+      html.classList.add('light'); html.classList.remove('dark')
+    } else {
+      html.classList.remove('dark', 'light')
+    }
+    if (darkMode !== 'system') localStorage.setItem('rn_darkmode', darkMode)
+    else localStorage.removeItem('rn_darkmode')
+  }, [darkMode])
+
+  function cycleDarkMode() {
+    setDarkMode(m => m === 'system' ? 'dark' : m === 'dark' ? 'light' : 'system')
+  }
+
+  const darkLabel = darkMode === 'dark' ? 'Dark' : darkMode === 'light' ? 'Light' : 'Auto'
+  const darkIcon = darkMode === 'dark' ? '🌙' : darkMode === 'light' ? '☀️' : '⚙️' // Setup page doesn't pass onTabChange
 
   function handleNav(item) {
     if (isSetup) {
@@ -119,6 +147,10 @@ export default function AppShell({ children, title, productionCode, activeTab, o
           </nav>
 
           <div className="sidebar-footer">
+            <button className="sidebar-nav-item" style={{ width: '100%' }} onClick={cycleDarkMode}>
+              <span style={{ fontSize: 13 }}>{darkIcon}</span>
+              <span>{darkLabel} mode</span>
+            </button>
             {session?.role === 'admin' && (
               <button
                 className={`sidebar-nav-item ${isSetup ? 'active' : ''}`}

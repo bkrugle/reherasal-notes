@@ -51,6 +51,46 @@
   }
 }
 
+/* Manual dark mode override — applied via .dark class on <html> */
+html.dark {
+  --bg: #1c1c1e;
+  --bg2: #2c2c2e;
+  --bg3: #111113;
+  --text: #f2f2f7;
+  --text2: #aeaeb2;
+  --text3: #636366;
+  --border: rgba(255,255,255,0.09);
+  --border2: rgba(255,255,255,0.18);
+  --blue-bg: #0c2d4a; --blue-text: #85b7eb;
+  --green-bg: #173404; --green-text: #c0dd97;
+  --red-bg: #3a1010; --red-text: #f09595;
+  --amber-bg: #3a2010; --amber-text: #fac775;
+  --purple-bg: #26215c; --purple-text: #afa9ec;
+  --teal-bg: #04342c; --teal-text: #9fe1cb;
+  --coral-bg: #4a1b0c; --coral-text: #f0997b;
+  --gray-bg: #2c2c2a; --gray-text: #b4b2a9;
+}
+
+/* Force light mode — overrides system dark preference */
+html.light {
+  --bg: #ffffff;
+  --bg2: #f5f4f1;
+  --bg3: #eeedea;
+  --text: #1a1a1a;
+  --text2: #5a5a5a;
+  --text3: #9a9a9a;
+  --border: rgba(0,0,0,0.11);
+  --border2: rgba(0,0,0,0.20);
+  --blue-bg: #e6f1fb; --blue-text: #0c447c;
+  --green-bg: #eaf3de; --green-text: #27500a;
+  --red-bg: #fcebeb; --red-text: #a32d2d;
+  --amber-bg: #faeeda; --amber-text: #633806;
+  --purple-bg: #eeedfe; --purple-text: #3c3489;
+  --teal-bg: #e1f5ee; --teal-text: #085041;
+  --coral-bg: #faece7; --coral-text: #712b13;
+  --gray-bg: #f1efe8; --gray-text: #444441;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg3);
