@@ -6,7 +6,7 @@ const https = require('https')
 function resendEmail({ to, subject, html, text }) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
-      from: 'Rehearsal Notes <noreply@notes.vhsdrama.org>',
+      from: 'Ovature <noreply@notes.vhsdrama.org>',
       to: Array.isArray(to) ? to : [to],
       subject,
       html,
@@ -89,7 +89,7 @@ exports.handler = async (event) => {
     text += '\n'
   })
 
-  html += `<p style="margin-top:32px;font-size:13px;color:#999">Sent by ${directorName || 'Director'} via Rehearsal Notes</p>
+  html += `<p style="margin-top:32px;font-size:13px;color:#999">Sent by ${directorName || 'Director'} via Ovature</p>
 </body></html>`
   text += `\n— ${directorName || 'Director'}`
 
@@ -101,7 +101,7 @@ exports.handler = async (event) => {
       html,
       text,
       replyTo: directorEmail || undefined,
-      fromName: directorName || 'Rehearsal Notes'
+      fromName: directorName || 'Ovature'
     })
     return ok({ sent: true })
   } catch (e) {

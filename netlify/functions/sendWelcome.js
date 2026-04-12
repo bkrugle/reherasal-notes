@@ -7,7 +7,7 @@ function resendEmail({ to, subject, html, text, replyTo, fromName }) {
   return new Promise((resolve, reject) => {
     const from = fromName
       ? `${fromName} <noreply@notes.vhsdrama.org>`
-      : 'Rehearsal Notes <noreply@notes.vhsdrama.org>'
+      : 'Ovature <noreply@notes.vhsdrama.org>'
     const body = JSON.stringify({
       from,
       to: Array.isArray(to) ? to : [to],
@@ -111,7 +111,7 @@ Questions? Reply to this email.
       html,
       text,
       replyTo: directorEmail || undefined,
-      fromName: directorName || 'Rehearsal Notes'
+      fromName: directorName || 'Ovature'
     })
     return ok({ sent: true })
   } catch (e) {

@@ -72,7 +72,7 @@ async function uploadHeadshot(drive, folderId, base64Data, auditionerId) {
 
 function resendEmail({ to, subject, html, text, replyTo, fromName }) {
   return new Promise((resolve, reject) => {
-    const from = fromName ? `${fromName} <noreply@notes.vhsdrama.org>` : 'Rehearsal Notes <noreply@notes.vhsdrama.org>'
+    const from = fromName ? `${fromName} <noreply@notes.vhsdrama.org>` : 'Ovature <noreply@notes.vhsdrama.org>'
     const body = JSON.stringify({ from, to: [to], reply_to: replyTo || undefined, subject, html, text })
     const req = https.request({
       hostname: 'api.resend.com', path: '/emails', method: 'POST',

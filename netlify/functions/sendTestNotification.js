@@ -14,8 +14,8 @@ exports.handler = async (event) => {
   if (!ntfyTopic) return err('ntfyTopic required')
 
   try {
-    await sendNtfy(ntfyTopic, `✅ ${productionTitle || 'Your production'} — Rehearsal Notes alerts are working! You'll receive cast check-in updates here on show day.`, {
-      title: '🎭 Rehearsal Notes — Test',
+    await sendNtfy(ntfyTopic, `✅ ${productionTitle || 'Your production'} — Ovature alerts are working! You'll receive cast check-in updates here on show day.`, {
+      title: '🎭 Ovature — Test',
       priority: 'default',
       tags: ['tada']
     })

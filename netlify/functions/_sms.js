@@ -68,9 +68,9 @@ async function sendEmailSMS(to, message, subject) {
   if (!apiKey) throw new Error('RESEND_API_KEY not configured')
 
   const body = JSON.stringify({
-    from: 'Rehearsal Notes <noreply@notes.vhsdrama.org>',
+    from: 'Ovature <noreply@notes.vhsdrama.org>',
     to: [to],
-    subject: subject || 'Rehearsal Notes Alert',
+    subject: subject || 'Ovature Alert',
     text: message,
     html: `<p>${message}</p>`
   })

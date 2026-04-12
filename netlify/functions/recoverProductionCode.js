@@ -6,7 +6,7 @@ const https = require('https')
 function sendEmail({ to, subject, html, text }) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
-      from: 'Rehearsal Notes <noreply@notes.vhsdrama.org>',
+      from: 'Ovature <noreply@notes.vhsdrama.org>',
       to: [to], subject, html, text
     })
     const req = https.request({
@@ -88,7 +88,7 @@ exports.handler = async (event) => {
     </tr></thead>
     <tbody>${productionList}</tbody>
   </table>
-  <a href="${url}" style="display:inline-block;background:#1a1a1a;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500">Go to Rehearsal Notes</a>
+  <a href="${url}" style="display:inline-block;background:#1a1a1a;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500">Go to Ovature</a>
   <p style="font-size:12px;color:#999;margin-top:24px">If you didn't request this, you can ignore this email.</p>
 </body></html>`
 
@@ -96,7 +96,7 @@ exports.handler = async (event) => {
 
     await sendEmail({
       to: email,
-      subject: `Your Rehearsal Notes production code${matches.length > 1 ? 's' : ''}`,
+      subject: `Your Ovature production code${matches.length > 1 ? 's' : ''}`,
       html, text
     })
 
