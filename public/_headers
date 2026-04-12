@@ -1,0 +1,11 @@
+# Service worker — no cache so updates are picked up immediately
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# App shell — short cache
+/
+  Cache-Control: no-cache
+
+# Static assets — long cache (Vite hashes filenames)
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

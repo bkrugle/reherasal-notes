@@ -1,12 +1,43 @@
+import { enqueue } from './offlineQueue'
+
 const BASE = '/api'
+
+// Calls that should be queued offline (writes that matter)
+const QUEUEABLE = ['/saveNote', '/updateNote', '/showCheckin', '/updateProduction']
+
+// Label map for user-friendly queue descriptions
+const QUEUE_LABELS = {
+  '/saveNote':        'Save note',
+  '/updateNote':      'Update note',
+  '/showCheckin':     'Cast check-in',
+  '/updateProduction':'Save production settings',
+}
 
 async function call(path, method = 'GET', body = null) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } }
   if (body) opts.body = JSON.stringify(body)
-  const res = await fetch(BASE + path, opts)
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Request failed')
-  return data
+
+  try {
+    const res = await fetch(BASE + path, opts)
+    // Service worker returns 503 with { offline: true } when no connectivity
+    if (res.status === 503) {
+      const data = await res.json().catch(() => ({}))
+      if (data.offline) throw Object.assign(new Error('offline'), { offline: true })
+      throw new Error(data.error || 'Server error')
+    }
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Request failed')
+    return data
+  } catch (err) {
+    // Queue write operations when offline
+    const isOffline = err.offline || err.message === 'Failed to fetch' || !navigator.onLine
+    if (isOffline && method === 'POST' && QUEUEABLE.some(q => path.startsWith(q))) {
+      await enqueue(BASE + path, method, body, QUEUE_LABELS[path] || path)
+      // Return a synthetic success so the UI doesn't break
+      return { success: true, queued: true, offline: true }
+    }
+    throw err
+  }
 }
 
 export const api = {
@@ -60,12 +91,9 @@ export const api = {
         'Priority': 'default',
         'Content-Type': 'text/plain'
       },
-      body: `Test successful! ${productionTitle || 'Your production'} alerts are working. You will receive cast check-in updates here on show day.`
+      body: `Test successful! ${productionTitle || 'Your production'} alerts are working.`
     })
-    if (!res.ok) {
-      const txt = await res.text()
-      throw new Error(`ntfy ${res.status}: ${txt}`)
-    }
+    if (!res.ok) throw new Error(`ntfy ${res.status}`)
     return res.json()
   },
 }
