@@ -389,9 +389,12 @@ export default function ProductionApp() {
         {activeTab === 10 && useAuditions && <AuditionsTab sheetId={session.sheetId} productionCode={session.productionCode} session={session} production={production} onCastAssigned={loadProduction} />}
         {activeTab === 11 && <ShowDayTab sheetId={session.sheetId} productionCode={session.productionCode} production={production} session={session} showDayMode={showDayMode} onGoToCheckin={() => setTab(12)} />}
         {activeTab === 12 && <CheckinTab sheetId={session.sheetId} productionCode={session.productionCode} production={production} session={session} />}
-      </div>
-      {/* Bottom nav — mobile only */}
-      <nav className="bottom-nav" style={showDayMode ? { background: 'var(--bg)', borderTop: '2px solid var(--amber-text)' } : {}}>
+          </div>{/* .page */}
+        </div>{/* .app-main */}
+      </div>{/* .desktop-layout */}
+
+      {/* Mobile bottom nav */}
+      <nav className="bottom-nav" style={showDayMode ? { borderTop: '2px solid var(--accent)' } : {}}>
         {showDayMode ? (
           <>
             <button className={`bottom-nav-btn ${activeTab === 0 ? 'active' : ''}`} onClick={() => setTab(0)}>
@@ -422,29 +425,23 @@ export default function ProductionApp() {
             <button className={`bottom-nav-btn ${activeTab === 2 ? 'active' : ''}`} onClick={() => setTab(2)}>
               <span style={{ fontSize: 20 }}>📋</span><span>Review</span>
             </button>
-            <button
-              onClick={toggleShowDayMode}
-              className={`bottom-nav-btn ${activeTab === 11 ? 'active' : ''}`}
-              style={{}}>
+            <button className={`bottom-nav-btn ${activeTab === 11 ? 'active' : ''}`} onClick={toggleShowDayMode}>
               <span style={{ fontSize: 20 }}>🎬</span><span>Show Day</span>
             </button>
-            <button className={`bottom-nav-btn ${[3,4,5,6,7,8,9,10].includes(activeTab) ? 'active' : ''}`}
-              onClick={() => setShowMoreMenu(m => !m)}
-              style={{ position: 'relative' }}>
+            <button className={`bottom-nav-btn ${[3,4,5,6,7,8,9,10,12].includes(activeTab) ? 'active' : ''}`}
+              onClick={() => setShowMoreMenu(m => !m)}>
               <span style={{ fontSize: 20 }}>⋯</span><span>More</span>
             </button>
           </>
         )}
       </nav>
 
-      {/* More menu drawer */}
       {showMoreMenu && !showDayMode && (
         <div style={{
           position: 'fixed', bottom: 60, left: 0, right: 0, zIndex: 200,
           background: 'var(--bg)', borderTop: '0.5px solid var(--border)',
           padding: '0.75rem', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8
-        }}
-          onClick={() => setShowMoreMenu(false)}>
+        }} onClick={() => setShowMoreMenu(false)}>
           {[
             { icon: '👤', label: 'Cast', idx: 3 },
             { icon: '📅', label: 'Calendar', idx: 4 },
@@ -466,12 +463,7 @@ export default function ProductionApp() {
           ))}
         </div>
       )}
-            {showMoreMenu && <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setShowMoreMenu(false)} />}
-          </div>
-        </div>
-      </div>
-
-      {/* ── MOBILE BOTTOM NAV ───────────────────────────── */}
+      {showMoreMenu && <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setShowMoreMenu(false)} />}
     </div>
   )
 }

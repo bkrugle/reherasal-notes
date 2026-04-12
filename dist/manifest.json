@@ -1,0 +1,18 @@
+{
+  "name": "Rehearsal Notes",
+  "short_name": "Rehearsal",
+  "description": "Production management for theater directors",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#eeedea",
+  "theme_color": "#1a1a1a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
