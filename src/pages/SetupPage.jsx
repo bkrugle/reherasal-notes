@@ -490,6 +490,16 @@ export default function SetupPage() {
               <input type="text" value={config.venue} onChange={e => setC('venue', e.target.value)} />
             </div>
           </div>
+
+          {/* Curtain times per day */}
+          <div className="field" style={{ marginBottom: '1.25rem' }}>
+            <label>Curtain times <span style={{ fontWeight: 400, color: 'var(--text3)', fontSize: 11 }}>— per show date</span></label>
+            <CurtainTimesEditor
+              curtainTimes={config.curtainTimes || {}}
+              showDates={config.showDates}
+              onChange={v => setC('curtainTimes', v)}
+            />
+          </div>
           <div className="field" style={{ marginBottom: '1.25rem' }}>
             <label>Google Calendar ID (optional)</label>
             <input type="text" value={config.calendarId} onChange={e => setC('calendarId', e.target.value)}
