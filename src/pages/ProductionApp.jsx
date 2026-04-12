@@ -467,9 +467,9 @@ export default function ProductionApp() {
         </div>
       )}
             {showMoreMenu && <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setShowMoreMenu(false)} />}
-          </div>{/* end .page */}
-        </div>{/* end .app-main */}
-      </div>{/* end .desktop-layout */}
+          </div>
+        </div>
+      </div>
 
       {/* ── MOBILE BOTTOM NAV ───────────────────────────── */}
     </div>
