@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import CastManager from '../components/CastManager'
-import { api } from '../lib/api'
 
 // Parses showDates string into array of ISO date strings
 function parseShowDates(showDates) {
