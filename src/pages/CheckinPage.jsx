@@ -37,11 +37,18 @@ export default function CheckinPage() {
   const timeLabel = done ? new Date(done.checkedInAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''
 
   const checkedInNames = new Set(status?.checkins?.map(c => c.castName) || [])
-  const filtered = (status?.castList || []).filter(name =>
-    !search || name.toLowerCase().includes(search.toLowerCase())
+  // castList may contain objects {name, castMember} or plain strings
+  const castListNormalized = (status?.castList || []).map(c =>
+    typeof c === 'string' ? { name: c, castMember: '' } : c
   )
-  const notIn = filtered.filter(n => !checkedInNames.has(n))
-  const alreadyIn = filtered.filter(n => checkedInNames.has(n))
+  const filtered = castListNormalized.filter(c => {
+    if (!search) return true
+    const searchLower = search.toLowerCase()
+    return c.name.toLowerCase().includes(searchLower) ||
+      (c.castMember && c.castMember.toLowerCase().includes(searchLower))
+  })
+  const notIn = filtered.filter(c => !checkedInNames.has(c.name))
+  const alreadyIn = filtered.filter(c => checkedInNames.has(c.name))
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
@@ -109,21 +116,27 @@ export default function CheckinPage() {
         {notIn.length > 0 && (
           <div style={{ marginBottom: 20 }}>
             {!search && <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Tap your name to check in</p>}
-            {notIn.map(name => (
+            {notIn.map(c => (
               <button
-                key={name}
+                key={c.name}
                 type="button"
-                onClick={() => setSelected(selected === name ? '' : name)}
+                onClick={() => setSelected(selected === c.name ? '' : c.name)}
                 style={{
                   display: 'block', width: '100%', textAlign: 'left',
                   padding: '12px 14px', marginBottom: 6, borderRadius: 'var(--radius)',
-                  border: selected === name ? '2px solid var(--text)' : '0.5px solid var(--border)',
-                  background: selected === name ? 'var(--bg2)' : 'var(--bg)',
-                  fontSize: 15, fontWeight: selected === name ? 600 : 400,
+                  border: selected === c.name ? '2px solid var(--text)' : '0.5px solid var(--border)',
+                  background: selected === c.name ? 'var(--bg2)' : 'var(--bg)',
                   cursor: 'pointer', color: 'var(--text)'
                 }}
               >
-                {selected === name ? '✓ ' : ''}{name}
+                <span style={{ fontSize: 15, fontWeight: selected === c.name ? 600 : 500 }}>
+                  {selected === c.name ? '✓ ' : ''}{c.castMember || c.name}
+                </span>
+                {c.castMember && (
+                  <span style={{ fontSize: 12, color: 'var(--text3)', marginLeft: 8 }}>
+                    {c.name}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -150,16 +163,19 @@ export default function CheckinPage() {
             <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
               ✅ Already checked in ({alreadyIn.length})
             </p>
-            {alreadyIn.map(name => {
-              const entry = status.checkins.find(c => c.castName === name)
+            {alreadyIn.map(c => {
+              const entry = status.checkins.find(ci => ci.castName === c.name)
               const t = entry ? new Date(entry.checkedInAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''
               return (
-                <div key={name} style={{
+                <div key={c.name} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '10px 14px', marginBottom: 4, borderRadius: 'var(--radius)',
                   background: 'var(--bg2)', border: '0.5px solid var(--border)', opacity: 0.7
                 }}>
-                  <span style={{ fontSize: 14, color: 'var(--text2)' }}>✅ {name}</span>
+                  <div>
+                    <span style={{ fontSize: 14, color: 'var(--text2)' }}>✅ {c.castMember || c.name}</span>
+                    {c.castMember && <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 6 }}>{c.name}</span>}
+                  </div>
                   <span style={{ fontSize: 12, color: 'var(--text3)' }}>{t}</span>
                 </div>
               )

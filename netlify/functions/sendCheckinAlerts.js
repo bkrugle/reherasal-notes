@@ -40,7 +40,7 @@ exports.handler = async (event) => {
 
     // Find missing cast members
     const castList = characters.map(c => typeof c === 'string'
-      ? { name: c, phone: '', smsGateway: '' }
+      ? { name: c, castMember: '', phone: '', smsGateway: '' }
       : c
     )
     const missing = castList.filter(c => !checkedInNames.has(c.name))
@@ -55,7 +55,7 @@ exports.handler = async (event) => {
 
     for (const sm of staffWithSMS) {
       const smsTo = sm.smsGateway || sm.phone
-      const missingNames = missing.map(c => c.name).join(', ')
+      const missingNames = missing.map(c => c.castMember ? `${c.castMember} (${c.name})` : c.name).join(', ')
       const autoNote = body.autoFired ? ' [Auto 1-hr alert]' : ''
       const msg = missing.length === 0
         ? `✅ ${productionTitle}${timeStr} — ALL CAST CHECKED IN! 🎭${autoNote}`

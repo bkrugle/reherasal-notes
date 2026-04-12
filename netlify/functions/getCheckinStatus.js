@@ -38,7 +38,12 @@ exports.handler = async (event) => {
 
     let characters = []
     try { characters = JSON.parse(config.characters || '[]') } catch {}
-    const castList = characters.map(c => typeof c === 'string' ? c : c.name).filter(Boolean)
+    const castList = characters
+      .map(c => typeof c === 'string'
+        ? { name: c, castMember: '' }
+        : { name: c.name || '', castMember: c.castMember || '' }
+      )
+      .filter(c => c.name)
 
     return ok({
       checkins,

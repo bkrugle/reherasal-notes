@@ -114,7 +114,12 @@ function CastEntry({ entry: rawEntry, allNames, onChange, onRemove }) {
             {emails.length} email{emails.length !== 1 ? 's' : ''}
           </span>
         )}
-        <span style={{ fontSize: 14, fontWeight: 500, flex: 1 }}>{name}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ fontSize: 14, fontWeight: 500 }}>{name}</span>
+          {entry.castMember && (
+            <span style={{ fontSize: 12, color: 'var(--text3)', marginLeft: 8 }}>→ {entry.castMember}</span>
+          )}
+        </div>
         <button type="button" className="btn btn-sm"
           onClick={() => setExpanded(e => !e)}
           style={{ fontSize: 11, padding: '3px 8px' }}>
@@ -127,6 +132,19 @@ function CastEntry({ entry: rawEntry, allNames, onChange, onRemove }) {
       {/* Expanded edit panel */}
       {expanded && (
         <div style={{ padding: '0 10px 10px', borderTop: '0.5px solid var(--border)', paddingTop: 10 }}>
+
+          {/* Actor name */}
+          {!group && (
+            <div style={{ marginBottom: 10 }}>
+              <p style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, marginBottom: 4 }}>
+                Actor name <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(shown on check-in portal)</span>
+              </p>
+              <input type="text" value={entry.castMember || ''}
+                onChange={e => onChange({ ...entry, castMember: e.target.value })}
+                placeholder="e.g. Josh Smith"
+                style={{ fontSize: 13 }} />
+            </div>
+          )}
           {/* Group toggle */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             <input type="checkbox" id={`group-${name}`} checked={group}
