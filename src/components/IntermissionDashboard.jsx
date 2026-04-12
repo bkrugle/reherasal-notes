@@ -49,7 +49,7 @@ export default function IntermissionDashboard({ sheetId, productionCode, product
   }, [sheetId, showDate])
 
   const minsToAct2 = act2Time ? minutesUntil(act2Time, showDate) : null
-  const castList = checkinStatus?.castList || []
+  const castList = (checkinStatus?.castList || []).map(c => typeof c === 'string' ? c : c.name).filter(Boolean)
   const checkins = checkinStatus?.checkins || []
   const checkedIn = new Set(checkins.map(c => c.castName))
   const lateArrivals = checkins

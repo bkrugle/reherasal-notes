@@ -10,8 +10,8 @@ function getMicColor(num) {
 
 export default function MicTrackerTab({ characters, production, sheetId }) {
   const storageKey = STORAGE_KEY + '_' + sheetId
-  const castNames = (production?.config?.characters || []).map(c =>
-    typeof c === 'string' ? c : c.name
+  const castNames = (characters || production?.config?.characters || []).map(c =>
+    typeof c === 'string' ? c : (c?.name || '')
   ).filter(Boolean)
 
   const micCount = parseInt(production?.config?.micCount || '12')
