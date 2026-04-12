@@ -164,6 +164,84 @@ function TagInput({ label, values, onChange, placeholder }) {
   )
 }
 
+function NotificationContactForm({ onAdd }) {
+  const [form, setForm] = useState({ name: '', role: 'Stage Manager', phone: '', smsGateway: '' })
+  const carriers = [
+    { label: 'Verizon', suffix: '@vtext.com' },
+    { label: 'AT&T', suffix: '@txt.att.net' },
+    { label: 'T-Mobile', suffix: '@tmomail.net' },
+    { label: 'Sprint', suffix: '@messaging.sprintpcs.com' },
+  ]
+
+  function buildGateway(phone, suffix) {
+    const digits = phone.replace(/\D/g, '')
+    if (digits.length === 10) return digits + suffix
+    if (digits.length === 11 && digits.startsWith('1')) return digits.slice(1) + suffix
+    return ''
+  }
+
+  function add() {
+    if (!form.name.trim()) return
+    if (!form.phone && !form.smsGateway) return
+    const contact = { ...form }
+    // Auto-build gateway if phone + carrier selected but no gateway entered
+    onAdd(contact)
+    setForm({ name: '', role: 'Stage Manager', phone: '', smsGateway: '' })
+  }
+
+  return (
+    <div style={{ borderTop: '0.5px solid var(--border)', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
+      <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--text2)', marginBottom: 8 }}>Add notification contact</p>
+      <div className="grid2" style={{ marginBottom: 8 }}>
+        <div className="field" style={{ margin: 0 }}>
+          <label>Name *</label>
+          <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+            placeholder="e.g. Sarah (SM)" />
+        </div>
+        <div className="field" style={{ margin: 0 }}>
+          <label>Role</label>
+          <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
+            {['Stage Manager', 'Assistant SM', 'Music Director', 'Director', 'Producer', 'Tech Director'].map(r =>
+              <option key={r} value={r}>{r}</option>
+            )}
+          </select>
+        </div>
+      </div>
+      <div className="field" style={{ marginBottom: 8 }}>
+        <label>Phone number</label>
+        <input type="tel" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+          placeholder="412-555-0100" />
+      </div>
+      <div className="field" style={{ marginBottom: 8 }}>
+        <label>
+          SMS Gateway email <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(free — no Twilio needed)</span>
+        </label>
+        <input type="text" value={form.smsGateway}
+          onChange={e => setForm(f => ({ ...f, smsGateway: e.target.value }))}
+          placeholder="e.g. 4125550100@vtext.com" />
+        <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+          {carriers.map(c => (
+            <button key={c.label} type="button" className="btn btn-sm"
+              onClick={() => {
+                const gw = buildGateway(form.phone, c.suffix)
+                if (gw) setForm(f => ({ ...f, smsGateway: gw }))
+              }}
+              style={{ fontSize: 11 }}>
+              {c.label} →
+            </button>
+          ))}
+        </div>
+        <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4 }}>
+          Enter phone number above then tap carrier to auto-fill gateway
+        </p>
+      </div>
+      <button className="btn btn-primary btn-sm" onClick={add} disabled={!form.name || (!form.phone && !form.smsGateway)}>
+        + Add contact
+      </button>
+    </div>
+  )
+}
+
 export default function SetupPage() {
   const { session, logout } = useSession()
   const navigate = useNavigate()
@@ -180,7 +258,7 @@ export default function SetupPage() {
 
   const [config, setConfig] = useState({
     title: '', directorName: '', directorEmail: '',
-    showDates: '', venue: '', calendarId: '', useAuditions: 'false', auditionQuestions: [], scenes: [], characters: [], staff: [], curtainTimes: {}
+    showDates: '', venue: '', calendarId: '', useAuditions: 'false', auditionQuestions: [], scenes: [], characters: [], staff: [], curtainTimes: {}, notificationContacts: []
   })
   const [sharedWith, setSharedWith] = useState([])
   const [newMember, setNewMember] = useState({ name: '', email: '', pin: '', role: 'member' })
@@ -206,7 +284,8 @@ export default function SetupPage() {
         auditionQuestions: Array.isArray(data.config.auditionQuestions) ? data.config.auditionQuestions : [],
         scenes: Array.isArray(data.config.scenes) ? data.config.scenes : [],
         characters: normalizeCast(Array.isArray(data.config.characters) ? data.config.characters : []),
-        staff: Array.isArray(data.config.staff) ? data.config.staff : []
+        staff: Array.isArray(data.config.staff) ? data.config.staff : [],
+        notificationContacts: Array.isArray(data.config.notificationContacts) ? data.config.notificationContacts : []
       })
       setSharedWith((data.sharedWith || []).map(m => ({ ...m, role: m.role || 'member' })))
     } catch (e) {
@@ -539,6 +618,34 @@ export default function SetupPage() {
 
       {activeTab === 'team' && (
         <div>
+
+          {/* ── SMS NOTIFICATIONS ───────────────────────────────── */}
+          <div className="card" style={{ marginBottom: '1rem' }}>
+            <p style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>📱 SMS Notifications</p>
+            <p className="muted" style={{ fontSize: 13, marginBottom: '1rem' }}>
+              These people receive automatic SMS alerts on show day — 1 hour before curtain, and on demand. Add your Stage Manager first.
+            </p>
+            {(config.notificationContacts || []).map((contact, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, padding: '8px 10px', background: 'var(--bg2)', borderRadius: 'var(--radius)', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 14, fontWeight: 500, flex: '0 0 auto', minWidth: 100 }}>{contact.name}</span>
+                <span style={{ fontSize: 12, color: 'var(--text3)', flex: 1 }}>{contact.smsGateway || contact.phone || 'No number'}</span>
+                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--green-bg)', color: 'var(--green-text)', flex: '0 0 auto' }}>
+                  {contact.role || 'Staff'}
+                </span>
+                <button className="btn btn-sm btn-danger" onClick={() => {
+                  const updated = config.notificationContacts.filter((_, idx) => idx !== i)
+                  setC('notificationContacts', updated)
+                }} style={{ flex: '0 0 auto' }}>✕</button>
+              </div>
+            ))}
+            <NotificationContactForm onAdd={contact => setC('notificationContacts', [...(config.notificationContacts || []), contact])} />
+            <div style={{ marginTop: 12 }}>
+              <button className="btn btn-primary btn-sm" onClick={save} disabled={saving}>
+                {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save notification contacts'}
+              </button>
+            </div>
+          </div>
+
           <div className="card" style={{ marginBottom: '1rem' }}>
             <p style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>Share access with a team member</p>
             <p className="muted" style={{ marginBottom: '1rem', fontSize: 13 }}>

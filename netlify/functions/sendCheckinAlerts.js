@@ -22,9 +22,9 @@ exports.handler = async (event) => {
     configRows.forEach(([k, v]) => { if (k) config[k] = v })
 
     let characters = []
-    let staff = []
+    let notificationContacts = []
     try { characters = JSON.parse(config.characters || '[]') } catch {}
-    try { staff = JSON.parse(config.staff || '[]') } catch {}
+    try { notificationContacts = JSON.parse(config.notificationContacts || '[]') } catch {}
 
     // Get today's checkins
     let checkedInNames = new Set()
@@ -38,16 +38,15 @@ exports.handler = async (event) => {
       }
     } catch (e) { console.warn('No checkins tab yet') }
 
-    // Find missing cast members who have phone numbers
+    // Find missing cast members
     const castList = characters.map(c => typeof c === 'string'
       ? { name: c, phone: '', smsGateway: '' }
       : c
     )
-
     const missing = castList.filter(c => !checkedInNames.has(c.name))
 
-    // Send alerts to SM / staff with SMS configured
-    const staffWithSMS = staff.filter(s => typeof s === 'object' && (s.phone || s.smsGateway))
+    // Send alerts to notification contacts (SM, ASM, etc.)
+    const staffWithSMS = notificationContacts.filter(s => s.phone || s.smsGateway)
 
     const results = { alerted: [], failed: [], missingCount: missing.length }
 
