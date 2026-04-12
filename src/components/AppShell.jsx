@@ -128,6 +128,13 @@ export default function AppShell({ children, title, productionCode, activeTab, o
                 Settings
               </button>
             )}
+            {isSetup && (
+              <button className="sidebar-nav-item" style={{ width: '100%' }}
+                onClick={() => navigate('/production?showday=1')}>
+                <NavIcon name="video" />
+                Launch Show Day
+              </button>
+            )}
             <button className="sidebar-nav-item" style={{ width: '100%' }}
               onClick={() => { logout(); navigate('/') }}>
               <NavIcon name="logout" />

@@ -204,6 +204,14 @@ function CastEntry({ entry: rawEntry, allNames, onChange, onRemove }) {
           )}
         </div>
       )}
+      {expanded && (
+        <div style={{ padding: '0 10px 8px' }}>
+          <button type="button" className="btn btn-sm" onClick={() => setExpanded(false)}
+            style={{ fontSize: 11, width: '100%', color: 'var(--text3)' }}>
+            ↑ Collapse
+          </button>
+        </div>
+      )}
     </div>
   )
 }
