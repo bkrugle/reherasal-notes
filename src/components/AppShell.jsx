@@ -108,7 +108,7 @@ export default function AppShell({ children, title, productionCode, activeTab, o
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
               <div className="sidebar-logo-icon">🎭</div>
               <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                <div className="sidebar-show-title">{title || 'Rehearsal Notes'}</div>
+                <div className="sidebar-show-title">{title || 'Ovature'}</div>
                 <div className="sidebar-show-sub">{productionCode || session?.productionCode}</div>
               </div>
             </div>

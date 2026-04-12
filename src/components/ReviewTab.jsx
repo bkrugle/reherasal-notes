@@ -20,7 +20,7 @@ function exportText(notes) {
   const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = 'rehearsal-notes-' + new Date().toISOString().slice(0, 10) + '.txt'
+  a.download = 'ovature-notes-' + new Date().toISOString().slice(0, 10) + '.txt'
   a.click()
 }
 
@@ -29,7 +29,7 @@ function exportHtml(notes) {
   if (!open.length) { alert('No open notes to export.'); return }
   const byScene = {}
   open.forEach(n => { const k = n.scene || 'General'; if (!byScene[k]) byScene[k] = []; byScene[k].push(n) })
-  let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Rehearsal Notes</title>
+  let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ovature — Production Notes</title>
 <style>body{font-family:sans-serif;max-width:720px;margin:2rem auto;color:#1a1a1a;padding:0 1rem}
 h1{font-size:22px}h2{font-size:15px;margin:1.5rem 0 6px;border-bottom:1px solid #ddd;padding-bottom:4px}
 ul{margin:0;padding-left:1.25rem}li{margin:5px 0;font-size:14px}
@@ -38,7 +38,7 @@ ul{margin:0;padding-left:1.25rem}li{margin:5px 0;font-size:14px}
 .b-music{background:#e1f5ee;color:#085041}.b-technical{background:#faece7;color:#712b13}
 .b-general{background:#eaf3de;color:#27500a}.high{color:#a32d2d;font-weight:500}
 .sub{color:#666;font-size:13px;margin-bottom:2rem}</style></head><body>`
-  html += `<h1>Rehearsal Notes</h1><div class="sub">${new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>`
+  html += `<h1>Ovature — Production Notes</h1><div class="sub">${new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>`
   Object.entries(byScene).forEach(([scene, ns]) => {
     html += `<h2>${scene}</h2><ul>`
     ns.forEach(n => {
@@ -53,7 +53,7 @@ ul{margin:0;padding-left:1.25rem}li{margin:5px 0;font-size:14px}
   const blob = new Blob([html], { type: 'text/html' })
   const a = document.createElement('a')
   a.href = URL.createObjectURL(blob)
-  a.download = 'rehearsal-notes-' + new Date().toISOString().slice(0, 10) + '.html'
+  a.download = 'ovature-notes-' + new Date().toISOString().slice(0, 10) + '.html'
   a.click()
 }
 

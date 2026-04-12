@@ -86,7 +86,7 @@ export const api = {
     const res = await fetch(`https://ntfy.sh/${ntfyTopic}`, {
       method: 'POST',
       headers: {
-        'Title': 'Rehearsal Notes Test',
+        'Title': 'Ovature Test',
         'Tags': 'tada,white_check_mark',
         'Priority': 'default',
         'Content-Type': 'text/plain'
