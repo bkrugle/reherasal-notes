@@ -288,6 +288,8 @@ export default function ProductionApp() {
             📋 {openNotes.length}
           </button>
         )}
+        <button className="btn btn-sm" style={{ padding: '5px 8px', fontSize: 13 }}
+          onClick={() => setShowSceneTimer(t => !t)} title="Scene timer">⏱</button>
         <button className="btn btn-sm" style={{ background: 'var(--amber-bg)', color: 'var(--amber-text)', borderColor: 'transparent', fontWeight: 500 }}
           onClick={() => setWrapUp(true)}>Wrap up</button>
       </div>

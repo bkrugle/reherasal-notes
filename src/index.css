@@ -656,9 +656,14 @@ textarea { resize: vertical; line-height: 1.5; }
   flex-shrink: 0;
 }
 
-/* When inside sidebar layout, page content fills full width */
-.desktop-layout .page {
+/* Setup page — readable width but not full stretch */
+.desktop-layout .setup-page {
+  max-width: 860px;
+  margin: 0;
+  padding: 1.25rem 1.5rem 3rem;
+}
   max-width: none;
+  margin: 0;
   padding: 1.25rem 1.5rem 3rem;
 }
 

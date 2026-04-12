@@ -532,7 +532,7 @@ export default function SetupPage() {
         </div>
       }
     >
-      <div className="page" style={{ maxWidth: 900 }}>
+      <div className="setup-page page">
 
       <div className="tabs">
         {['details', 'scenes', 'characters', 'team', ...((config.useAuditions === true || config.useAuditions === 'true') ? ['auditions'] : [])].map(t => (
