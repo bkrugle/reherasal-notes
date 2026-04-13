@@ -30,7 +30,7 @@ function fmtCountdown(totalSec) {
 
 export default function ShowDayTab({ sheetId, productionCode, production, session, showDayMode, onGoToCheckin }) {
   const [now, setNow] = useState(new Date())
-  const [showDate, setShowDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [showDate, setShowDate] = useState(() => new Date().toLocaleDateString('en-CA'))
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(true)
   const [alerting, setAlerting] = useState(false)

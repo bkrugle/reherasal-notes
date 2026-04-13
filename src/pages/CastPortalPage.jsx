@@ -10,7 +10,7 @@ export default function CastPortalPage() {
   const [selectedCast, setSelectedCast] = useState(() => localStorage.getItem(`rn_portal_cast_${productionCode}`) || '')
   const [notes, setNotes] = useState([])
   const [checkinStatus, setCheckinStatus] = useState(null)
-  const showDate = new Date().toISOString().slice(0, 10)
+  const showDate = new Date().toLocaleDateString('en-CA') // en-CA gives YYYY-MM-DD in local time
 
   useEffect(() => {
     async function load() {

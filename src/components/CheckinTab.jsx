@@ -90,7 +90,7 @@ function printCheckinPage(title, url, venue) {
 }
 
 export default function CheckinTab({ sheetId, productionCode, production, session }) {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = new Date().toLocaleDateString('en-CA') // en-CA gives YYYY-MM-DD in local time
   const [date, setDate] = useState(today)
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(true)
