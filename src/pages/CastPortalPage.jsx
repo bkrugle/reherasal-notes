@@ -15,10 +15,15 @@ export default function CastPortalPage() {
   useEffect(() => {
     async function load() {
       try {
-        // Find production by code via public endpoint
         const data = await api.getPublicCheckinStatus(productionCode, showDate)
-        setProduction(data.production || null)
         setCheckinStatus(data)
+        // Fetch full production config (for curtain times, etc.) using sheetId
+        if (data.sheetId) {
+          try {
+            const prod = await api.getProduction(data.sheetId)
+            setProduction(prod)
+          } catch {}
+        }
       } catch (e) {
         setError('Production not found')
       } finally {
@@ -61,8 +66,8 @@ export default function CastPortalPage() {
     </div>
   )
 
-  const config = production?.config || checkinStatus?.productionInfo || {}
-  const title = config.title || 'Production'
+  const config = production?.config || {}
+  const title = checkinStatus?.productionTitle || config.title || 'Production'
   const castList = (checkinStatus?.castList || []).map(c => typeof c === 'string' ? c : c.name).filter(Boolean)
   const checkins = (checkinStatus?.checkins || []).map(c => typeof c === 'string' ? { castName: c } : c)
   const myCheckin = checkins.find(c => c.castName === selectedCast)
