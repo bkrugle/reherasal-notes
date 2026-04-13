@@ -311,17 +311,90 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
     }
 
     // DONE
+    // Total show time = act1 + act2 only (no intermission)
+    const act1Ms = timeline.act1Start && timeline.act1End ? new Date(timeline.act1End) - new Date(timeline.act1Start) : 0
+    const intermissionMs2 = timeline.intermissionStart && timeline.intermissionEnd ? new Date(timeline.intermissionEnd) - new Date(timeline.intermissionStart) : 0
+    const act2Ms = timeline.act2Start && timeline.act2End ? new Date(timeline.act2End) - new Date(timeline.act2Start) : 0
+    const totalShowMs = act1Ms + act2Ms
+    const totalRunningMs = act1Ms + intermissionMs2 + act2Ms
+
+    function fmtMs(ms) {
+      const totalSec = Math.floor(ms / 1000)
+      const h = Math.floor(totalSec / 3600)
+      const m = Math.floor((totalSec % 3600) / 60)
+      const s = totalSec % 60
+      if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+      return `${m}:${String(s).padStart(2,'0')}`
+    }
+
     return (
-      <div style={{ background: '#0f2340', borderRadius: 'var(--radius-lg)', padding: '16px 20px', marginBottom: 14, textAlign: 'center' }}>
-        <p style={{ fontSize: 22, margin: 0 }}>🎉</p>
-        <p style={{ fontSize: 16, fontWeight: 700, color: '#fff', margin: '4px 0 2px' }}>Show complete!</p>
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
-          {timeline.act1Start && `Act 1: ${fmtElapsed(timeline.act1Start, timeline.intermissionStart)}`}
-          {timeline.intermissionStart && ` · Intermission: ${fmtElapsed(timeline.intermissionStart, timeline.act2Start)}`}
-          {timeline.act2Start && ` · Act 2: ${fmtElapsed(timeline.act2Start, timeline.showEnd)}`}
-        </p>
+      <div style={{ background: '#0f2340', borderRadius: 'var(--radius-lg)', padding: '18px 20px', marginBottom: 14 }}>
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: 16 }}>
+          <p style={{ fontSize: 24, margin: 0 }}>🎉</p>
+          <p style={{ fontSize: 18, fontWeight: 800, color: '#fff', margin: '4px 0 2px' }}>Show complete!</p>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+            {production?.config?.title} · Performance {timeline.perfNum}
+          </p>
+        </div>
+
+        {/* Individual times */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+          <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 8px', textAlign: 'center' }}>
+            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 0.5 }}>Act 1</p>
+            <p style={{ fontSize: 20, fontWeight: 800, color: '#fff', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+              {timeline.act1Start ? fmtMs(act1Ms) : '—'}
+            </p>
+            {timeline.act1Start && (
+              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', margin: '3px 0 0' }}>
+                {new Date(timeline.act1Start).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})} → {timeline.act1End ? new Date(timeline.act1End).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}) : '?'}
+              </p>
+            )}
+          </div>
+          <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 8px', textAlign: 'center' }}>
+            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 0.5 }}>Intermission</p>
+            <p style={{ fontSize: 20, fontWeight: 800, color: intermissionMs2 > 15*60*1000 ? '#fca5a5' : '#fff', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+              {timeline.intermissionStart ? fmtMs(intermissionMs2) : '—'}
+            </p>
+            {timeline.intermissionStart && (
+              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', margin: '3px 0 0' }}>
+                {new Date(timeline.intermissionStart).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})} → {timeline.intermissionEnd ? new Date(timeline.intermissionEnd).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}) : '?'}
+              </p>
+            )}
+          </div>
+          <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 8px', textAlign: 'center' }}>
+            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 0.5 }}>Act 2</p>
+            <p style={{ fontSize: 20, fontWeight: 800, color: '#fff', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+              {timeline.act2Start ? fmtMs(act2Ms) : '—'}
+            </p>
+            {timeline.act2Start && (
+              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', margin: '3px 0 0' }}>
+                {new Date(timeline.act2Start).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})} → {timeline.act2End ? new Date(timeline.act2End).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}) : '?'}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Totals */}
+        <div style={{ borderTop: '0.5px solid rgba(255,255,255,0.12)', paddingTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: 0.5 }}>Show time</p>
+            <p style={{ fontSize: 26, fontWeight: 900, color: '#a78bfa', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+              {fmtMs(totalShowMs)}
+            </p>
+            <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', margin: '2px 0 0' }}>Act 1 + Act 2 only</p>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: 0.5 }}>Total running</p>
+            <p style={{ fontSize: 26, fontWeight: 900, color: '#fff', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
+              {fmtMs(totalRunningMs)}
+            </p>
+            <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', margin: '2px 0 0' }}>including intermission</p>
+          </div>
+        </div>
+
         <button onClick={resetTimeline}
-          style={{ marginTop: 10, background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 'var(--radius)', padding: '6px 14px', color: 'rgba(255,255,255,0.6)', fontSize: 12, cursor: 'pointer' }}>
+          style={{ width: '100%', background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 'var(--radius)', padding: '8px 14px', color: 'rgba(255,255,255,0.6)', fontSize: 12, cursor: 'pointer' }}>
           Reset for next performance
         </button>
       </div>
