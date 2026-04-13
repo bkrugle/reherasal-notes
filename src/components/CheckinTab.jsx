@@ -1,11 +1,34 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import QRCode from 'qrcode'
 import { api } from '../lib/api'
 import CustomAlertPanel from './CustomAlertPanel'
 
 const POLL_INTERVAL = 20000
 
-function printCheckinPage(title, url, venue) {
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(url)}`
+
+// QR code rendered client-side — no external service needed
+function QRCanvas({ url, size = 240 }) {
+  const canvasRef = useRef(null)
+  useEffect(() => {
+    if (canvasRef.current && url) {
+      QRCode.toCanvas(canvasRef.current, url, {
+        width: size, margin: 2,
+        color: { dark: '#111111', light: '#ffffff' }
+      }).catch(() => {})
+    }
+  }, [url, size])
+  return <canvas ref={canvasRef} style={{ borderRadius: 8, display: 'block' }} />
+}
+
+// Generate QR as data URL for printing and downloading
+async function getQRDataUrl(url, size = 500) {
+  try {
+    return await QRCode.toDataURL(url, { width: size, margin: 2, color: { dark: '#111111', light: '#ffffff' } })
+  } catch { return null }
+}
+
+async function printCheckinPage(title, url, venue) {
+  const qrDataUrl = await getQRDataUrl(url, 500)
   const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -70,7 +93,7 @@ function printCheckinPage(title, url, venue) {
   <div class="show-title">${title}</div>
   ${venue ? `<div class="venue">${venue}</div>` : '<div style="margin-bottom:40px"></div>'}
   <div class="qr-wrapper">
-    <img src="${qrUrl}" alt="Check-in QR Code" />
+    <img src="${qrDataUrl}" alt="Check-in QR Code" />
   </div>
   <div class="instructions">Scan to check in</div>
   <ul class="steps">
@@ -85,16 +108,9 @@ function printCheckinPage(title, url, venue) {
 
   const win = window.open('', '_blank', 'width=700,height=900')
   win.document.write(html)
-  // Wait for QR image to load before printing
-  win.onload = () => {
-    const img = win.document.querySelector('img')
-    if (img && !img.complete) {
-      img.onload = () => { win.focus(); win.print() }
-      img.onerror = () => { win.focus(); win.print() } // print anyway if image fails
-    } else {
-      setTimeout(() => { win.focus(); win.print() }, 500)
-    }
-  }
+  win.document.close()
+  // QR is already a data URL so no waiting needed
+  setTimeout(() => { win.focus(); win.print() }, 300)
 }
 
 export default function CheckinTab({ sheetId, productionCode, production, session }) {
@@ -197,15 +213,17 @@ export default function CheckinTab({ sheetId, productionCode, production, sessio
         </div>
         {showQR && (
           <div style={{ textAlign: 'center' }}>
-            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(permanentUrl)}`}
-              alt="Permanent check-in QR" style={{ width: 200, height: 200, borderRadius: 8 }} />
+            <QRCanvas url={permanentUrl} size={200} />
             <p style={{ fontSize: 12, color: 'var(--text2)', marginTop: 8, fontWeight: 500 }}>{permanentUrl}</p>
             <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
               Print once, hang in theatre — works every rehearsal and show night
             </p>
             <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'center' }}>
               <button className="btn btn-sm"
-                onClick={() => window.open(`https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(permanentUrl)}`, '_blank')}>
+                onClick={async () => {
+                  const dataUrl = await getQRDataUrl(permanentUrl, 600)
+                  if (dataUrl) { const a = document.createElement('a'); a.href = dataUrl; a.download = 'checkin-qr.png'; a.click() }
+                }}>
                 Download high-res QR
               </button>
               <button className="btn btn-sm"
