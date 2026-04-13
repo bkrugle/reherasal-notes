@@ -217,7 +217,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
           <div style={{ fontSize: 44, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', textAlign: 'center', lineHeight: 1, marginBottom: 12 }}>
             {fmtElapsed(timeline.act1Start)}
           </div>
-          <button onClick={() => updateTimeline({ phase: 'intermission', intermissionStart: new Date().toISOString() })}
+          <button onClick={() => { const now = new Date().toISOString(); updateTimeline({ phase: 'intermission', act1End: now, intermissionStart: now }) }}
             style={{ width: '100%', background: '#fbbf24', border: 'none', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#0f0f0f', cursor: 'pointer' }}>
             ⏸ Start Intermission
           </button>
@@ -275,7 +275,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
             )}
           </div>
 
-          <button onClick={() => updateTimeline({ phase: 'act2', act2Start: new Date().toISOString() })}
+          <button onClick={() => { const now = new Date().toISOString(); updateTimeline({ phase: 'act2', intermissionEnd: now, act2Start: now }) }}
             style={{ width: '100%', background: '#059669', border: 'none', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
             ▶ Call Act 2 — House Open
           </button>
@@ -302,7 +302,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
           <div style={{ fontSize: 44, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', textAlign: 'center', lineHeight: 1, marginBottom: 12 }}>
             {fmtElapsed(timeline.act2Start)}
           </div>
-          <button onClick={() => updateTimeline({ phase: 'done', showEnd: new Date().toISOString() })}
+          <button onClick={() => { const now = new Date().toISOString(); updateTimeline({ phase: 'done', act2End: now, showEnd: now }) }}
             style={{ width: '100%', background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
             🎉 End Show
           </button>
@@ -316,9 +316,9 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
         <p style={{ fontSize: 22, margin: 0 }}>🎉</p>
         <p style={{ fontSize: 16, fontWeight: 700, color: '#fff', margin: '4px 0 2px' }}>Show complete!</p>
         <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
-          {timeline.act1Start && `Act 1: ${fmtElapsed(timeline.act1Start)}`}
-          {timeline.intermissionStart && ` · Intermission: ${fmtElapsed(timeline.intermissionStart)}`}
-          {timeline.act2Start && ` · Act 2: ${fmtElapsed(timeline.act2Start)}`}
+          {timeline.act1Start && `Act 1: ${fmtElapsed(timeline.act1Start, timeline.intermissionStart)}`}
+          {timeline.intermissionStart && ` · Intermission: ${fmtElapsed(timeline.intermissionStart, timeline.act2Start)}`}
+          {timeline.act2Start && ` · Act 2: ${fmtElapsed(timeline.act2Start, timeline.showEnd)}`}
         </p>
         <button onClick={resetTimeline}
           style={{ marginTop: 10, background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 'var(--radius)', padding: '6px 14px', color: 'rgba(255,255,255,0.6)', fontSize: 12, cursor: 'pointer' }}>

@@ -31,7 +31,7 @@ export default function IntermissionDashboard({ sheetId, productionCode, product
   const missing = castList.filter(n => !checkedIn.has(n))
   const openNotes = (notes || []).filter(n => n.date === showDate && n.status === 'open')
 
-  const intermissionMs = elapsedMs(timeline.intermissionStart)
+  const intermissionMs = elapsedMs(timeline.intermissionStart, timeline.intermissionEnd)
   const intermissionOver = timeline.phase === 'intermission' && intermissionMs > INTERMISSION_STANDARD
 
   async function quickLog() {
@@ -108,7 +108,7 @@ export default function IntermissionDashboard({ sheetId, productionCode, product
             <>
               <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--red-text)', marginBottom: 4 }}>OVER TIME</p>
               <div style={{ fontSize: 52, fontWeight: 900, color: 'var(--red-text)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
-                +{fmtElapsed(new Date(timeline.intermissionStart).getTime() + INTERMISSION_STANDARD)}
+                +{fmtElapsed(new Date(timeline.intermissionStart).getTime() + INTERMISSION_STANDARD, timeline.intermissionEnd)}
               </div>
               <p style={{ fontSize: 12, color: 'var(--red-text)', marginTop: 6 }}>over standard 15 minutes</p>
             </>
@@ -116,7 +116,7 @@ export default function IntermissionDashboard({ sheetId, productionCode, product
             <>
               <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 4 }}>Elapsed</p>
               <div style={{ fontSize: 52, fontWeight: 900, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
-                {fmtElapsed(timeline.intermissionStart)}
+                {fmtElapsed(timeline.intermissionStart, timeline.intermissionEnd)}
               </div>
               <div style={{ height: 5, background: 'var(--border)', borderRadius: 3, margin: '10px 0 4px', overflow: 'hidden' }}>
                 <div style={{ height: '100%', borderRadius: 3, width: `${Math.min(100, (intermissionMs / INTERMISSION_STANDARD) * 100)}%`, background: intermissionMs > INTERMISSION_STANDARD * 0.8 ? 'var(--amber-text)' : 'var(--blue-text)', transition: 'width 1s linear' }} />
@@ -132,10 +132,10 @@ export default function IntermissionDashboard({ sheetId, productionCode, product
         <div className="card" style={{ textAlign: 'center', marginBottom: '1rem' }}>
           <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 4 }}>Act 2 elapsed</p>
           <div style={{ fontSize: 44, fontWeight: 900, color: 'var(--green-text)', fontVariantNumeric: 'tabular-nums' }}>
-            {fmtElapsed(timeline.act2Start)}
+            {fmtElapsed(timeline.act2Start, timeline.act2End)}
           </div>
           <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
-            Intermission ran {fmtElapsed(timeline.intermissionStart)} ·
+            Intermission ran {fmtElapsed(timeline.intermissionStart, timeline.intermissionEnd)} ·
             Called {new Date(timeline.act2Start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
           </p>
         </div>
