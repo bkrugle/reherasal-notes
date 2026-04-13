@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { api } from '../lib/api'
 import CustomAlertPanel from './CustomAlertPanel'
 import { getTimeline, saveTimeline, defaultTimeline, fmtElapsed, elapsedMs } from '../lib/showTimeline'
@@ -145,6 +145,81 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   const intermissionOver = timeline.phase === 'intermission' && intermissionMs > INTERMISSION_STANDARD
   const intermissionOverMs = intermissionOver ? intermissionMs - INTERMISSION_STANDARD : 0
 
+
+  // ── Run history — all shows in this run pulled from localStorage ─────────────
+  function RunHistory({ currentDate }) {
+    const showDates = Object.keys(curtainTimes).sort()
+    if (showDates.length < 2) return null
+
+    function msForDate(date) {
+      const t = getTimeline(sheetId, date)
+      if (t.phase !== 'done') return null
+      const a1 = t.act1Start && t.act1End ? new Date(t.act1End) - new Date(t.act1Start) : 0
+      const int = t.intermissionStart && t.intermissionEnd ? new Date(t.intermissionEnd) - new Date(t.intermissionStart) : 0
+      const a2 = t.act2Start && t.act2End ? new Date(t.act2End) - new Date(t.act2Start) : 0
+      return { a1, int, a2, show: a1 + a2, total: a1 + int + a2 }
+    }
+
+    function fmtMs2(ms) {
+      if (!ms) return '—'
+      const totalSec = Math.floor(ms / 1000)
+      const h = Math.floor(totalSec / 3600)
+      const m = Math.floor((totalSec % 3600) / 60)
+      const s = totalSec % 60
+      if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+      return `${m}:${String(s).padStart(2,'0')}`
+    }
+
+    const rows = showDates.map((date, i) => {
+      const times = msForDate(date)
+      const isCurrent = date === currentDate
+      const isPast = date < currentDate
+      const isFuture = date > currentDate
+      const label = new Date(date + 'T12:00:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+      return { date, times, isCurrent, isPast, isFuture, label, perfNum: i + 1 }
+    })
+
+    const completedRows = rows.filter(r => r.times)
+    if (completedRows.length === 0 && !rows.some(r => r.isCurrent)) return null
+
+    return (
+      <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '12px 14px', marginTop: 12 }}>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
+          Run history
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: '4px 10px', alignItems: 'center' }}>
+          {/* Header */}
+          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Show</div>
+          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'right' }}>Act 1</div>
+          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'right' }}>Int.</div>
+          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'right' }}>Act 2</div>
+          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'right' }}>Total</div>
+
+          {rows.map(row => (
+            <React.Fragment key={row.date}>
+              <div style={{ fontSize: 11, color: row.isCurrent ? '#a78bfa' : row.times ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)', fontWeight: row.isCurrent ? 700 : 400, display: 'flex', alignItems: 'center', gap: 4 }}>
+                {row.isCurrent && <span style={{ fontSize: 8, background: '#a78bfa', color: '#0f2340', borderRadius: 3, padding: '1px 4px', fontWeight: 800 }}>NOW</span>}
+                {row.label}
+              </div>
+              <div style={{ fontSize: 12, fontWeight: row.isCurrent ? 700 : 400, color: row.times ? (row.isCurrent ? '#a78bfa' : 'rgba(255,255,255,0.7)') : 'rgba(255,255,255,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                {row.times ? fmtMs2(row.times.a1) : '—'}
+              </div>
+              <div style={{ fontSize: 12, fontWeight: row.isCurrent ? 700 : 400, color: row.times ? (row.times.int > 15*60*1000 ? '#fca5a5' : (row.isCurrent ? '#a78bfa' : 'rgba(255,255,255,0.7)')) : 'rgba(255,255,255,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                {row.times ? fmtMs2(row.times.int) : '—'}
+              </div>
+              <div style={{ fontSize: 12, fontWeight: row.isCurrent ? 700 : 400, color: row.times ? (row.isCurrent ? '#a78bfa' : 'rgba(255,255,255,0.7)') : 'rgba(255,255,255,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                {row.times ? fmtMs2(row.times.a2) : '—'}
+              </div>
+              <div style={{ fontSize: 12, fontWeight: row.isCurrent ? 800 : 400, color: row.times ? (row.isCurrent ? '#fff' : 'rgba(255,255,255,0.7)') : 'rgba(255,255,255,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                {row.times ? fmtMs2(row.times.total) : '—'}
+              </div>
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   // ── Timeline header card ─────────────────────────────────────────────────────
   function TimelineHeader() {
     const phase = timeline.phase
@@ -195,6 +270,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
             style={{ width: '100%', marginTop: 12, background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer', letterSpacing: '-0.2px' }}>
             ▶ Start Act 1
           </button>
+          <RunHistory currentDate={showDate} />
         </div>
       )
     }
@@ -205,7 +281,8 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
         <div style={{ background: '#0f2340', borderRadius: 'var(--radius-lg)', padding: '16px 20px', marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <div>
-              <p style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.6)', margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>Act 1 Running</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)', margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>Now Playing</p>
+              <p style={{ fontSize: 28, fontWeight: 900, color: '#fff', margin: '2px 0 0', letterSpacing: '-0.5px', lineHeight: 1 }}>Act One</p>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
                 Started {new Date(timeline.act1Start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
               </p>
@@ -221,6 +298,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
             style={{ width: '100%', background: '#fbbf24', border: 'none', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#0f0f0f', cursor: 'pointer' }}>
             ⏸ Start Intermission
           </button>
+          <RunHistory currentDate={showDate} />
         </div>
       )
     }
@@ -279,6 +357,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
             style={{ width: '100%', background: '#059669', border: 'none', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
             ▶ Call Act 2 — House Open
           </button>
+          <RunHistory currentDate={showDate} />
         </div>
       )
     }
@@ -289,7 +368,8 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
         <div style={{ background: '#14532d', borderRadius: 'var(--radius-lg)', padding: '16px 20px', marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <div>
-              <p style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.6)', margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>Act 2 Running</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)', margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>Now Playing</p>
+              <p style={{ fontSize: 28, fontWeight: 900, color: '#fff', margin: '2px 0 0', letterSpacing: '-0.5px', lineHeight: 1 }}>Act Two</p>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
                 Intermission ran {fmtElapsed(timeline.intermissionStart)} ·
                 Act 2 called {new Date(timeline.act2Start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
@@ -306,6 +386,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
             style={{ width: '100%', background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
             🎉 End Show
           </button>
+          <RunHistory currentDate={showDate} />
         </div>
       )
     }
@@ -397,6 +478,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
           style={{ width: '100%', background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 'var(--radius)', padding: '8px 14px', color: 'rgba(255,255,255,0.6)', fontSize: 12, cursor: 'pointer' }}>
           Reset for next performance
         </button>
+        <RunHistory currentDate={showDate} />
       </div>
     )
   }
