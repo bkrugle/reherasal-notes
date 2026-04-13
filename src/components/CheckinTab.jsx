@@ -85,8 +85,16 @@ function printCheckinPage(title, url, venue) {
 
   const win = window.open('', '_blank', 'width=700,height=900')
   win.document.write(html)
-  win.document.close()
-  win.onload = () => { win.focus(); win.print() }
+  // Wait for QR image to load before printing
+  win.onload = () => {
+    const img = win.document.querySelector('img')
+    if (img && !img.complete) {
+      img.onload = () => { win.focus(); win.print() }
+      img.onerror = () => { win.focus(); win.print() } // print anyway if image fails
+    } else {
+      setTimeout(() => { win.focus(); win.print() }, 500)
+    }
+  }
 }
 
 export default function CheckinTab({ sheetId, productionCode, production, session }) {
@@ -219,6 +227,18 @@ export default function CheckinTab({ sheetId, productionCode, production, sessio
           <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
             <button className="btn btn-sm" onClick={() => navigator.clipboard?.writeText(checkinUrl)} style={{ fontSize: 11 }}>Copy</button>
             <button className="btn btn-sm" onClick={() => window.open(checkinUrl, '_blank')} style={{ fontSize: 11 }}>Open</button>
+          </div>
+        </div>
+
+        {/* Cast portal link */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '10px 14px', background: 'var(--blue-bg)', borderRadius: 'var(--radius)', border: '0.5px solid #6d28d9', marginTop: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 12, fontWeight: 600, marginBottom: 2, color: '#6d28d9' }}>🎭 Cast portal</p>
+            <p style={{ fontSize: 11, color: 'var(--text3)', wordBreak: 'break-all' }}>{`${window.location.origin}/portal/${productionCode}`}</p>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            <button className="btn btn-sm" onClick={() => navigator.clipboard?.writeText(`${window.location.origin}/portal/${productionCode}`)} style={{ fontSize: 11 }}>Copy</button>
+            <button className="btn btn-sm" onClick={() => window.open(`${window.location.origin}/portal/${productionCode}`, '_blank')} style={{ fontSize: 11 }}>Open</button>
           </div>
         </div>
       </div>
