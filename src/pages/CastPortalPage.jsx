@@ -163,7 +163,7 @@ export default function CastPortalPage() {
         </div>
 
         <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--text3)', marginTop: 16 }}>
-          {title} · Powered by Ovature
+          {title} · Powered by Ovature™
         </p>
       </div>
     </div>

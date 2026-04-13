@@ -104,7 +104,7 @@ exports.handler = async (event) => {
       html,
       text,
       replyTo: directorEmail || undefined,
-      fromName: directorName || 'Ovature'
+      fromName: directorName || 'Ovature™'
     })
     return ok({ sent: true })
   } catch (e) {

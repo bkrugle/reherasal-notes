@@ -88,7 +88,7 @@ exports.handler = async (event) => {
     </tr></thead>
     <tbody>${productionList}</tbody>
   </table>
-  <a href="${url}" style="display:inline-block;background:#1a1a1a;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500">Go to Ovature</a>
+  <a href="${url}" style="display:inline-block;background:#1a1a1a;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:500">Go to Ovature™</a>
   <p style="font-size:12px;color:#999;margin-top:24px">If you didn't request this, you can ignore this email.</p>
 </body></html>`
 
@@ -96,7 +96,7 @@ exports.handler = async (event) => {
 
     await sendEmail({
       to: email,
-      subject: `Your Ovature production code${matches.length > 1 ? 's' : ''}`,
+      subject: `Your Ovature™ production code${matches.length > 1 ? 's' : ''}`,
       html, text
     })
 

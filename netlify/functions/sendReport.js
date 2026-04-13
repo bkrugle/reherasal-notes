@@ -89,7 +89,7 @@ exports.handler = async (event) => {
     text += '\n'
   })
 
-  html += `<p style="margin-top:32px;font-size:13px;color:#999">Sent by ${directorName || 'Director'} via Ovature</p>
+  html += `<p style="margin-top:32px;font-size:13px;color:#999">Sent by ${directorName || 'Director'} via Ovature™</p>
 </body></html>`
   text += `\n— ${directorName || 'Director'}`
 

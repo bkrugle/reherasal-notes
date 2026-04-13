@@ -10,7 +10,7 @@ const https = require('https')
 async function sendNtfy(topic, message, options = {}) {
   if (!topic) throw new Error('No ntfy topic')
 
-  const { title = 'Ovature', priority = 'default', tags = [] } = options
+  const { title = 'Ovature™', priority = 'default', tags = [] } = options
 
   const body = JSON.stringify({
     topic,

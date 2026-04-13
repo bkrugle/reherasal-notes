@@ -74,7 +74,7 @@ function BrandHeader({ subtitle }) {
             fontSize: 42, fontWeight: 900, letterSpacing: '-2.5px', lineHeight: 1,
             color: '#fff',
           }}>
-            <span style={{ color: '#a78bfa' }}>Ov</span>ature
+            <span style={{ color: '#a78bfa' }}>Ov</span>ature<sup style={{ fontSize: 14, fontWeight: 400, verticalAlign: 'super', color: 'rgba(167,139,250,0.7)', letterSpacing: 0 }}>™</sup>
           </div>
           <div style={{
             fontSize: 9, fontWeight: 700, letterSpacing: '2.5px',
