@@ -287,18 +287,25 @@ export default function CheckinTab({ sheetId, productionCode, production, sessio
           </p>
           {checkins.length === 0
             ? <p style={{ fontSize: 13, color: 'var(--text3)' }}>No check-ins yet</p>
-            : checkins.map(c => (
+            : checkins.map(c => {
+              const match = castList.find(cl => cl.name === c.castName)
+              const actorName = match?.castMember || null
+              return (
               <div key={c.castName} style={{ padding: '7px 10px', marginBottom: 4, borderRadius: 'var(--radius)',
                 background: 'var(--bg2)', border: '0.5px solid var(--border)', fontSize: 13 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontWeight: 500 }}>{c.castName}</span>
-                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>
+                  <div>
+                    <span style={{ fontWeight: 500 }}>{actorName || c.castName}</span>
+                    {actorName && <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 6 }}>{c.castName}</span>}
+                  </div>
+                  <span style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0, marginLeft: 8 }}>
                     {new Date(c.checkedInAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                   </span>
                 </div>
                 {c.note && <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{c.note}</p>}
               </div>
-            ))
+              )
+            })
           }
         </div>
       </div>
