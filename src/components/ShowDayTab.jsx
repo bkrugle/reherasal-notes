@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { api } from '../lib/api'
 import CustomAlertPanel from './CustomAlertPanel'
+import { getTimeline, saveTimeline, defaultTimeline, fmtElapsed, elapsedMs } from '../lib/showTimeline'
 
 const POLL_INTERVAL = 20000
+const INTERMISSION_STANDARD = 15 * 60 * 1000 // 15 min
 
-// Parse "HH:MM" into today's Date object
 function todayAt(timeStr, dateStr) {
   if (!timeStr || !dateStr) return null
   const [h, m] = timeStr.split(':').map(Number)
@@ -13,10 +14,18 @@ function todayAt(timeStr, dateStr) {
   return d
 }
 
-// Minutes until a given Date from now
-function minutesUntil(target) {
+function secsUntil(target) {
   if (!target) return null
-  return Math.round((target - new Date()) / 60000)
+  return Math.round((target - new Date()) / 1000)
+}
+
+function fmtCountdown(totalSec) {
+  const abs = Math.abs(totalSec)
+  const h = Math.floor(abs / 3600)
+  const m = Math.floor((abs % 3600) / 60)
+  const s = abs % 60
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+  return `${m}:${String(s).padStart(2,'0')}`
 }
 
 export default function ShowDayTab({ sheetId, productionCode, production, session, showDayMode, onGoToCheckin }) {
@@ -27,9 +36,8 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   const [alerting, setAlerting] = useState(false)
   const [alertResult, setAlertResult] = useState(null)
   const [showQR, setShowQR] = useState(false)
-  const pollRef = useRef(null)
 
-  // Curtain times per day — stored in config as JSON: {"2026-04-16":"19:00","2026-04-17":"19:00",...}
+  // Curtain time
   const curtainTimes = (() => {
     const raw = production?.config?.curtainTimes
     if (!raw) return {}
@@ -38,66 +46,62 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   })()
   const [curtainTime, setCurtainTime] = useState(curtainTimes[showDate] || '')
 
-  // Update curtain time when date changes
+  // Show timeline
+  const [timeline, setTimeline] = useState(() => getTimeline(sheetId, showDate))
+
+  function updateTimeline(changes) {
+    const next = { ...timeline, ...changes }
+    setTimeline(next)
+    saveTimeline(sheetId, showDate, next)
+  }
+
+  function resetTimeline() {
+    if (!confirm('Reset the show timeline? This clears act timers for today.')) return
+    const fresh = defaultTimeline()
+    setTimeline(fresh)
+    saveTimeline(sheetId, showDate, fresh)
+  }
+
+  // Alert tracking
+  const [alertsFired, setAlertsFired] = useState({ 60: false, 30: false, 15: false })
+  const alertRefs = useRef({})
+  const pollRef = useRef(null)
+
   useEffect(() => {
     setCurtainTime(curtainTimes[showDate] || '')
+    setTimeline(getTimeline(sheetId, showDate))
     setAlertsFired({ 60: false, 30: false, 15: false })
   }, [showDate, production])
 
-  // Ticking clock
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000)
     return () => clearInterval(t)
   }, [])
 
-  // Poll checkins
   useEffect(() => {
     load()
     pollRef.current = setInterval(load, POLL_INTERVAL)
     return () => clearInterval(pollRef.current)
   }, [sheetId, showDate])
 
-  // Track which alerts have fired
-  const [alertsFired, setAlertsFired] = useState({ 60: false, 30: false, 15: false })
-  const alertRefs = useRef({})
-
-  // Schedule all three alerts when curtainTime is set
+  // Auto alerts
   useEffect(() => {
     if (!curtainTime || !showDate) return
-
-    // Clear any existing timers
     Object.values(alertRefs.current).forEach(t => clearTimeout(t))
     alertRefs.current = {}
-
     const curtain = todayAt(curtainTime, showDate)
     if (!curtain) return
-
-    const alerts = [
-      { minutes: 60, label: '60 minutes to curtain' },
-      { minutes: 30, label: '30 minutes to curtain' },
-      { minutes: 15, label: '15 minutes to curtain' },
-    ]
-
-    alerts.forEach(({ minutes, label }) => {
+    [{ minutes: 60 }, { minutes: 30 }, { minutes: 15 }].forEach(({ minutes }) => {
       const alertAt = new Date(curtain.getTime() - minutes * 60000)
       const msUntil = alertAt - new Date()
-      if (msUntil <= 0) return // already past
-
+      if (msUntil <= 0) return
       alertRefs.current[minutes] = setTimeout(async () => {
         setAlertsFired(prev => ({ ...prev, [minutes]: true }))
         try {
-          await api.sendCheckinAlerts({
-            sheetId, showDate, curtainTime,
-            alertMinutes: minutes,
-            autoFired: true,
-            alertLabel: label,
-            breakALeg: minutes === 15
-          })
-          console.log(`Auto alert sent: ${label}`)
+          await api.sendCheckinAlerts({ sheetId, showDate, curtainTime, alertMinutes: minutes, autoFired: true })
         } catch (e) { console.warn('Auto alert failed:', e.message) }
       }, msUntil)
     })
-
     return () => Object.values(alertRefs.current).forEach(t => clearTimeout(t))
   }, [curtainTime, showDate])
 
@@ -111,91 +115,230 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
 
   async function saveCurtainTime(date, time) {
     const updated = { ...curtainTimes, [date]: time }
-    try {
-      await api.updateProduction({ sheetId, config: { curtainTimes: JSON.stringify(updated) } })
-    } catch (e) { console.warn('Failed to save curtain time:', e.message) }
+    try { await api.updateProduction({ sheetId, config: { curtainTimes: JSON.stringify(updated) } }) } catch {}
   }
 
   async function sendAlerts() {
-    setAlerting(true)
-    setAlertResult(null)
+    setAlerting(true); setAlertResult(null)
     try {
       const result = await api.sendCheckinAlerts({ sheetId, showDate, curtainTime, alertMinutes: 60 })
       setAlertResult(result)
-    } catch (e) {
-      setAlertResult({ error: e.message })
-    } finally {
-      setAlerting(false)
-    }
+    } catch (e) { setAlertResult({ error: e.message }) }
+    finally { setAlerting(false) }
   }
 
-  const castList = status?.castList || []
+  // ── Computed values ──────────────────────────────────────────────────────────
+  const castList = (status?.castList || []).map(c => typeof c === 'string' ? c : c.name).filter(Boolean)
   const checkins = status?.checkins || []
   const checkedInNames = new Set(checkins.map(c => c.castName))
-  // castList may be objects {name, castMember} or plain strings
-  const missingCast = castList.filter(c => {
-    const n = typeof c === 'string' ? c : c.name
-    return !checkedInNames.has(n)
-  })
+  const missingCast = castList.filter(n => !checkedInNames.has(n))
   const pct = castList.length ? Math.round((checkedInNames.size / castList.length) * 100) : 0
   const checkinUrl = `${window.location.origin}/checkin/${productionCode}/${showDate}`
+
   const curtain = todayAt(curtainTime, showDate)
-  const minsUntil = minutesUntil(curtain)
-  const isPast = minsUntil !== null && minsUntil < 0
+  const secsLeft = secsUntil(curtain)
+  const curtainPast = secsLeft !== null && secsLeft < 0
+  const overCurtainSecs = curtainPast ? Math.abs(secsLeft) : 0
 
-  // Countdown display
-  function countdownLabel() {
-    if (!curtainTime) return null
-    if (isPast) return { text: 'Show is on! 🎭', color: 'var(--green-text)' }
-    if (minsUntil <= 15) return { text: `${minsUntil} min to curtain ⚡`, color: 'var(--red-text)' }
-    if (minsUntil <= 30) return { text: `${minsUntil} min to curtain ⚠️`, color: 'var(--amber-text)' }
-    if (minsUntil <= 60) return { text: `${minsUntil} min to curtain`, color: 'var(--amber-text)' }
-    const h = Math.floor(minsUntil / 60)
-    const m = minsUntil % 60
-    return { text: `${h}h ${m}m to curtain`, color: 'var(--text2)' }
-  }
-  const countdown = countdownLabel()
+  // Intermission overrun
+  const intermissionMs = elapsedMs(timeline.intermissionStart)
+  const intermissionOver = timeline.phase === 'intermission' && intermissionMs > INTERMISSION_STANDARD
+  const intermissionOverMs = intermissionOver ? intermissionMs - INTERMISSION_STANDARD : 0
 
-  return (
-    <div>
-      {/* Show Day mode banner with clock */}
-      {showDayMode && (
+  // ── Timeline header card ─────────────────────────────────────────────────────
+  function TimelineHeader() {
+    const phase = timeline.phase
+
+    // PRE-SHOW: curtain countdown
+    if (phase === 'preshow') {
+      const overdue = curtainPast && timeline.phase === 'preshow'
+      return (
         <div style={{
-          background: isPast ? 'var(--green-text)' : 'var(--amber-text)',
-          color: 'var(--bg)', padding: '10px 16px', marginBottom: 16,
-          borderRadius: 'var(--radius)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+          background: overdue ? 'var(--red-text)' : '#0f2340',
+          borderRadius: 'var(--radius-lg)', padding: '16px 20px', marginBottom: 14,
         }}>
-          <div>
-            <p style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>
-              {isPast ? '🎭 Show is running!' : '🎬 Show Day'}
-            </p>
-            <p style={{ fontSize: 12, margin: 0, opacity: 0.85 }}>{production?.config?.title}</p>
-            {Object.entries(alertsFired).some(([,v]) => v) && (
-              <p style={{ fontSize: 11, margin: '2px 0 0', opacity: 0.85 }}>
-                ✓ Alerts sent: {Object.entries(alertsFired).filter(([,v]) => v).map(([k]) => `${k}min`).join(', ')}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: overdue ? '#fff' : 'rgba(255,255,255,0.6)', margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>
+                {overdue ? '⚠ CURTAIN OVERDUE' : 'Time to Curtain'}
               </p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
+                {production?.config?.title}
+                {curtainTime && ` · Curtain ${new Date(`1970-01-01T${curtainTime}`).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}
+              </p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 2 }}>
+                {now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+              </div>
+            </div>
+          </div>
+          {/* BIG CLOCK */}
+          <div style={{ textAlign: 'center', padding: '8px 0' }}>
+            {!curtainTime ? (
+              <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.4)' }}>Set curtain time below</p>
+            ) : overdue ? (
+              <div>
+                <div style={{ fontSize: 56, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                  +{fmtCountdown(overCurtainSecs)}
+                </div>
+                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 6 }}>over scheduled curtain — start Act 1 when ready</p>
+              </div>
+            ) : (
+              <div style={{ fontSize: 56, fontWeight: 900, color: secsLeft < 600 ? '#fbbf24' : '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                {fmtCountdown(secsLeft)}
+              </div>
             )}
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 22, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+          {/* Start Act 1 button */}
+          <button onClick={() => updateTimeline({ phase: 'act1', act1Start: new Date().toISOString() })}
+            style={{ width: '100%', marginTop: 12, background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer', letterSpacing: '-0.2px' }}>
+            ▶ Start Act 1
+          </button>
+        </div>
+      )
+    }
+
+    // ACT 1 RUNNING
+    if (phase === 'act1') {
+      return (
+        <div style={{ background: '#0f2340', borderRadius: 'var(--radius-lg)', padding: '16px 20px', marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.6)', margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>Act 1 Running</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+                Started {new Date(timeline.act1Start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+              </p>
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>
               {now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}
             </div>
-            {curtainTime && (
-              <div style={{ fontSize: 11, opacity: 0.85 }}>Curtain {curtainTime}</div>
+          </div>
+          <div style={{ fontSize: 44, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', textAlign: 'center', lineHeight: 1, marginBottom: 12 }}>
+            {fmtElapsed(timeline.act1Start)}
+          </div>
+          <button onClick={() => updateTimeline({ phase: 'intermission', intermissionStart: new Date().toISOString() })}
+            style={{ width: '100%', background: '#fbbf24', border: 'none', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#0f0f0f', cursor: 'pointer' }}>
+            ⏸ Start Intermission
+          </button>
+        </div>
+      )
+    }
+
+    // INTERMISSION
+    if (phase === 'intermission') {
+      return (
+        <div style={{
+          background: intermissionOver ? 'var(--red-text)' : '#1e1b4b',
+          borderRadius: 'var(--radius-lg)', padding: '16px 20px', marginBottom: 14,
+          transition: 'background 0.5s',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: intermissionOver ? '#fff' : 'rgba(255,255,255,0.6)', margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>
+                {intermissionOver ? '⏰ INTERMISSION OVER TIME' : 'Intermission'}
+              </p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
+                Started {new Date(timeline.intermissionStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+              </p>
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>
+              {now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}
+            </div>
+          </div>
+
+          {/* Timer */}
+          <div style={{ textAlign: 'center', marginBottom: 8 }}>
+            {intermissionOver ? (
+              <div>
+                <div style={{ fontSize: 52, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                  +{fmtElapsed(new Date(timeline.intermissionStart).getTime() + INTERMISSION_STANDARD)}
+                </div>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>over 15 minutes</p>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 52, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                  {fmtElapsed(timeline.intermissionStart)}
+                </div>
+                {/* Progress bar */}
+                <div style={{ height: 5, background: 'rgba(255,255,255,0.2)', borderRadius: 3, margin: '8px 0 0', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', borderRadius: 3,
+                    width: `${Math.min(100, (intermissionMs / INTERMISSION_STANDARD) * 100)}%`,
+                    background: intermissionMs > INTERMISSION_STANDARD * 0.8 ? '#fbbf24' : '#a78bfa',
+                    transition: 'width 1s linear',
+                  }} />
+                </div>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>of standard 15:00</p>
+              </div>
             )}
           </div>
-        </div>
-      )}
 
-      {/* Date + Curtain Time */}
-      <div style={{ background: 'var(--bg2)', borderRadius: 'var(--radius)', padding: '0.75rem 1rem', marginBottom: 16 }}>
+          <button onClick={() => updateTimeline({ phase: 'act2', act2Start: new Date().toISOString() })}
+            style={{ width: '100%', background: '#059669', border: 'none', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
+            ▶ Call Act 2 — House Open
+          </button>
+        </div>
+      )
+    }
+
+    // ACT 2
+    if (phase === 'act2') {
+      return (
+        <div style={{ background: '#14532d', borderRadius: 'var(--radius-lg)', padding: '16px 20px', marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.6)', margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>Act 2 Running</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+                Intermission ran {fmtElapsed(timeline.intermissionStart)} ·
+                Act 2 called {new Date(timeline.act2Start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+              </p>
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>
+              {now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}
+            </div>
+          </div>
+          <div style={{ fontSize: 44, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', textAlign: 'center', lineHeight: 1, marginBottom: 12 }}>
+            {fmtElapsed(timeline.act2Start)}
+          </div>
+          <button onClick={() => updateTimeline({ phase: 'done', showEnd: new Date().toISOString() })}
+            style={{ width: '100%', background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
+            🎉 End Show
+          </button>
+        </div>
+      )
+    }
+
+    // DONE
+    return (
+      <div style={{ background: '#0f2340', borderRadius: 'var(--radius-lg)', padding: '16px 20px', marginBottom: 14, textAlign: 'center' }}>
+        <p style={{ fontSize: 22, margin: 0 }}>🎉</p>
+        <p style={{ fontSize: 16, fontWeight: 700, color: '#fff', margin: '4px 0 2px' }}>Show complete!</p>
+        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
+          {timeline.act1Start && `Act 1: ${fmtElapsed(timeline.act1Start)}`}
+          {timeline.intermissionStart && ` · Intermission: ${fmtElapsed(timeline.intermissionStart)}`}
+          {timeline.act2Start && ` · Act 2: ${fmtElapsed(timeline.act2Start)}`}
+        </p>
+        <button onClick={resetTimeline}
+          style={{ marginTop: 10, background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 'var(--radius)', padding: '6px 14px', color: 'rgba(255,255,255,0.6)', fontSize: 12, cursor: 'pointer' }}>
+          Reset for next performance
+        </button>
+      </div>
+    )
+  }
+
+  // ── Main render ──────────────────────────────────────────────────────────────
+  return (
+    <div>
+      <TimelineHeader />
+
+      {/* Curtain time + date controls */}
+      <div style={{ background: 'var(--bg2)', borderRadius: 'var(--radius)', padding: '0.75rem 1rem', marginBottom: 14 }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div className="field" style={{ margin: 0, flex: '0 0 auto' }}>
             <label style={{ fontSize: 11 }}>Show date</label>
-            <input type="date" value={showDate}
-              onChange={e => setShowDate(e.target.value)}
-              style={{ fontSize: 13, padding: '5px 8px' }} />
+            <input type="date" value={showDate} onChange={e => setShowDate(e.target.value)} style={{ fontSize: 13, padding: '5px 8px' }} />
           </div>
           <div className="field" style={{ margin: 0, flex: '0 0 auto' }}>
             <label style={{ fontSize: 11 }}>
@@ -203,33 +346,28 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
               {curtainTimes[showDate] && <span style={{ color: 'var(--green-text)', marginLeft: 4 }}>✓ saved</span>}
             </label>
             <input type="time" value={curtainTime}
-              onChange={e => {
-                setCurtainTime(e.target.value)
-                setAlertsFired({ 60: false, 30: false, 15: false })
-              }}
+              onChange={e => { setCurtainTime(e.target.value); setAlertsFired({ 60: false, 30: false, 15: false }) }}
               onBlur={e => { if (e.target.value) saveCurtainTime(showDate, e.target.value) }}
               style={{ fontSize: 13, padding: '5px 8px', width: 110 }} />
           </div>
-          {countdown && (
-            <div style={{ paddingBottom: 6, flex: '0 0 auto' }}>
-              <p style={{ fontSize: 14, fontWeight: 600, color: countdown.color, margin: 0 }}>
-                {countdown.text}
-              </p>
-            </div>
-          )}
-          <button className="btn btn-sm" onClick={load} style={{ marginBottom: 2, marginLeft: 'auto' }}>↻</button>
+          <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+            <button className="btn btn-sm" onClick={load} style={{ fontSize: 11 }}>↻</button>
+            {timeline.phase !== 'preshow' && (
+              <button className="btn btn-sm" onClick={resetTimeline} style={{ fontSize: 11 }}>Reset timeline</button>
+            )}
+          </div>
         </div>
-
-        {curtainTime && !isPast && minsUntil !== null && (
-          <div style={{ marginTop: 8, padding: '6px 10px', background: 'var(--bg3)', borderRadius: 'var(--radius)', fontSize: 12, color: 'var(--text3)' }}>
-            📲 Auto alerts scheduled:
+        {/* Alert schedule */}
+        {curtainTime && curtain && (
+          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text3)' }}>
+            📲 Auto alerts:
             {[60, 30, 15].map(m => {
               const fired = alertsFired[m]
-              const alertAt = curtain ? new Date(curtain.getTime() - m * 60000) : null
-              const timeLabel = alertAt ? alertAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''
+              const alertAt = new Date(curtain.getTime() - m * 60000)
+              const timeLabel = alertAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
               return (
                 <span key={m} style={{ marginLeft: 8, color: fired ? 'var(--green-text)' : 'var(--text2)' }}>
-                  {fired ? '✓' : '○'} {m}min ({timeLabel}){m === 15 ? ' 🌟' : ''}
+                  {fired ? '✓' : '○'} {m}min ({timeLabel})
                 </span>
               )
             })}
@@ -237,22 +375,14 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
         )}
       </div>
 
-      {/* Progress bar */}
-      <div style={{ background: 'var(--bg2)', borderRadius: 'var(--radius-lg)', padding: '1rem', marginBottom: 16 }}>
+      {/* Check-in progress */}
+      <div style={{ background: 'var(--bg2)', borderRadius: 'var(--radius-lg)', padding: '1rem', marginBottom: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <p style={{ fontSize: 15, fontWeight: 600 }}>
-            {checkedInNames.size} / {castList.length} checked in
-          </p>
-          <span style={{ fontSize: 14, fontWeight: 600, color: pct === 100 ? 'var(--green-text)' : pct > 75 ? 'var(--amber-text)' : 'var(--red-text)' }}>
-            {pct}%
-          </span>
+          <p style={{ fontSize: 15, fontWeight: 600 }}>{checkedInNames.size} / {castList.length} checked in</p>
+          <span style={{ fontSize: 14, fontWeight: 600, color: pct === 100 ? 'var(--green-text)' : pct > 75 ? 'var(--amber-text)' : 'var(--red-text)' }}>{pct}%</span>
         </div>
         <div style={{ height: 8, background: 'var(--bg3)', borderRadius: 4, overflow: 'hidden' }}>
-          <div style={{
-            height: '100%', borderRadius: 4, transition: 'width 0.5s',
-            width: `${pct}%`,
-            background: pct === 100 ? 'var(--green-text)' : pct > 75 ? 'var(--amber-text)' : 'var(--red-text)'
-          }} />
+          <div style={{ height: '100%', borderRadius: 4, transition: 'width 0.5s', width: `${pct}%`, background: pct === 100 ? 'var(--green-text)' : pct > 75 ? 'var(--amber-text)' : 'var(--red-text)' }} />
         </div>
         {pct === 100
           ? <p style={{ fontSize: 12, color: 'var(--green-text)', marginTop: 6, fontWeight: 500 }}>✅ Full house — everyone's in!</p>
@@ -260,17 +390,11 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
         }
       </div>
 
-      {/* Go to Check-in */}
-      <button
-        onClick={onGoToCheckin}
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          width: '100%', padding: '0.875rem 1rem', marginBottom: 14,
-          background: 'var(--bg2)', border: '0.5px solid var(--border2)',
-          borderRadius: 'var(--radius-lg)', cursor: 'pointer', color: 'var(--text)'
-        }}>
+      {/* Check-in link + QR */}
+      <button onClick={onGoToCheckin}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0.875rem 1rem', marginBottom: 12, background: 'var(--bg2)', border: '0.5px solid var(--border2)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', color: 'var(--text)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 22 }}>✅</span>
+          <span style={{ fontSize: 20 }}>✅</span>
           <div style={{ textAlign: 'left' }}>
             <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Cast Check-in</p>
             <p style={{ fontSize: 12, color: 'var(--text3)', margin: 0 }}>QR code, live list, manual check-in</p>
@@ -279,8 +403,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
         <span style={{ fontSize: 18, color: 'var(--text3)' }}>→</span>
       </button>
 
-      {/* QR Code */}
-      <div style={{ background: 'var(--bg2)', borderRadius: 'var(--radius)', padding: '0.75rem 1rem', marginBottom: 16 }}>
+      <div style={{ background: 'var(--bg2)', borderRadius: 'var(--radius)', padding: '0.75rem 1rem', marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ fontSize: 12, fontWeight: 500, marginBottom: 2 }}>📱 Cast check-in link</p>
@@ -300,80 +423,57 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
         )}
       </div>
 
-      {/* Custom alert */}
       <CustomAlertPanel sheetId={sheetId} production={production} isShowDay={true} />
 
-      {/* Manual alert button */}
-      <div style={{ marginBottom: 16 }}>
+      {/* Manual alert */}
+      <div style={{ marginBottom: 14 }}>
         <button className="btn btn-primary btn-full" onClick={sendAlerts} disabled={alerting}>
-          {alerting ? 'Sending…' : missingCast.length === 0
-            ? '📱 Send "All clear" SMS to stage manager'
-            : `📱 Alert stage manager — ${missingCast.length} missing`}
+          {alerting ? 'Sending…' : missingCast.length === 0 ? '📱 Send "All clear" to stage manager' : `📱 Alert stage manager — ${missingCast.length} missing`}
         </button>
         {alertResult && (
-          <div style={{
-            marginTop: 8, padding: '0.75rem',
-            background: alertResult.error ? 'var(--red-bg)' : 'var(--bg2)',
-            border: `0.5px solid ${alertResult.error ? 'var(--red-text)' : 'var(--border)'}`,
-            borderRadius: 'var(--radius)', fontSize: 13
-          }}>
+          <div style={{ marginTop: 8, padding: '0.75rem', background: alertResult.error ? 'var(--red-bg)' : 'var(--bg2)', border: `0.5px solid ${alertResult.error ? 'var(--red-text)' : 'var(--border)'}`, borderRadius: 'var(--radius)', fontSize: 13 }}>
             {alertResult.error
               ? <p style={{ color: 'var(--red-text)' }}>⚠ {alertResult.error}</p>
               : <>
                 {alertResult.alerted?.length > 0 && <p style={{ color: 'var(--green-text)', marginBottom: 2 }}>✓ Alerted: {alertResult.alerted.join(', ')}</p>}
                 {alertResult.failed?.length > 0 && <p style={{ color: 'var(--red-text)' }}>✗ Failed: {alertResult.failed.map(f => f.name).join(', ')}</p>}
-                {!alertResult.alerted?.length && !alertResult.failed?.length && (
-                  <p style={{ color: 'var(--text2)' }}>No SMS numbers on file for staff. Add them in Setup → Characters.</p>
-                )}
+                {!alertResult.alerted?.length && !alertResult.failed?.length && <p style={{ color: 'var(--text2)' }}>No SMS numbers on file for staff.</p>}
               </>
             }
           </div>
         )}
       </div>
 
-      {/* Two columns: Missing | Present */}
+      {/* Missing / Present */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
-          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--red-text)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-            ⚠ Missing ({missingCast.length})
-          </p>
+          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--red-text)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>⚠ Missing ({missingCast.length})</p>
           {missingCast.length === 0
             ? <p style={{ fontSize: 13, color: 'var(--text3)' }}>Everyone's in! 🎉</p>
-            : missingCast.map(c => {
-              const roleName = typeof c === 'string' ? c : c.name
-              const actorName = typeof c === 'object' && c.castMember ? c.castMember : null
-              return (
-                <div key={roleName} style={{ padding: '8px 10px', marginBottom: 4, borderRadius: 'var(--radius)', background: 'var(--red-bg)', border: '0.5px solid var(--red-text)', fontSize: 13, color: 'var(--red-text)' }}>
-                  <span style={{ fontWeight: 500 }}>{actorName || roleName}</span>
-                  {actorName && <span style={{ fontSize: 11, opacity: 0.8, marginLeft: 6 }}>{roleName}</span>}
-                </div>
-              )
-            })
+            : missingCast.map(n => (
+                <div key={n} style={{ padding: '8px 10px', marginBottom: 4, borderRadius: 'var(--radius)', background: 'var(--red-bg)', border: '0.5px solid var(--red-text)', fontSize: 13, color: 'var(--red-text)', fontWeight: 500 }}>{n}</div>
+              ))
           }
         </div>
         <div>
-          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--green-text)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-            ✅ Present ({checkedInNames.size})
-          </p>
+          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--green-text)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>✅ Present ({checkedInNames.size})</p>
           {checkins.length === 0
             ? <p style={{ fontSize: 13, color: 'var(--text3)' }}>No check-ins yet</p>
             : checkins.map(c => (
-              <div key={c.castName} style={{ padding: '8px 10px', marginBottom: 4, borderRadius: 'var(--radius)', background: 'var(--bg2)', border: '0.5px solid var(--border)', fontSize: 13 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4 }}>
-                  <span style={{ fontWeight: 500 }}>{c.castName}</span>
-                  <span style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>
-                    {new Date(c.checkedInAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                  </span>
+                <div key={c.castName} style={{ padding: '8px 10px', marginBottom: 4, borderRadius: 'var(--radius)', background: 'var(--bg2)', border: '0.5px solid var(--border)', fontSize: 13 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4 }}>
+                    <span style={{ fontWeight: 500 }}>{c.castName}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>
+                      {new Date(c.checkedInAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  {c.note && <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{c.note}</p>}
                 </div>
-                {c.note && <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{c.note}</p>}
-              </div>
-            ))}
+              ))
+          }
         </div>
       </div>
-
-      <p style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'center', marginTop: 16 }}>
-        Auto-refreshes every 20 seconds
-      </p>
+      <p style={{ fontSize: 11, color: 'var(--text3)', textAlign: 'center', marginTop: 14 }}>Auto-refreshes every 20 seconds</p>
     </div>
   )
 }

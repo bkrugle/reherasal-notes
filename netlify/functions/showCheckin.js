@@ -40,7 +40,7 @@ exports.handler = async (event) => {
         castName: r[idx.castName],
         checkedInAt: r[idx.checkedInAt],
         note: r[idx.note] || ''
-      })), productionTitle: config.title || '', showDate, castList })
+      })), productionTitle: config.title || '', showDate, castList, sheetId })
     } catch (e) { return err(e.message, 500) }
   }
 

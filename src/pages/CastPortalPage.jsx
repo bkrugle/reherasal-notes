@@ -63,8 +63,8 @@ export default function CastPortalPage() {
 
   const config = production?.config || checkinStatus?.productionInfo || {}
   const title = config.title || 'Production'
-  const castList = checkinStatus?.castList || []
-  const checkins = checkinStatus?.checkins || []
+  const castList = (checkinStatus?.castList || []).map(c => typeof c === 'string' ? c : c.name).filter(Boolean)
+  const checkins = (checkinStatus?.checkins || []).map(c => typeof c === 'string' ? { castName: c } : c)
   const myCheckin = checkins.find(c => c.castName === selectedCast)
   const curtainTimes = (() => {
     try { const raw = config.curtainTimes; return typeof raw === 'object' ? raw : JSON.parse(raw || '{}') } catch { return {} }
