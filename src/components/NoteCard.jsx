@@ -22,13 +22,32 @@ export default function NoteCard({ note, sheetId, scenes, characters, onUpdated,
   function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
 
   function saveEdit() {
-    const updated = { ...localNote, ...form }
+    const charNames = castNameList(characters)
+    const parsed = parseHashtags(form.text, charNames, scenes)
+
+    const finalForm = {
+      ...form,
+      category: parsed.category || form.category,
+      priority: parsed.priority || form.priority,
+      cast: parsed.cast || form.cast,
+      castList: parsed.cast
+        ? parsed.cast.split(',').map(s => s.trim()).filter(Boolean)
+        : (form.castList || []),
+      scene: parsed.scene || form.scene,
+    }
+
+    const updated = { ...localNote, ...finalForm }
     setLocalNote(updated)
     setEditing(false)
     onUpdated(updated)
     syncNote(sheetId, note.id, {
-      text: form.text, scene: form.scene, category: form.category,
-      priority: form.priority, cast: form.cast, cue: form.cue
+      text: finalForm.text,
+      scene: finalForm.scene,
+      category: finalForm.category,
+      priority: finalForm.priority,
+      cast: finalForm.cast,
+      castList: finalForm.castList,
+      cue: finalForm.cue
     })
   }
 
@@ -104,8 +123,9 @@ export default function NoteCard({ note, sheetId, scenes, characters, onUpdated,
           <textarea rows={3} value={form.text} onChange={e => {
             const val = e.target.value
             set('text', val)
-            // Parse hashtags and update fields
-            const parsed = parseHashtags(val)
+            // Parse hashtags and update fields live as user types
+            const charNames = castNameList(characters)
+            const parsed = parseHashtags(val, charNames, scenes)
             if (parsed.category) set('category', parsed.category)
             if (parsed.priority) set('priority', parsed.priority)
             if (parsed.cast) set('cast', parsed.cast)

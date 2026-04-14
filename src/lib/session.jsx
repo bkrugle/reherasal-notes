@@ -12,10 +12,16 @@ export function SessionProvider({ children }) {
 
   function login(data) {
     sessionStorage.setItem('rn_session', JSON.stringify(data))
+    // Clear greeting flag so modal shows on every fresh login
+    const greetingKey = 'rn_greeted_' + (data?.sheetId || 'default')
+    sessionStorage.removeItem(greetingKey)
     setSession(data)
   }
 
   function logout() {
+    // Clear greeting flag before removing session
+    const greetingKey = 'rn_greeted_' + (session?.sheetId || 'default')
+    sessionStorage.removeItem(greetingKey)
     sessionStorage.removeItem('rn_session')
     setSession(null)
   }
