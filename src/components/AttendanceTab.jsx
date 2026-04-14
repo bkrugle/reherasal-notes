@@ -24,9 +24,18 @@ function parseShowDates(showDates) {
 
 export default function AttendanceTab({ characters, notes, sheetId, production, productionCode }) {
   const charNames = castNameList(characters)
-  const showDates = parseShowDates(production?.config?.showDates || '')
+  // Use curtainTimes keys as show dates — more reliable than parsing text
+  const showDates = (() => {
+    try {
+      const ct = production?.config?.curtainTimes
+      if (!ct) return parseShowDates(production?.config?.showDates || '')
+      const parsed = typeof ct === 'string' ? JSON.parse(ct) : ct
+      const keys = Object.keys(parsed).filter(Boolean).sort()
+      return keys.length > 0 ? keys : parseShowDates(production?.config?.showDates || '')
+    } catch { return parseShowDates(production?.config?.showDates || '') }
+  })()
 
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10))
+  const [selectedDate, setSelectedDate] = useState(new Date().toLocaleDateString('en-CA'))
   const [records, setRecords] = useState(() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY + '_' + sheetId) || '{}') } catch { return {} }
   })
@@ -80,8 +89,16 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
   if (isShowDate) {
     const checkins = checkinData?.checkins || []
     const checkedInNames = new Set(checkins.map(c => c.castName))
-    const present = charNames.filter(n => checkedInNames.has(n))
-    const absent = charNames.filter(n => !checkedInNames.has(n))
+    // castList has {name=character, castMember=actor} — match by either
+    const castListFull = (checkinData?.castList || []).map(c => typeof c === 'string' ? { name: c, castMember: '' } : c)
+    function isCheckedIn(charName) {
+      if (checkedInNames.has(charName)) return true
+      // Also check if actor name matches a checked-in character
+      const entry = castListFull.find(c => c.castMember === charName)
+      return entry ? checkedInNames.has(entry.name) : false
+    }
+    const present = charNames.filter(n => isCheckedIn(n))
+    const absent = charNames.filter(n => !isCheckedIn(n))
     const pct = charNames.length ? Math.round((present.length / charNames.length) * 100) : 0
 
     return (
@@ -131,11 +148,15 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
               {present.length === 0
                 ? <p style={{ fontSize: 13, color: 'var(--text3)' }}>No check-ins yet</p>
                 : present.map(name => {
-                    const entry = checkins.find(c => c.castName === name)
+                    const castEntry = castListFull.find(c => c.castMember === name || c.name === name)
+                    const checkinEntry = checkins.find(c => c.castName === (castEntry?.name || name))
                     return (
                       <div key={name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '0.5px solid var(--border)', fontSize: 13 }}>
-                        <span style={{ fontWeight: 500 }}>{name}</span>
-                        {entry?.time && <span style={{ fontSize: 11, color: 'var(--text3)' }}>{entry.time}</span>}
+                        <div>
+                          <span style={{ fontWeight: 500 }}>{name}</span>
+                          {castEntry?.group && <span style={{ fontSize: 10, color: 'var(--text3)', marginLeft: 6 }}>{castEntry.group}</span>}
+                        </div>
+                        {checkinEntry?.checkedInAt && <span style={{ fontSize: 11, color: 'var(--text3)' }}>{new Date(checkinEntry.checkedInAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</span>}
                       </div>
                     )
                   })}

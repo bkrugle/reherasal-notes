@@ -7,7 +7,7 @@ const NAV_SECTIONS = [
     { label: 'Home', idx: 0, path: '/production', icon: 'home' },
     { label: 'Log note', idx: 1, icon: 'edit' },
     { label: 'Review', idx: 2, icon: 'clipboard' },
-    { label: 'By cast', idx: 3, icon: 'users' },
+    { label: 'Notes filter', idx: 3, icon: 'users' },
     { label: 'Calendar', idx: 4, icon: 'calendar' },
   ]},
   { label: 'Communications', items: [

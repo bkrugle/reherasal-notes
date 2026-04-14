@@ -40,7 +40,7 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
   const today = new Date().toISOString().slice(0, 10)
   const [form, setForm] = useState({
     date: today, scene: '', category: 'general', priority: 'med',
-    cast: '', cue: '', text: '', carriedOver: false, privateNote: false
+    cast: '', castList: [], cue: '', text: '', carriedOver: false, privateNote: false
   })
   const [flash, setFlash] = useState(false)
   const [photo, setPhoto] = useState(null) // { base64, mimeType, name, preview }
@@ -142,6 +142,7 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
       category: parsed.category || form.category,
       priority: parsed.priority || form.priority,
       cast: parsed.cast || form.cast,
+      castList: parsed.cast ? parsed.cast.split(',').map(s => s.trim()).filter(Boolean) : form.castList,
       scene: parsed.scene || form.scene,
     }
     const fullNote = {
@@ -151,7 +152,7 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
       time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
     onNoteAdded(fullNote)
-    setForm(f => ({ ...f, text: '', cast: '', cue: '', carriedOver: false, privateNote: false, scene: '', category: 'general', priority: 'med' }))
+    setForm(f => ({ ...f, text: '', cast: '', castList: [], cue: '', carriedOver: false, privateNote: false, scene: '', category: 'general', priority: 'med' }))
     setPhoto(null)
     setParsedTags([])
     setSuggestions([])
@@ -222,15 +223,28 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
             </div>
             <div className="field">
               <label>Category {parsedTags.length > 0 && form.category !== 'general' && <span style={{ color: 'var(--blue-text)', fontSize: 11 }}>● auto</span>}</label>
-              <select value={form.category} onChange={e => set('category', e.target.value)}>
-                <option value="general">General</option>
-                <option value="blocking">Blocking</option>
-                <option value="performance">Performance</option>
-                <option value="music">Music / vocals</option>
-                <option value="technical">Technical</option>
-                <option value="costume">Costume</option>
-                <option value="set">Set / props</option>
-              </select>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {[['general','General'],['blocking','Blocking'],['performance','Performance'],['music','Music / vocals'],['technical','Technical'],['costume','Costume'],['set','Set / props'],['choreography','Choreography'],['orchestra','Orchestra']].map(([val, label]) => {
+                  const cats = form.category ? form.category.split(',').map(s => s.trim()) : ['general']
+                  const active = cats.includes(val)
+                  return (
+                    <button key={val} type="button"
+                      onClick={() => {
+                        let cats = form.category ? form.category.split(',').map(s => s.trim()).filter(Boolean) : []
+                        if (val === 'general') { set('category', 'general'); return }
+                        if (active) { cats = cats.filter(c => c !== val); if (!cats.length) cats = ['general'] }
+                        else { cats = cats.filter(c => c !== 'general'); cats.push(val) }
+                        set('category', cats.join(', '))
+                      }}
+                      style={{ fontSize: 11, padding: '3px 10px', borderRadius: 20, cursor: 'pointer', fontWeight: active ? 600 : 400,
+                        background: active ? 'var(--accent, #6d28d9)' : 'var(--bg2)',
+                        color: active ? 'white' : 'var(--text2)',
+                        border: `0.5px solid ${active ? 'transparent' : 'var(--border)'}` }}>
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
             <div className="field">
               <label>Priority {parsedTags.some(t => ['#high','#low','#urgent','#critical','#minor','#polish'].includes(t)) && <span style={{ color: 'var(--blue-text)', fontSize: 11 }}>● auto</span>}</label>
@@ -245,12 +259,28 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
           {/* Cast / cue */}
           <div className="grid2" style={{ marginBottom: '0.75rem' }}>
             <div className="field">
-              <label>Cast member {parsedTags.length > 0 && form.cast && <span style={{ color: 'var(--blue-text)', fontSize: 11 }}>● auto</span>}</label>
-              <input type="text" value={form.cast} onChange={e => set('cast', e.target.value)}
-                placeholder="Name or character… or #name" list="log-cast-list" autoComplete="off" />
-              <datalist id="log-cast-list">
-                {characters.map(c => <option key={c} value={c} />)}
-              </datalist>
+              <label>Cast members {parsedTags.length > 0 && form.castList.length > 0 && <span style={{ color: 'var(--blue-text)', fontSize: 11 }}>● auto</span>}</label>
+              {/* Selected pills */}
+              {form.castList.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+                  {form.castList.map(name => (
+                    <span key={name} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, padding: '2px 8px', background: 'var(--blue-bg)', color: 'var(--blue-text)', border: '0.5px solid var(--blue-text)', borderRadius: 20 }}>
+                      {name}
+                      <button type="button" onClick={() => { const next = form.castList.filter(n => n !== name); set('castList', next); set('cast', next.join(', ')) }} style={{ background: 'none', border: 'none', color: 'var(--blue-text)', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1 }}>×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <select value="" onChange={e => {
+                if (!e.target.value) return
+                const next = form.castList.includes(e.target.value) ? form.castList : [...form.castList, e.target.value]
+                set('castList', next)
+                set('cast', next.join(', '))
+                e.target.value = ''
+              }}>
+                <option value="">+ Add cast member…</option>
+                {characters.filter(c => !form.castList.includes(c)).map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
             </div>
             <div className="field">
               <label>Cue / reference</label>

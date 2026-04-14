@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import AuditionMaterials from '../components/AuditionMaterials'
 import { castNameList, normalizeCast } from '../lib/castUtils'
 import { useNavigate } from 'react-router-dom'
@@ -581,6 +581,95 @@ function TeamTab({ config, setC, sharedWith, setSharedWith, newMember, setNewMem
   )
 }
 
+
+function DraggableTagInput({ label, values, onChange, placeholder }) {
+  const [input, setInput] = useState('')
+  const dragItem = useRef(null)
+  const dragOverItem = useRef(null)
+
+  function add() {
+    const items = input.split(',').map(v => v.trim()).filter(Boolean)
+    if (!items.length) return
+    const unique = items.filter(v => !values.includes(v))
+    if (unique.length) onChange([...values, ...unique])
+    setInput('')
+  }
+
+  function remove(v) { onChange(values.filter(x => x !== v)) }
+
+  function handleDragStart(index) { dragItem.current = index }
+  function handleDragEnter(index) { dragOverItem.current = index }
+
+  function handleDragEnd() {
+    const items = [...values]
+    const draggedItem = items.splice(dragItem.current, 1)[0]
+    items.splice(dragOverItem.current, 0, draggedItem)
+    dragItem.current = null
+    dragOverItem.current = null
+    onChange(items)
+  }
+
+  function moveUp(index) {
+    if (index === 0) return
+    const items = [...values]
+    ;[items[index - 1], items[index]] = [items[index], items[index - 1]]
+    onChange(items)
+  }
+
+  function moveDown(index) {
+    if (index === values.length - 1) return
+    const items = [...values]
+    ;[items[index], items[index + 1]] = [items[index + 1], items[index]]
+    onChange(items)
+  }
+
+  return (
+    <div className="field" style={{ marginBottom: '1rem' }}>
+      <label>{label}</label>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input type="text" value={input} onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
+          placeholder={placeholder} />
+        <button type="button" className="btn btn-sm" onClick={add}>Add</button>
+      </div>
+      <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>Separate multiple entries with commas · drag to reorder</p>
+      {values.length > 0 && (
+        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {values.map((v, index) => (
+            <div key={v}
+              draggable
+              onDragStart={() => handleDragStart(index)}
+              onDragEnter={() => handleDragEnter(index)}
+              onDragEnd={handleDragEnd}
+              onDragOver={e => e.preventDefault()}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '6px 10px',
+                background: 'var(--bg2)', border: '0.5px solid var(--border)',
+                borderRadius: 'var(--radius)', cursor: 'grab', userSelect: 'none',
+              }}>
+              {/* Drag handle */}
+              <span style={{ color: 'var(--text3)', fontSize: 14, cursor: 'grab', flexShrink: 0 }}>⠿</span>
+              {/* Scene name */}
+              <span style={{ fontSize: 13, flex: 1 }}>{v}</span>
+              {/* Up/down buttons */}
+              <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                <button type="button" onClick={() => moveUp(index)} disabled={index === 0}
+                  style={{ background: 'none', border: 'none', color: index === 0 ? 'var(--border)' : 'var(--text3)', cursor: index === 0 ? 'default' : 'pointer', fontSize: 12, padding: '0 3px', lineHeight: 1 }}>▲</button>
+                <button type="button" onClick={() => moveDown(index)} disabled={index === values.length - 1}
+                  style={{ background: 'none', border: 'none', color: index === values.length - 1 ? 'var(--border)' : 'var(--text3)', cursor: index === values.length - 1 ? 'default' : 'pointer', fontSize: 12, padding: '0 3px', lineHeight: 1 }}>▼</button>
+              </div>
+              {/* Remove */}
+              <button type="button" onClick={() => remove(v)}
+                style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 16, padding: 0, flexShrink: 0, lineHeight: 1 }}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function SetupPage() {
   const { session, logout } = useSession()
   const navigate = useNavigate()
@@ -974,7 +1063,7 @@ export default function SetupPage() {
               </div>
             </div>
           )}
-          <TagInput label="Scenes / acts" values={config.scenes} onChange={v => setC('scenes', v)} placeholder="e.g. Act 1 Scene 2" />
+          <DraggableTagInput label="Scenes / acts" values={config.scenes} onChange={v => setC('scenes', v)} placeholder="e.g. Act 1 Scene 2" />
           <button className="btn btn-primary mt2" onClick={save} disabled={saving}>
             {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save scenes'}
           </button>

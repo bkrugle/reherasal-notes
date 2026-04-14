@@ -66,9 +66,9 @@ function fuzzyMatch(tag, list) {
  */
 export function parseHashtags(text, characters = [], scenes = []) {
   const tags = []
-  let category = null
+  let categories = []
   let priority = null
-  let cast = null
+  let castList = []
   let scene = null
 
   // Extract all #tags and @mentions from text
@@ -83,16 +83,15 @@ export function parseHashtags(text, characters = [], scenes = []) {
 
     // @ mentions always try cast first
     if (isMention) {
-      if (!cast) {
-        const castMatch = fuzzyMatch(raw, characters)
-        if (castMatch) { cast = castMatch; continue }
-      }
+      const castMatch = fuzzyMatch(raw, characters)
+      if (castMatch && !castList.includes(castMatch)) { castList.push(castMatch); continue }
       continue
     }
 
-    // Check category
+    // Check category — accumulate multiple
     if (CATEGORY_TAGS[lower]) {
-      category = CATEGORY_TAGS[lower]
+      const cat = CATEGORY_TAGS[lower]
+      if (!categories.includes(cat)) categories.push(cat)
       continue
     }
 
@@ -102,10 +101,10 @@ export function parseHashtags(text, characters = [], scenes = []) {
       continue
     }
 
-    // Check cast members
-    if (!cast) {
+    // Check cast members — accumulate multiple
+    {
       const castMatch = fuzzyMatch(raw, characters)
-      if (castMatch) { cast = castMatch; continue }
+      if (castMatch && !castList.includes(castMatch)) { castList.push(castMatch); continue }
     }
 
     // Check scenes
@@ -144,7 +143,14 @@ export function parseHashtags(text, characters = [], scenes = []) {
   // Clean up double spaces
   cleanText = cleanText.replace(/\s+/g, ' ').trim()
 
-  return { cleanText, category, priority, cast, scene, tags: [...recognizedTags] }
+  return {
+    cleanText,
+    category: categories.length > 0 ? categories.join(', ') : null,
+    priority,
+    cast: castList.length > 0 ? castList.join(', ') : null,
+    scene,
+    tags: [...recognizedTags]
+  }
 }
 
 /**

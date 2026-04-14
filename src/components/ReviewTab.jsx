@@ -64,7 +64,13 @@ export default function ReviewTab({ notes, sheetId, scenes, characters, loading,
   const sessions = [...new Set(notes.map(n => n.date))].sort().reverse()
 
   const scoped = sessionFilter === 'all' ? notes : notes.filter(n => n.date === sessionFilter)
-  const filtered = scoped.filter(n => {
+  // Sort: open notes oldest first (top of show), resolved at end
+  const sortedScoped = [...scoped].sort((a, b) => {
+    if (a.resolved !== b.resolved) return a.resolved ? 1 : -1
+    // Sort by id (which is creation order) ascending = oldest first
+    return String(a.id).localeCompare(String(b.id))
+  })
+  const filtered = sortedScoped.filter(n => {
     if (catFilter === 'open') return !n.resolved
     if (catFilter === 'high') return n.priority === 'high' && !n.resolved
     if (catFilter !== 'all') return n.category === catFilter
