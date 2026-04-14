@@ -25,13 +25,14 @@ exports.handler = async (event) => {
       const castList = []
       for (const c of characters) {
         const char = typeof c === 'string' ? { name: c } : c
-        if (char.isGroup && Array.isArray(char.members) && char.members.length > 0) {
+        const charIsGroup = char.isGroup === true || (Array.isArray(char.members) && char.members.length > 0)
+        if (charIsGroup && Array.isArray(char.members) && char.members.length > 0) {
           // Expand group members as individual entries
           for (const member of char.members) {
             const memberName = typeof member === 'string' ? member : member.name
             if (memberName) castList.push({ name: memberName, castMember: '', group: char.name })
           }
-        } else if (!char.isGroup) {
+        } else if (!charIsGroup) {
           castList.push({ name: char.name || '', castMember: char.castMember || '' })
         }
         // Groups with no members listed are skipped (can't check in an abstract group)
