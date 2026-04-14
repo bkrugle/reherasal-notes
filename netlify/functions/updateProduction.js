@@ -140,7 +140,7 @@ exports.handler = async (event) => {
     if (sharedWith !== undefined) {
       const existing = {}
       try {
-        const existingRows = await getRows(sheets, sheetId, 'SharedWith!A:F')
+        const existingRows = await getRows(sheets, sheetId, 'SharedWith!A:G')
         if (existingRows.length > 1) {
           const [h, ...data] = existingRows
           const nameIdx = h.indexOf('name')
@@ -149,24 +149,26 @@ exports.handler = async (event) => {
           const inviteIdx = h.indexOf('inviteCode')
           const activatedIdx = h.indexOf('activated')
           const roleIdx = h.indexOf('role')
+          const staffRoleIdx = h.indexOf('staffRole')
           data.filter(r => r.some(Boolean)).forEach(r => {
             const key = (r[emailIdx] || r[nameIdx] || '').toLowerCase()
             if (key) existing[key] = {
               pinHash: r[pinIdx] || '',
               inviteCode: r[inviteIdx] || '',
               activated: r[activatedIdx] || 'false',
-              role: r[roleIdx] || 'member'
+              role: r[roleIdx] || 'member',
+              staffRole: staffRoleIdx >= 0 ? (r[staffRoleIdx] || '') : ''
             }
           })
         }
       } catch (e) { console.warn('Could not read existing members:', e.message) }
 
-      const header = ['name', 'email', 'pinHash', 'inviteCode', 'activated', 'role']
+      const header = ['name', 'email', 'pinHash', 'inviteCode', 'activated', 'role', 'staffRole']
       const rows = [header]
       const newInviteCodes = {}
 
       sharedWith.forEach((member) => {
-        const { name, email, pin } = member
+        const { name, email, pin, staffRole } = member
         if (!name && !email) return
         const key = (email || name || '').toLowerCase()
         const prev = existing[key]
@@ -187,13 +189,13 @@ exports.handler = async (event) => {
         if (pin && !prev) pinHash = hashPin(pin)
 
         const memberRole = (prev?.role === 'admin' || member?.role === 'admin') ? 'admin' : 'member'
-        rows.push([name || '', email || '', pinHash, inviteCode, activated, memberRole])
+        rows.push([name || '', email || '', pinHash, inviteCode, activated, memberRole, staffRole || prev?.staffRole || ''])
       })
 
-      await sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range: 'SharedWith!A:F' })
+      await sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range: 'SharedWith!A:G' })
       await sheets.spreadsheets.values.update({
         spreadsheetId: sheetId,
-        range: `SharedWith!A1:F${rows.length}`,
+        range: `SharedWith!A1:G${rows.length}`,
         valueInputOption: 'RAW',
         requestBody: { values: rows }
       })

@@ -24,6 +24,7 @@ import Dashboard from '../components/Dashboard'
 import AuditionsTab from '../components/AuditionsTab'
 import CastDirectory from '../components/CastDirectory'
 import WrapUp from '../components/WrapUp'
+import LoginGreetingModal from '../components/LoginGreetingModal'
 
 const TABS = ['Home', 'Log', 'Review', 'By cast', 'Calendar', 'Documents', 'Trends', 'Attendance', 'Report', 'Send', 'Auditions', 'Show Day', 'Check-in', 'Mic Tracker', 'Pre-show', 'Intermission']
 
@@ -48,15 +49,8 @@ function ShowCountdown({ showDates }) {
   } catch { return null }
 }
 
-
 /**
  * Parse show dates string and check if today falls within the range.
- * Handles formats like:
- *   "April 16-19, 2026"
- *   "April 16 - 19, 2026"
- *   "April 16 - May 2, 2026"
- *   "May 1-4, 2026"
- *   "April 16, 2026"
  */
 function isWithinShowDates(showDates) {
   if (!showDates) return false
@@ -65,11 +59,9 @@ function isWithinShowDates(showDates) {
     today.setHours(0, 0, 0, 0)
     const str = showDates.trim()
 
-    // Try to extract year
     const yearMatch = str.match(/\b(20\d{2})\b/)
     const year = yearMatch ? parseInt(yearMatch[1]) : today.getFullYear()
 
-    // Match: "Month D1 - D2, Year" or "Month D1-D2, Year"
     const sameMonthRange = str.match(/([A-Za-z]+)\s+(\d+)\s*[-–]\s*(\d+)/)
     if (sameMonthRange) {
       const [, month, d1, d2] = sameMonthRange
@@ -79,7 +71,6 @@ function isWithinShowDates(showDates) {
       if (!isNaN(start) && !isNaN(end)) return today >= start && today <= end
     }
 
-    // Match: "Month1 D1 - Month2 D2, Year"
     const crossMonthRange = str.match(/([A-Za-z]+)\s+(\d+)\s*[-–]\s*([A-Za-z]+)\s+(\d+)/)
     if (crossMonthRange) {
       const [, m1, d1, m2, d2] = crossMonthRange
@@ -89,7 +80,6 @@ function isWithinShowDates(showDates) {
       if (!isNaN(start) && !isNaN(end)) return today >= start && today <= end
     }
 
-    // Single date: "April 16, 2026"
     const single = new Date(str)
     if (!isNaN(single)) {
       single.setHours(0,0,0,0)
@@ -136,10 +126,21 @@ export default function ProductionApp() {
   const [wrapUp, setWrapUp] = useState(false)
   const [calendarEvents, setCalendarEvents] = useState([])
   const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [showGreeting, setShowGreeting] = useState(false)
   const showDayKey = 'rn_showday_' + (session?.sheetId || 'default')
   const [showDayMode, setShowDayMode] = useState(() => {
     try { return localStorage.getItem(showDayKey) === 'true' } catch { return false }
   })
+
+  // Show greeting modal once per session
+  useEffect(() => {
+    const greetingKey = 'rn_greeted_' + (session?.sheetId || 'default')
+    const alreadyGreeted = sessionStorage.getItem(greetingKey)
+    if (!alreadyGreeted && session?.name) {
+      setShowGreeting(true)
+      sessionStorage.setItem(greetingKey, 'true')
+    }
+  }, [session?.sheetId])
 
   // Handle ?showday=1 URL param (from Setup page launch button)
   useEffect(() => {
@@ -202,7 +203,6 @@ export default function ProductionApp() {
     try {
       const data = await api.getProduction(session.sheetId)
       setProduction(data)
-      // Apply accent color from production config
       if (data?.config?.accentColor) {
         applyAccentColor(data.config.accentColor, data.config.accentBg)
       }
@@ -230,9 +230,7 @@ export default function ProductionApp() {
   function onNoteDeleted(id) { setNotes(prev => prev.filter(n => n.id !== id)) }
 
   function onLogForDate(date, scene) {
-    // Switch to Log tab and pre-fill date/scene
     setActiveTab(0)
-    // Store in sessionStorage for LogTab to pick up
     sessionStorage.setItem('rn_prefill', JSON.stringify({ date, scene: scene || '' }))
   }
 
@@ -334,6 +332,16 @@ export default function ProductionApp() {
 
   return (
     <>
+      {/* Login greeting modal — shown once per session */}
+      {showGreeting && !loadingNotes && (
+        <LoginGreetingModal
+          session={session}
+          notes={notes}
+          onClose={() => setShowGreeting(false)}
+          onReviewNotes={() => setTab(2)}
+        />
+      )}
+
       <AppShell
         title={title}
         productionCode={session.productionCode}

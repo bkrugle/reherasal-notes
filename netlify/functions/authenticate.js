@@ -57,7 +57,7 @@ exports.handler = async (event) => {
     if (!isAdmin && !isMember) {
       // Check SharedWith tab — PIN login OR invite code login
       const sheetId = row[sheetIdx]
-      const sharedRows = await getRows(sheets, sheetId, 'SharedWith!A:F')
+      const sharedRows = await getRows(sheets, sheetId, 'SharedWith!A:G')
 
       if (sharedRows.length > 1) {
         const [sh, ...sdata] = sharedRows
@@ -67,6 +67,7 @@ exports.handler = async (event) => {
         const inviteIdx = sh.indexOf('inviteCode')
         const activatedIdx = sh.indexOf('activated')
         const roleIdx = sh.indexOf('role')
+        const staffRoleIdx = sh.indexOf('staffRole')
 
         // Try PIN match first
         let sharedRow = sdata.find(r => r[phIdx] && r[phIdx] === pinHash)
@@ -80,7 +81,8 @@ exports.handler = async (event) => {
             sheetId,
             role: memberRole,
             name: sharedRow[nameIdx] || '',
-            email: sharedRow[emailIdx] || ''
+            email: sharedRow[emailIdx] || '',
+            staffRole: staffRoleIdx >= 0 ? (sharedRow[staffRoleIdx] || '') : ''
           })
         }
 
@@ -101,7 +103,8 @@ exports.handler = async (event) => {
               sheetId,
               name: sharedRow[nameIdx] || '',
               email: sharedRow[emailIdx] || '',
-              inviteCode: inviteUpper
+              inviteCode: inviteUpper,
+              staffRole: staffRoleIdx >= 0 ? (sharedRow[staffRoleIdx] || '') : ''
             })
           }
 
@@ -113,14 +116,14 @@ exports.handler = async (event) => {
 
           // Update the row: set pinHash, clear inviteCode, mark activated
           const updatedRow = [...sharedRow]
-          while (updatedRow.length < 6) updatedRow.push('')
+          while (updatedRow.length < 7) updatedRow.push('')
           updatedRow[phIdx] = newPinHash
           updatedRow[inviteIdx] = '' // consume invite code
           updatedRow[activatedIdx] = 'true'
 
           await sheets.spreadsheets.values.update({
             spreadsheetId: sheetId,
-            range: `SharedWith!A${sheetRowIndex}:F${sheetRowIndex}`,
+            range: `SharedWith!A${sheetRowIndex}:G${sheetRowIndex}`,
             valueInputOption: 'RAW',
             requestBody: { values: [updatedRow] }
           })
@@ -132,7 +135,8 @@ exports.handler = async (event) => {
             sheetId,
             role: activatedRole,
             name: sharedRow[nameIdx] || '',
-            email: sharedRow[emailIdx] || ''
+            email: sharedRow[emailIdx] || '',
+            staffRole: staffRoleIdx >= 0 ? (sharedRow[staffRoleIdx] || '') : ''
           })
         }
       }
@@ -159,7 +163,8 @@ exports.handler = async (event) => {
       sheetId: row[sheetIdx],
       role: isAdmin ? 'admin' : 'member',
       name: directorName,
-      email: directorEmail
+      email: directorEmail,
+      staffRole: 'Stage Manager' // admin/member are always Stage Manager level
     })
   } catch (e) {
     console.error(e)
