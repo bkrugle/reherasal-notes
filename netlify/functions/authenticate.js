@@ -5,11 +5,10 @@ const {
   REGISTRY_SHEET_ID, CORS, ok, err
 } = require('./_sheets')
 
-// Simple in-memory rate limiter: max 10 attempts per IP per 15 minutes
 const attempts = new Map()
 function isRateLimited(ip) {
   const now = Date.now()
-  const window = 15 * 60 * 1000 // 15 minutes
+  const window = 15 * 60 * 1000
   const max = 10
   const key = ip || 'unknown'
   const entry = attempts.get(key) || { count: 0, start: now }
@@ -55,9 +54,8 @@ exports.handler = async (event) => {
     const isMember = pinHash === row[pinIdx]
 
     if (!isAdmin && !isMember) {
-      // Check SharedWith tab — PIN login OR invite code login
       const sheetId = row[sheetIdx]
-      const sharedRows = await getRows(sheets, sheetId, 'SharedWith!A:G')
+      const sharedRows = await getRows(sheets, sheetId, 'SharedWith!A:I')
 
       if (sharedRows.length > 1) {
         const [sh, ...sdata] = sharedRows
@@ -68,6 +66,8 @@ exports.handler = async (event) => {
         const activatedIdx = sh.indexOf('activated')
         const roleIdx = sh.indexOf('role')
         const staffRoleIdx = sh.indexOf('staffRole')
+        const ntfyIdx = sh.indexOf('ntfyTopic')
+        const phoneIdx = sh.indexOf('phone')
 
         // Try PIN match first
         let sharedRow = sdata.find(r => r[phIdx] && r[phIdx] === pinHash)
@@ -82,11 +82,13 @@ exports.handler = async (event) => {
             role: memberRole,
             name: sharedRow[nameIdx] || '',
             email: sharedRow[emailIdx] || '',
-            staffRole: staffRoleIdx >= 0 ? (sharedRow[staffRoleIdx] || '') : ''
+            staffRole: staffRoleIdx >= 0 ? (sharedRow[staffRoleIdx] || '') : '',
+            ntfyTopic: ntfyIdx >= 0 ? (sharedRow[ntfyIdx] || '') : '',
+            phone: phoneIdx >= 0 ? (sharedRow[phoneIdx] || '') : ''
           })
         }
 
-        // Try invite code match (pin field used as invite code entry)
+        // Try invite code match
         const inviteUpper = pin.toUpperCase()
         sharedRow = sdata.find(r =>
           r[inviteIdx] === inviteUpper && r[activatedIdx] !== 'true'
@@ -95,7 +97,6 @@ exports.handler = async (event) => {
 
         if (sharedRow) {
           if (!newPin) {
-            // Invite code valid — prompt user to set PIN
             return ok({
               status: 'invite_valid',
               productionCode: productionCode.toUpperCase(),
@@ -108,22 +109,20 @@ exports.handler = async (event) => {
             })
           }
 
-          // newPin provided — activate account
           if (newPin.length < 4) return err('PIN must be at least 4 characters')
 
           const newPinHash = hashPin(newPin)
-          const sheetRowIndex = rowIndex + 2 // +1 header, +1 1-based
+          const sheetRowIndex = rowIndex + 2
 
-          // Update the row: set pinHash, clear inviteCode, mark activated
           const updatedRow = [...sharedRow]
-          while (updatedRow.length < 7) updatedRow.push('')
+          while (updatedRow.length < 9) updatedRow.push('')
           updatedRow[phIdx] = newPinHash
-          updatedRow[inviteIdx] = '' // consume invite code
+          updatedRow[inviteIdx] = ''
           updatedRow[activatedIdx] = 'true'
 
           await sheets.spreadsheets.values.update({
             spreadsheetId: sheetId,
-            range: `SharedWith!A${sheetRowIndex}:G${sheetRowIndex}`,
+            range: `SharedWith!A${sheetRowIndex}:I${sheetRowIndex}`,
             valueInputOption: 'RAW',
             requestBody: { values: [updatedRow] }
           })
@@ -136,7 +135,9 @@ exports.handler = async (event) => {
             role: activatedRole,
             name: sharedRow[nameIdx] || '',
             email: sharedRow[emailIdx] || '',
-            staffRole: staffRoleIdx >= 0 ? (sharedRow[staffRoleIdx] || '') : ''
+            staffRole: staffRoleIdx >= 0 ? (sharedRow[staffRoleIdx] || '') : '',
+            ntfyTopic: ntfyIdx >= 0 ? (sharedRow[ntfyIdx] || '') : '',
+            phone: phoneIdx >= 0 ? (sharedRow[phoneIdx] || '') : ''
           })
         }
       }
@@ -164,7 +165,7 @@ exports.handler = async (event) => {
       role: isAdmin ? 'admin' : 'member',
       name: directorName,
       email: directorEmail,
-      staffRole: 'Stage Manager' // admin/member are always Stage Manager level
+      staffRole: 'Stage Manager'
     })
   } catch (e) {
     console.error(e)

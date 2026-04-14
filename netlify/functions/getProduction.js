@@ -21,7 +21,7 @@ exports.handler = async (event) => {
     })
 
     // Read SharedWith tab
-    const sharedRows = await getRows(sheets, sheetId, 'SharedWith!A:G')
+    const sharedRows = await getRows(sheets, sheetId, 'SharedWith!A:I')
     let sharedWith = []
     if (sharedRows.length > 1) {
       const [header, ...data] = sharedRows
@@ -30,12 +30,16 @@ exports.handler = async (event) => {
       const activatedIdx = header.indexOf('activated')
       const roleIdx = header.indexOf('role')
       const staffRoleIdx = header.indexOf('staffRole')
+      const ntfyIdx = header.indexOf('ntfyTopic')
+      const phoneIdx = header.indexOf('phone')
       sharedWith = data.filter(r => r.some(Boolean)).map(r => ({
         name: r[nameIdx] || '',
         email: r[emailIdx] || '',
         activated: r[activatedIdx] === 'true',
         role: r[roleIdx] || 'member',
-        staffRole: staffRoleIdx >= 0 ? (r[staffRoleIdx] || '') : ''
+        staffRole: staffRoleIdx >= 0 ? (r[staffRoleIdx] || '') : '',
+        ntfyTopic: ntfyIdx >= 0 ? (r[ntfyIdx] || '') : '',
+        phone: phoneIdx >= 0 ? (r[phoneIdx] || '') : ''
       }))
     }
 

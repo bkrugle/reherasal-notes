@@ -13,8 +13,6 @@ function makeInviteCode() {
 
 async function ensureAuditionSetup(sheets, drive, sheetId, existing) {
   const results = {}
-
-  // 1. Create Auditions folder if missing
   let auditionFolderId = existing.auditionFolderId || ''
   let headshotFolderId = existing.headshotFolderId || ''
   const rootFolderId = existing.rootFolderId || ''
@@ -43,11 +41,9 @@ async function ensureAuditionSetup(sheets, drive, sheetId, existing) {
     } catch (e) { console.warn('Could not create Headshots folder:', e.message) }
   }
 
-  // 2. Create Auditioners sheet tab if missing
   try {
     await getRows(sheets, sheetId, 'Auditioners!A1:A1')
   } catch (e) {
-    // Tab doesn't exist — create it
     try {
       await sheets.spreadsheets.batchUpdate({
         spreadsheetId: sheetId,
@@ -69,7 +65,7 @@ async function ensureAuditionSetup(sheets, drive, sheetId, existing) {
     } catch (e2) { console.warn('Could not create audition tabs:', e2.message) }
   }
 
-  return results // folder IDs to merge back into config
+  return results
 }
 
 exports.handler = async (event) => {
@@ -86,25 +82,21 @@ exports.handler = async (event) => {
     const sheets = await sheetsClient()
 
     if (config) {
-      // Read existing config first to preserve keys we don't manage
       const existing = {}
       try {
         const existingRows = await getRows(sheets, sheetId, 'Config!A:B')
         existingRows.forEach(([k, v]) => { if (k) existing[k] = v })
       } catch (e) { console.warn('Could not read existing config:', e.message) }
 
-      // Check if auditions are being enabled for the first time
       const wasAuditions = existing.useAuditions === 'true'
       const nowAuditions = config.useAuditions === true || config.useAuditions === 'true'
 
       let extraFolderIds = {}
       if (nowAuditions && !wasAuditions) {
-        // Auditions just enabled — create folders and tabs
         const drive = await driveClient()
         extraFolderIds = await ensureAuditionSetup(sheets, drive, sheetId, existing)
       }
 
-      // Merge: existing preserved, incoming overwrites, new folder IDs added
       const merged = { ...existing }
       Object.entries(config).forEach(([k, v]) => {
         if (v === null || v === undefined) {
@@ -114,21 +106,18 @@ exports.handler = async (event) => {
         } else if (typeof v === 'boolean') {
           merged[k] = String(v)
         } else {
-          merged[k] = String(v)  // force string — never lose a value
+          merged[k] = String(v)
         }
       })
-      // Add any newly created folder IDs
       Object.entries(extraFolderIds).forEach(([k, v]) => { merged[k] = v })
 
       const configData = Object.entries(merged).map(([k, v]) => [k, v])
-      console.log('Saving config, keys:', configData.map(([k]) => k).join(', '))
       await sheets.spreadsheets.values.update({
         spreadsheetId: sheetId,
         range: 'Config!A1:B' + configData.length,
         valueInputOption: 'RAW',
         requestBody: { values: configData }
       })
-      // Clear any extra rows beyond what we wrote
       if (configData.length < 30) {
         await sheets.spreadsheets.values.clear({
           spreadsheetId: sheetId,
@@ -140,7 +129,7 @@ exports.handler = async (event) => {
     if (sharedWith !== undefined) {
       const existing = {}
       try {
-        const existingRows = await getRows(sheets, sheetId, 'SharedWith!A:G')
+        const existingRows = await getRows(sheets, sheetId, 'SharedWith!A:I')
         if (existingRows.length > 1) {
           const [h, ...data] = existingRows
           const nameIdx = h.indexOf('name')
@@ -150,6 +139,8 @@ exports.handler = async (event) => {
           const activatedIdx = h.indexOf('activated')
           const roleIdx = h.indexOf('role')
           const staffRoleIdx = h.indexOf('staffRole')
+          const ntfyIdx = h.indexOf('ntfyTopic')
+          const phoneIdx = h.indexOf('phone')
           data.filter(r => r.some(Boolean)).forEach(r => {
             const key = (r[emailIdx] || r[nameIdx] || '').toLowerCase()
             if (key) existing[key] = {
@@ -157,18 +148,20 @@ exports.handler = async (event) => {
               inviteCode: r[inviteIdx] || '',
               activated: r[activatedIdx] || 'false',
               role: r[roleIdx] || 'member',
-              staffRole: staffRoleIdx >= 0 ? (r[staffRoleIdx] || '') : ''
+              staffRole: staffRoleIdx >= 0 ? (r[staffRoleIdx] || '') : '',
+              ntfyTopic: ntfyIdx >= 0 ? (r[ntfyIdx] || '') : '',
+              phone: phoneIdx >= 0 ? (r[phoneIdx] || '') : ''
             }
           })
         }
       } catch (e) { console.warn('Could not read existing members:', e.message) }
 
-      const header = ['name', 'email', 'pinHash', 'inviteCode', 'activated', 'role', 'staffRole']
+      const header = ['name', 'email', 'pinHash', 'inviteCode', 'activated', 'role', 'staffRole', 'ntfyTopic', 'phone']
       const rows = [header]
       const newInviteCodes = {}
 
       sharedWith.forEach((member) => {
-        const { name, email, pin, staffRole } = member
+        const { name, email, pin, staffRole, ntfyTopic, phone } = member
         if (!name && !email) return
         const key = (email || name || '').toLowerCase()
         const prev = existing[key]
@@ -189,13 +182,23 @@ exports.handler = async (event) => {
         if (pin && !prev) pinHash = hashPin(pin)
 
         const memberRole = (prev?.role === 'admin' || member?.role === 'admin') ? 'admin' : 'member'
-        rows.push([name || '', email || '', pinHash, inviteCode, activated, memberRole, staffRole || prev?.staffRole || ''])
+        rows.push([
+          name || '',
+          email || '',
+          pinHash,
+          inviteCode,
+          activated,
+          memberRole,
+          staffRole || prev?.staffRole || '',
+          ntfyTopic || prev?.ntfyTopic || '',
+          phone || prev?.phone || ''
+        ])
       })
 
-      await sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range: 'SharedWith!A:G' })
+      await sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range: 'SharedWith!A:I' })
       await sheets.spreadsheets.values.update({
         spreadsheetId: sheetId,
-        range: `SharedWith!A1:G${rows.length}`,
+        range: `SharedWith!A1:I${rows.length}`,
         valueInputOption: 'RAW',
         requestBody: { values: rows }
       })
