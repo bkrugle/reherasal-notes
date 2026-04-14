@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { api } from '../lib/api'
-import { expandedCastList } from '../lib/castUtils'
 
 const AUTO_RETURN_SECONDS = 5
 
@@ -90,7 +89,9 @@ export default function CheckinPage() {
   }
 
   // Normalize and filter cast list
-  const castListNormalized = expandedCastList(status?.castList || [])
+  const castListNormalized = (status?.castList || []).map(c =>
+  typeof c === 'string' ? { name: c, castMember: '', group: null } : { ...c, group: c.group || null }
+)
   const checkedInNames = new Set(status?.checkins?.map(c => c.castName) || [])
   const filtered = castListNormalized.filter(c => {
     if (!search) return true
