@@ -276,7 +276,8 @@ export default function CheckinTab({ sheetId, productionCode, production, sessio
               <div key={c.name} style={{ padding: '7px 10px', marginBottom: 4, borderRadius: 'var(--radius)',
                 background: 'var(--red-bg)', border: '0.5px solid var(--red-text)', fontSize: 13, color: 'var(--red-text)' }}>
                 <span style={{ fontWeight: 500 }}>{c.castMember || c.name}</span>
-                {c.castMember && <span style={{ fontSize: 11, opacity: 0.8, display: 'block' }}>{c.name}</span>}
+				{c.castMember && <span style={{ fontSize: 11, opacity: 0.8, display: 'block' }}>{c.name}</span>}
+				{c.group && <span style={{ fontSize: 11, opacity: 0.8, display: 'block' }}>{c.group}</span>}
               </div>
             ))
           }
