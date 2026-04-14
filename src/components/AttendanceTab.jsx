@@ -174,7 +174,7 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
                     <div key={name} style={{ padding: '5px 0', borderBottom: '0.5px solid var(--border)', fontSize: 13, color: 'var(--text2)' }}>
                       {name}
                     </div>
-                  })}
+                  ))}
             </div>
           </div>
         )}
@@ -199,7 +199,7 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
               {rehearsalDates.slice(0, 5).map(d => (
                 <button key={d} className={`btn btn-sm ${selectedDate === d ? 'btn-primary' : ''}`}
                   onClick={() => setSelectedDate(d)}>{dtLabel(d)}</button>
-              })}
+              ))}
             </div>
           )}
         </div>
@@ -242,26 +242,27 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
                 </p>
               )}
               {names.map(name => {
-					  const entry = expandedCast.find(c => c.name === name)
-  					  return (
-					  <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: '0.5px solid var(--border)' }}>
-    					<div>
-      						<div style={{ fontSize: 14, color: isPresent(name) ? 'var(--text)' : 'var(--text3)' }}>{name}</div>
-      						{entry?.castMember && (
-        						<div style={{ fontSize: 11, color: 'var(--text3)' }}>{entry.castMember}</div>
-      						)}
-    					</div>
-                  <button onClick={() => toggle(name)}
-                    style={{
-                      padding: '3px 12px', borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: 'pointer',
-                      border: '0.5px solid',
-                      background: isPresent(name) ? 'var(--green-bg)' : 'var(--red-bg)',
-                      color: isPresent(name) ? 'var(--green-text)' : 'var(--red-text)',
-                      borderColor: isPresent(name) ? 'var(--green-text)' : 'var(--red-text)',
-                    }}>
-                    {isPresent(name) ? 'Present' : 'Absent'}
-                  </button>
-                </div>
+                const entry = expandedCast.find(c => c.name === name)
+                return (
+                  <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: '0.5px solid var(--border)' }}>
+                    <div>
+                      <div style={{ fontSize: 14, color: isPresent(name) ? 'var(--text)' : 'var(--text3)' }}>{name}</div>
+                      {entry?.castMember && (
+                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>{entry.castMember}</div>
+                      )}
+                    </div>
+                    <button onClick={() => toggle(name)}
+                      style={{
+                        padding: '3px 12px', borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                        border: '0.5px solid',
+                        background: isPresent(name) ? 'var(--green-bg)' : 'var(--red-bg)',
+                        color: isPresent(name) ? 'var(--green-text)' : 'var(--red-text)',
+                        borderColor: isPresent(name) ? 'var(--green-text)' : 'var(--red-text)',
+                      }}>
+                      {isPresent(name) ? 'Present' : 'Absent'}
+                    </button>
+                  </div>
+                )
               })}
             </div>
           ))
