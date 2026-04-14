@@ -60,6 +60,7 @@ ul{margin:0;padding-left:1.25rem}li{margin:5px 0;font-size:14px}
 export default function ReviewTab({ notes, sheetId, scenes, characters, loading, onRefresh, onNoteUpdated, onNoteDeleted }) {
   const [catFilter, setCatFilter] = useState('all')
   const [sessionFilter, setSessionFilter] = useState('all')
+  const [showResolved, setShowResolved] = useState(false)
 
   const sessions = [...new Set(notes.map(n => n.date))].sort().reverse()
 
@@ -73,6 +74,8 @@ export default function ReviewTab({ notes, sheetId, scenes, characters, loading,
     return aTime - bTime
   })
   const filtered = sortedScoped.filter(n => {
+    // Always hide resolved unless showResolved is on
+    if (n.resolved && !showResolved) return false
     if (catFilter === 'open') return !n.resolved
     if (catFilter === 'high') return n.priority === 'high' && !n.resolved
     if (catFilter !== 'all') return n.category === catFilter
@@ -120,10 +123,14 @@ export default function ReviewTab({ notes, sheetId, scenes, characters, loading,
         ))}
       </div>
 
-      {/* Export */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: '1rem' }}>
+      {/* Export + resolved toggle */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
         <button className="btn btn-sm" onClick={() => exportText(scoped)}>Export as text</button>
         <button className="btn btn-sm" onClick={() => exportHtml(scoped)}>Export as HTML</button>
+        <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text2)', cursor: 'pointer', userSelect: 'none' }}>
+          <input type="checkbox" checked={showResolved} onChange={e => setShowResolved(e.target.checked)} />
+          Show resolved ({resolved})
+        </label>
       </div>
 
       {/* Notes */}

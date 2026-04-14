@@ -75,7 +75,8 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
     saveRecord(updated)
   }
   function isPresent(name) {
-    return records[selectedDate + '_' + name] !== false
+    // Default to absent (false) — must be explicitly marked present
+    return records[selectedDate + '_' + name] === true
   }
 
   const dtLabel = (date) => {

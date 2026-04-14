@@ -4,7 +4,9 @@ import { api } from '../lib/api'
 export default function MeetingMode({ notes, sheetId, onUpdated, onClose }) {
   // Build a local working copy of open notes — completely independent
   const [localNotes, setLocalNotes] = useState(() =>
-    notes.filter(n => !n.resolved).map(n => ({ ...n }))
+    [...notes.filter(n => !n.resolved)]
+      .sort((a, b) => (a.createdAt ? new Date(a.createdAt).getTime() : 0) - (b.createdAt ? new Date(b.createdAt).getTime() : 0))
+      .map(n => ({ ...n }))
   )
   const [idx, setIdx] = useState(0)
   const syncQueue = useRef([])
