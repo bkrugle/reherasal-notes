@@ -233,7 +233,7 @@ function NotificationContactForm({ onAdd, ntfyTopic, productionTitle }) {
         <div className="field" style={{ margin: 0 }}>
           <label>Role</label>
           <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
-            {['Stage Manager', 'Assistant SM', 'Music Director', 'Choreographer', 'Director', 'Producer', 'Tech Director', 'Lights', 'Sound', 'Props', 'House Manager', 'Other'].map(r =>
+            {['Stage Manager', 'Assistant SM', 'Asst. Director', 'Music Director', 'Choreographer', 'Director', 'Producer', 'Tech Director', 'Lights', 'Sound', 'Props', 'House Manager', 'Other'].map(r =>
               <option key={r} value={r}>{r}</option>
             )}
           </select>
@@ -316,7 +316,7 @@ function NotificationContactForm({ onAdd, ntfyTopic, productionTitle }) {
   )
 }
 
-const STAFF_ROLES = ['Stage Manager', 'Assistant SM', 'Music Director', 'Choreographer', 'Director', 'Producer', 'Tech Director', 'Lights', 'Sound', 'Props', 'House Manager', 'Other']
+const STAFF_ROLES = ['Stage Manager', 'Assistant SM', 'Asst. Director', 'Music Director', 'Choreographer', 'Director', 'Producer', 'Tech Director', 'Lights', 'Sound', 'Props', 'House Manager', 'Other']
 
 function RoleSelect({ value, onChange }) {
   const [custom, setCustom] = useState(!STAFF_ROLES.includes(value) && !!value)

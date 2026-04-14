@@ -73,3 +73,46 @@ export function expandedCastList(characters) {
   }
   return result
 }
+
+// Roles that get full access to all notes
+export const FULL_ACCESS_ROLES = ['Stage Manager', 'Director', 'Asst. Director', 'Assistant Director', 'Production Manager']
+
+// Check if a single note matches a user based on their name and staffRole
+function noteMatchesUser(note, name, staffRole) {
+  if (!note || note.resolved) return false
+  const text = (note.text || '').toLowerCase()
+  const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+
+  // Check @mention
+  const firstName = (name || '').split(' ')[0]
+  const normName = norm(name), normFirst = norm(firstName)
+  const mentionPattern = /@([a-zA-Z0-9_]+)/g
+  let match
+  while ((match = mentionPattern.exec(text)) !== null) {
+    const tag = norm(match[1])
+    if (tag === normName || tag === normFirst || normName.startsWith(tag) || normFirst.startsWith(tag)) return true
+  }
+
+  // Check #staffRole hashtag
+  if (staffRole) {
+    const normRole = norm(staffRole)
+    const hashPattern = /#([a-zA-Z0-9_]+)/g
+    while ((match = hashPattern.exec(text)) !== null) {
+      const tag = norm(match[1])
+      if (tag === normRole || normRole.startsWith(tag) || tag.startsWith(normRole.slice(0, 4))) return true
+    }
+  }
+
+  return false
+}
+
+// Filter notes for a given session user
+// Full-access roles (SM, Director, etc.) and admins see all open notes
+// Everyone else sees only notes tagged to them or their department
+export function getNotesForUser(notes, session) {
+  if (!notes || !session) return notes || []
+  const { name, staffRole, role } = session
+  const isFullAccess = FULL_ACCESS_ROLES.includes(staffRole) || role === 'admin' || role === 'member'
+  if (isFullAccess) return notes.filter(n => !n.resolved)
+  return notes.filter(n => noteMatchesUser(n, name, staffRole))
+}

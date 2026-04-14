@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { getNotesForUser, FULL_ACCESS_ROLES } from '../lib/castUtils'
 
 function getTimeOfDay() {
   const h = new Date().getHours()
@@ -7,50 +8,10 @@ function getTimeOfDay() {
   return 'evening'
 }
 
-function normalize(str) {
-  return (str || '').toLowerCase().replace(/[^a-z0-9]/g, '')
-}
-
-function noteMatchesUser(note, name, staffRole) {
-  if (!note || note.resolved) return false
-  const text = (note.text || '').toLowerCase()
-
-  // Stage Manager sees everything
-  if (staffRole === 'Stage Manager') return true
-
-  // Check @mention — fuzzy match first name or full name
-  const firstName = (name || '').split(' ')[0]
-  const normName = normalize(name)
-  const normFirst = normalize(firstName)
-  const mentionPattern = /@([a-zA-Z0-9_]+)/g
-  let match
-  while ((match = mentionPattern.exec(text)) !== null) {
-    const tag = normalize(match[1])
-    if (tag === normName || tag === normFirst || normName.startsWith(tag) || normFirst.startsWith(tag)) {
-      return true
-    }
-  }
-
-  // Check #staffRole hashtag — fuzzy match
-  if (staffRole) {
-    const normRole = normalize(staffRole)
-    const hashPattern = /#([a-zA-Z0-9_]+)/g
-    while ((match = hashPattern.exec(text)) !== null) {
-      const tag = normalize(match[1])
-      if (tag === normRole || normRole.startsWith(tag) || tag.startsWith(normRole.slice(0, 4))) {
-        return true
-      }
-    }
-  }
-
-  return false
-}
-
 export default function LoginGreetingModal({ session, notes, onClose, onReviewNotes }) {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    // Small delay so the app renders first
     const t = setTimeout(() => setVisible(true), 600)
     return () => clearTimeout(t)
   }, [])
@@ -62,12 +23,10 @@ export default function LoginGreetingModal({ session, notes, onClose, onReviewNo
   const firstName = name.split(' ')[0] || 'there'
   const timeOfDay = getTimeOfDay()
 
-  const isStageManager = staffRole === 'Stage Manager' || session.role === 'admin' || session.role === 'member'
+  const isFullAccess = FULL_ACCESS_ROLES.includes(staffRole) ||
+    session.role === 'admin' || session.role === 'member'
 
-  const myNotes = isStageManager
-    ? notes.filter(n => !n.resolved)
-    : notes.filter(n => noteMatchesUser(n, name, staffRole))
-
+  const myNotes = getNotesForUser(notes, session)
   const highPriority = myNotes.filter(n => n.priority === 'high')
 
   function handleClose() {
@@ -136,7 +95,7 @@ export default function LoginGreetingModal({ session, notes, onClose, onReviewNo
                   ⚠ {highPriority.length} high priority
                 </p>
               )}
-              {!isStageManager && (
+              {!isFullAccess && (
                 <p style={{ fontSize: 12, color: 'var(--amber-text)', marginTop: 4, opacity: 0.8 }}>
                   Tagged to you or {staffRole}
                 </p>
