@@ -241,9 +241,16 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
                   {grp}
                 </p>
               )}
-              {names.map(name => (
-                <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: '0.5px solid var(--border)' }}>
-                  <span style={{ fontSize: 14, color: isPresent(name) ? 'var(--text)' : 'var(--text3)' }}>{name}</span>
+              {names.map(name => {
+					  const entry = expandedCast.find(c => c.name === name)
+  					  return (
+					  <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: '0.5px solid var(--border)' }}>
+    					<div>
+      						<div style={{ fontSize: 14, color: isPresent(name) ? 'var(--text)' : 'var(--text3)' }}>{name}</div>
+      						{entry?.castMember && (
+        						<div style={{ fontSize: 11, color: 'var(--text3)' }}>{entry.castMember}</div>
+      						)}
+    					</div>
                   <button onClick={() => toggle(name)}
                     style={{
                       padding: '3px 12px', borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: 'pointer',
