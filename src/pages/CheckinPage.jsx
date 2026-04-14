@@ -89,7 +89,7 @@ export default function CheckinPage() {
   }
 
   // Normalize and filter cast list
-  const castListNormalized = (status?.castList || []).map(c =>
+  const castListNormalized = (status?.castList || []).map(c => // v2
   typeof c === 'string' ? { name: c, castMember: '', group: null } : { ...c, group: c.group || null }
 )
   const checkedInNames = new Set(status?.checkins?.map(c => c.castName) || [])
