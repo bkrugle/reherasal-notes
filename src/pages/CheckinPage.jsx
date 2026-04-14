@@ -234,14 +234,14 @@ export default function CheckinPage() {
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
-                    <span style={{ fontSize: 16, fontWeight: 600 }}>
+                    <div style={{ fontSize: 16, fontWeight: 600 }}>
                       {submitting === c.name ? '⏳ ' : ''}{c.castMember || c.name}
-                    </span>
+                    </div>
                     {c.castMember && (
-                      <span style={{ fontSize: 12, color: 'var(--text3)', marginLeft: 8 }}>{c.name}</span>
+                      <div style={{ fontSize: 12, color: 'var(--text3)' }}>{c.name}</div>
                     )}
                     {c.group && (
-                      <span style={{ fontSize: 11, color: 'var(--purple-text)', marginLeft: 8 }}>{c.group}</span>
+                      <div style={{ fontSize: 12, color: 'var(--text3)' }}>{c.group}</div>
                     )}
                   </div>
                   <span style={{ fontSize: 20, color: 'var(--text3)' }}>→</span>
