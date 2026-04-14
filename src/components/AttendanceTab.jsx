@@ -48,9 +48,9 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
   const isShowDate = showDates.includes(selectedDate)
   const rehearsalDates = [...new Set(notes.map(n => n.date))].sort().reverse()
 
-  // Load check-in data when a show date is selected
+  // Load check-in data for all dates — used for both rehearsals and show nights
   useEffect(() => {
-    if (!isShowDate) { setCheckinData(null); return }
+    // Always load checkin data regardless of show/rehearsal date
     setLoadingCheckin(true)
     api.getCheckinStatus(sheetId, selectedDate)
       .then(data => setCheckinData(data))
@@ -89,7 +89,7 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
   }
 
   // Show date — pull from check-in system
-  if (isShowDate) {
+  if (checkinData !== null || loadingCheckin) {
     const checkins = checkinData?.checkins || []
     const checkedInNames = new Set(checkins.map(c => c.castName))
     // castList has {name=character, castMember=actor} — match by either
