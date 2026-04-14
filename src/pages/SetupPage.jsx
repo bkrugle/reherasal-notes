@@ -12,7 +12,7 @@ import { applyAccentColor } from './ProductionApp'
 function parseShowDates(showDates) {
   if (!showDates) return []
   try {
-    const yearMatch = showDates.match(/(20\d{2})/)
+    const yearMatch = showDates.match(/(20\d{2})/)
     const year = yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear()
     const sameMonth = showDates.match(/([A-Za-z]+)\s+(\d+)\s*[-–]\s*(\d+)/)
     if (sameMonth) {
@@ -118,7 +118,7 @@ function LookupResultPanel({ result, existing, onApply, onDismiss }) {
           style={{ marginLeft: 'auto' }}>
           Add {selected.length} character{selected.length !== 1 ? 's' : ''} →
         </button>
-        </div>
+      </div>
     </div>
   )
 }
@@ -127,7 +127,6 @@ function TagInput({ label, values, onChange, placeholder }) {
   const [input, setInput] = useState('')
 
   function add() {
-    // Support comma-separated input
     const items = input.split(',').map(v => v.trim()).filter(Boolean)
     if (!items.length) return
     const unique = items.filter(v => !values.includes(v))
@@ -209,22 +208,15 @@ function NotificationContactForm({ onAdd, ntfyTopic, productionTitle }) {
       setTestSending(false)
     }
   }
+
   const carriers = [
     { label: 'Verizon', suffix: '@vtext.com' },
   ]
-
-  function buildGateway(phone, suffix) {
-    const digits = phone.replace(/\D/g, '')
-    if (digits.length === 10) return digits + suffix
-    if (digits.length === 11 && digits.startsWith('1')) return digits.slice(1) + suffix
-    return ''
-  }
 
   function add() {
     if (!form.name.trim()) return
     if (!form.phone && !form.smsGateway) return
     const contact = { ...form }
-    // Auto-build gateway if phone + carrier selected but no gateway entered
     onAdd(contact)
     setForm({ name: '', role: 'Stage Manager', phone: '', smsGateway: '' })
   }
@@ -251,15 +243,11 @@ function NotificationContactForm({ onAdd, ntfyTopic, productionTitle }) {
         <label>Phone number</label>
         <input type="tel" value={form.phone}
           onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-          onInput={e => setForm(f => ({ ...f, phone: e.target.value }))}
-          onBlur={e => setForm(f => ({ ...f, phone: e.target.value }))}
           placeholder="4125550100"
           autoComplete="off" />
       </div>
       <div className="field" style={{ marginBottom: 8 }}>
-        <label>
-          SMS Gateway email <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(free — no Twilio needed)</span>
-        </label>
+        <label>SMS Gateway email <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(free — no Twilio needed)</span></label>
         <input type="text" value={form.smsGateway}
           onChange={e => setForm(f => ({ ...f, smsGateway: e.target.value }))}
           placeholder="e.g. 4125550100@vtext.com"
@@ -287,23 +275,17 @@ function NotificationContactForm({ onAdd, ntfyTopic, productionTitle }) {
           </p>
         </div>
         {form.smsGateway && (
-          <p style={{ fontSize: 11, color: 'var(--green-text)', marginTop: 4 }}>
-            ✓ {form.smsGateway}
-          </p>
+          <p style={{ fontSize: 11, color: 'var(--green-text)', marginTop: 4 }}>✓ {form.smsGateway}</p>
         )}
       </div>
-      {/* ntfy push notifications */}
       <div style={{ borderTop: '0.5px solid var(--border)', paddingTop: '0.75rem', marginTop: '0.75rem' }}>
-        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>
-          📲 Push notifications (free, recommended)
-        </p>
+        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>📲 Push notifications (free, recommended)</p>
         <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8, lineHeight: 1.5 }}>
           Install the free <strong>ntfy</strong> app on their phone, then subscribe to the topic below.
-          Instant push notifications — no cost, no registration.
         </p>
         {ntfyTopic && (
           <div style={{ background: 'var(--bg3)', borderRadius: 'var(--radius)', padding: '8px 10px', marginBottom: 8 }}>
-            <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>Production topic (subscribe to this in the ntfy app):</p>
+            <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>Production topic:</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <code style={{ fontSize: 12, fontWeight: 600, flex: 1, wordBreak: 'break-all' }}>{ntfyTopic}</code>
               <button className="btn btn-sm" style={{ fontSize: 10, flexShrink: 0 }}
@@ -312,7 +294,7 @@ function NotificationContactForm({ onAdd, ntfyTopic, productionTitle }) {
           </div>
         )}
         <div className="field" style={{ marginBottom: 8 }}>
-          <label>Their ntfy topic <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(paste from above, or leave blank)</span></label>
+          <label>Their ntfy topic</label>
           <input type="text" value={form.ntfyTopic}
             onChange={e => setForm(f => ({ ...f, ntfyTopic: e.target.value }))}
             placeholder={ntfyTopic || 'vhs-25thop3-xxxxxxxx'} />
@@ -322,19 +304,17 @@ function NotificationContactForm({ onAdd, ntfyTopic, productionTitle }) {
             <button className="btn btn-sm" onClick={() => sendTest(form.ntfyTopic)} disabled={testSending}>
               {testSending ? 'Sending…' : '📲 Send test notification'}
             </button>
-            {testResult === 'success' && <span style={{ fontSize: 12, color: 'var(--green-text)', marginLeft: 8 }}>✓ Sent! Check the ntfy app.</span>}
-            {testResult === 'failed' && <span style={{ fontSize: 12, color: 'var(--red-text)', marginLeft: 8 }}>✗ Failed — check the topic name.</span>}
+            {testResult === 'success' && <span style={{ fontSize: 12, color: 'var(--green-text)', marginLeft: 8 }}>✓ Sent!</span>}
+            {testResult === 'failed' && <span style={{ fontSize: 12, color: 'var(--red-text)', marginLeft: 8 }}>✗ Failed</span>}
           </div>
         )}
       </div>
-
       <button className="btn btn-primary btn-sm" onClick={add} disabled={!form.name || (!form.phone && !form.smsGateway && !form.ntfyTopic)}>
         + Add contact
       </button>
     </div>
   )
 }
-
 
 const STAFF_ROLES = ['Stage Manager', 'Assistant SM', 'Music Director', 'Choreographer', 'Director', 'Producer', 'Tech Director', 'Lights', 'Sound', 'Props', 'House Manager', 'Other']
 
@@ -359,6 +339,47 @@ function RoleSelect({ value, onChange }) {
   )
 }
 
+// Shared pill renderer used by both director row and team member rows
+function MemberPills({ role, staffRole, activated }) {
+  return (
+    <>
+      {role === 'admin' && (
+        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20,
+          background: 'var(--purple-bg)', color: 'var(--purple-text)',
+          border: '0.5px solid var(--border)' }}>
+          ★ Admin
+        </span>
+      )}
+      {staffRole && (
+        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20,
+          background: 'var(--bg2)', color: 'var(--text2)',
+          border: '0.5px solid var(--border)' }}>
+          {staffRole}
+        </span>
+      )}
+      {!staffRole && role !== 'admin' && (
+        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20,
+          background: 'var(--bg2)', color: 'var(--text2)',
+          border: '0.5px solid var(--border)' }}>
+          Member
+        </span>
+      )}
+      {activated === false && (
+        <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 10,
+          background: 'var(--amber-bg)', color: 'var(--amber-text)' }}>
+          invite pending
+        </span>
+      )}
+      {activated === true && (
+        <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 10,
+          background: 'var(--green-bg)', color: 'var(--green-text)' }}>
+          active
+        </span>
+      )}
+    </>
+  )
+}
+
 function TeamMemberRow({ member, index, onUpdate, onRemove, onResetPin, productionTitle }) {
   const [expanded, setExpanded] = useState(false)
   const [newPin, setNewPin] = useState('')
@@ -376,18 +397,11 @@ function TeamMemberRow({ member, index, onUpdate, onRemove, onResetPin, producti
     <div style={{ border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: 8, overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--bg)' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 14, fontWeight: 500 }}>{member.name}</span>
-            <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20,
-              background: member.role === 'admin' ? 'var(--purple-bg)' : 'var(--bg2)',
-              color: member.role === 'admin' ? 'var(--purple-text)' : 'var(--text2)',
-              border: '0.5px solid var(--border)' }}>
-              {member.role === 'admin' ? '★ Admin' : (member.staffRole || 'Member')}
-            </span>
+            <MemberPills role={member.role} staffRole={member.staffRole} activated={member.activated} />
             {member.ntfyTopic && <span style={{ fontSize: 11, color: 'var(--teal-text)' }}>📲</span>}
             {member.phone && <span style={{ fontSize: 11, color: 'var(--text3)' }}>📞</span>}
-            {member.activated === false && <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 10, background: 'var(--amber-bg)', color: 'var(--amber-text)' }}>invite pending</span>}
-            {member.activated === true && <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 10, background: 'var(--green-bg)', color: 'var(--green-text)' }}>active</span>}
           </div>
           {member.email && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{member.email}</div>}
         </div>
@@ -409,7 +423,6 @@ function TeamMemberRow({ member, index, onUpdate, onRemove, onResetPin, producti
               <input type="email" value={member.email || ''} onChange={e => onUpdate(index, { ...member, email: e.target.value })} placeholder="optional" />
             </div>
           </div>
-
           <div className="grid2" style={{ gap: 8 }}>
             <div className="field" style={{ margin: 0 }}>
               <label>Staff role</label>
@@ -420,13 +433,11 @@ function TeamMemberRow({ member, index, onUpdate, onRemove, onResetPin, producti
               <input type="tel" value={member.phone || ''} onChange={e => onUpdate(index, { ...member, phone: e.target.value })} placeholder="4125550100" />
             </div>
           </div>
-
           <div className="field" style={{ margin: 0 }}>
             <label>ntfy push topic <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(for show day alerts)</span></label>
             <input type="text" value={member.ntfyTopic || ''} onChange={e => onUpdate(index, { ...member, ntfyTopic: e.target.value })} placeholder="vhs-showname-xxxxxxxx" />
             {member.ntfyTopic && <TestButton topic={member.ntfyTopic} productionTitle={productionTitle} />}
           </div>
-
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input type="checkbox" id={`admin-${index}`} checked={member.role === 'admin'}
               onChange={e => onUpdate(index, { ...member, role: e.target.checked ? 'admin' : 'member' })}
@@ -435,7 +446,6 @@ function TeamMemberRow({ member, index, onUpdate, onRemove, onResetPin, producti
               Admin access (can edit setup)
             </label>
           </div>
-
           <div style={{ borderTop: '0.5px solid var(--border)', paddingTop: 10 }}>
             <label style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, display: 'block', marginBottom: 6 }}>Reset PIN</label>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -444,9 +454,8 @@ function TeamMemberRow({ member, index, onUpdate, onRemove, onResetPin, producti
               <button className="btn btn-sm" onClick={savePin} disabled={!newPin.trim()}>Set PIN</button>
               {pinSaved && <span style={{ fontSize: 12, color: 'var(--green-text)' }}>✓ Updated</span>}
             </div>
-            <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Leave blank to keep current PIN. Share the production code <strong>+ PIN</strong> with the team member.</p>
+            <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Leave blank to keep current PIN.</p>
           </div>
-
           <button className="btn btn-sm" onClick={() => setExpanded(false)} style={{ fontSize: 11, color: 'var(--text3)' }}>↑ Collapse</button>
         </div>
       )}
@@ -456,11 +465,9 @@ function TeamMemberRow({ member, index, onUpdate, onRemove, onResetPin, producti
 
 function TeamTab({ config, setC, sharedWith, setSharedWith, newMember, setNewMember, addMember, removeMember, toggleMemberRole, save, saveTeam, saving, saved, session }) {
   const [addForm, setAddForm] = useState({ name: '', email: '', pin: '', staffRole: 'Stage Manager', phone: '', ntfyTopic: '', role: 'member' })
-  const [customRole, setCustomRole] = useState(false)
 
   function handleAdd() {
     if (!addForm.name.trim()) return
-    // Add to sharedWith (access) + notificationContacts (alerts) if they have ntfy/phone
     const memberData = {
       name: addForm.name,
       email: addForm.email,
@@ -471,7 +478,6 @@ function TeamTab({ config, setC, sharedWith, setSharedWith, newMember, setNewMem
       role: addForm.role,
     }
     setSharedWith(sw => [...sw, memberData])
-    // Also add to notification contacts if they have ntfy or phone
     if (addForm.ntfyTopic || addForm.phone) {
       const nc = { name: addForm.name, role: addForm.staffRole, phone: addForm.phone || '', ntfyTopic: addForm.ntfyTopic || '' }
       setC('notificationContacts', [...(config.notificationContacts || []), nc])
@@ -490,6 +496,10 @@ function TeamTab({ config, setC, sharedWith, setSharedWith, newMember, setNewMem
     next[i] = { ...next[i], pin }
     setSharedWith(next)
   }
+
+  // Director row — synthesized from session/config, always shown at top
+  const directorName = session.name || config.directorName || ''
+  const directorEmail = session.email || config.directorEmail || ''
 
   return (
     <div>
@@ -515,17 +525,42 @@ function TeamTab({ config, setC, sharedWith, setSharedWith, newMember, setNewMem
         )}
       </div>
 
-      {/* Current team members */}
-      {sharedWith.length > 0 && (
-        <div style={{ marginBottom: '1rem' }}>
-          <p className="section-label" style={{ marginBottom: 8 }}>Team members ({sharedWith.length})</p>
-          {sharedWith.map((m, i) => (
-            <TeamMemberRow key={i} member={m} index={i}
-              onUpdate={updateMember} onRemove={removeMember}
-              onResetPin={resetPin} productionTitle={config.title} />
-          ))}
-        </div>
-      )}
+      {/* Team members list */}
+      <div style={{ marginBottom: '1rem' }}>
+        <p className="section-label" style={{ marginBottom: 8 }}>
+          Team members ({sharedWith.length + 1})
+        </p>
+
+        {/* Director row — always first, read-only */}
+        {directorName && (
+          <div style={{ border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: 8, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--bg)' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 14, fontWeight: 500 }}>{directorName}</span>
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20,
+                    background: 'var(--purple-bg)', color: 'var(--purple-text)',
+                    border: '0.5px solid var(--border)' }}>★ Admin</span>
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20,
+                    background: 'var(--bg2)', color: 'var(--text2)',
+                    border: '0.5px solid var(--border)' }}>Director</span>
+                  <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 10,
+                    background: 'var(--green-bg)', color: 'var(--green-text)' }}>active</span>
+                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>👤 You</span>
+                </div>
+                {directorEmail && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{directorEmail}</div>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Other team members */}
+        {sharedWith.map((m, i) => (
+          <TeamMemberRow key={i} member={m} index={i}
+            onUpdate={updateMember} onRemove={removeMember}
+            onResetPin={resetPin} productionTitle={config.title} />
+        ))}
+      </div>
 
       {/* Add new member */}
       <div className="card" style={{ marginBottom: '1rem' }}>
@@ -581,7 +616,6 @@ function TeamTab({ config, setC, sharedWith, setSharedWith, newMember, setNewMem
   )
 }
 
-
 function DraggableTagInput({ label, values, onChange, placeholder }) {
   const [input, setInput] = useState('')
   const dragItem = useRef(null)
@@ -596,10 +630,8 @@ function DraggableTagInput({ label, values, onChange, placeholder }) {
   }
 
   function remove(v) { onChange(values.filter(x => x !== v)) }
-
   function handleDragStart(index) { dragItem.current = index }
   function handleDragEnter(index) { dragOverItem.current = index }
-
   function handleDragEnd() {
     const items = [...values]
     const draggedItem = items.splice(dragItem.current, 1)[0]
@@ -608,14 +640,12 @@ function DraggableTagInput({ label, values, onChange, placeholder }) {
     dragOverItem.current = null
     onChange(items)
   }
-
   function moveUp(index) {
     if (index === 0) return
     const items = [...values]
     ;[items[index - 1], items[index]] = [items[index], items[index - 1]]
     onChange(items)
   }
-
   function moveDown(index) {
     if (index === values.length - 1) return
     const items = [...values]
@@ -648,18 +678,14 @@ function DraggableTagInput({ label, values, onChange, placeholder }) {
                 background: 'var(--bg2)', border: '0.5px solid var(--border)',
                 borderRadius: 'var(--radius)', cursor: 'grab', userSelect: 'none',
               }}>
-              {/* Drag handle */}
               <span style={{ color: 'var(--text3)', fontSize: 14, cursor: 'grab', flexShrink: 0 }}>⠿</span>
-              {/* Scene name */}
               <span style={{ fontSize: 13, flex: 1 }}>{v}</span>
-              {/* Up/down buttons */}
               <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
                 <button type="button" onClick={() => moveUp(index)} disabled={index === 0}
                   style={{ background: 'none', border: 'none', color: index === 0 ? 'var(--border)' : 'var(--text3)', cursor: index === 0 ? 'default' : 'pointer', fontSize: 12, padding: '0 3px', lineHeight: 1 }}>▲</button>
                 <button type="button" onClick={() => moveDown(index)} disabled={index === values.length - 1}
                   style={{ background: 'none', border: 'none', color: index === values.length - 1 ? 'var(--border)' : 'var(--text3)', cursor: index === values.length - 1 ? 'default' : 'pointer', fontSize: 12, padding: '0 3px', lineHeight: 1 }}>▼</button>
               </div>
-              {/* Remove */}
               <button type="button" onClick={() => remove(v)}
                 style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 16, padding: 0, flexShrink: 0, lineHeight: 1 }}>×</button>
             </div>
@@ -680,7 +706,7 @@ export default function SetupPage() {
   const [lookingUpCast, setLookingUpCast] = useState(false)
   const [lookupResult, setLookupResult] = useState(null)
   const [lookingUpScenes, setLookingUpScenes] = useState(false)
-  const [sceneLookupResult, setSceneLookupResult] = useState(null) // { characters, showTitle }
+  const [sceneLookupResult, setSceneLookupResult] = useState(null)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('details')
 
@@ -776,7 +802,6 @@ export default function SetupPage() {
   }
 
   function applyLookupResult(selected) {
-    // Merge selected characters with existing, avoiding duplicates
     const existing = config.characters.map(c => typeof c === 'string' ? c : c.name)
     const toAdd = selected.filter(name => !existing.includes(name))
       .map(name => ({ name, emails: [], members: [], isGroup: false }))
@@ -789,7 +814,6 @@ export default function SetupPage() {
     setError('')
     try {
       const result = await api.updateProduction({ sheetId: session.sheetId, sharedWith })
-      // Send welcome emails to newly added members
       if (result.newInviteCodes) {
         const appUrl = window.location.origin
         for (const member of sharedWith) {
@@ -870,276 +894,212 @@ export default function SetupPage() {
       }
     >
       <div className="setup-page page">
-
-      <div className="tabs">
-        {['details', 'scenes', 'characters', 'team', ...((config.useAuditions === true || config.useAuditions === 'true') ? ['auditions'] : [])].map(t => (
-          <button key={t} className={`tab-btn ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>
-            {t.charAt(0).toUpperCase() + t.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {error && (
-        <p style={{ fontSize: 13, color: 'var(--red-text)', background: 'var(--red-bg)', padding: '8px 12px', borderRadius: 'var(--radius)', marginBottom: '1rem' }}>
-          {error}
-        </p>
-      )}
-
-      {activeTab === 'details' && (
-        <div className="card">
-          <div className="field" style={{ marginBottom: '1rem' }}>
-            <label>Production title</label>
-            <input type="text" value={config.title} onChange={e => setC('title', e.target.value)} />
-          </div>
-          <div className="grid2" style={{ marginBottom: '1rem' }}>
-            <div className="field">
-              <label>Director name</label>
-              <input type="text" value={config.directorName} onChange={e => setC('directorName', e.target.value)} />
-            </div>
-            <div className="field">
-              <label>Director email</label>
-              <input type="email" value={config.directorEmail} onChange={e => setC('directorEmail', e.target.value)} />
-            </div>
-          </div>
-          <div className="grid2" style={{ marginBottom: '1rem' }}>
-            <div className="field">
-              <label>Show dates</label>
-              <input type="text" value={config.showDates} onChange={e => setC('showDates', e.target.value)} />
-            </div>
-            <div className="field">
-              <label>Venue</label>
-              <input type="text" value={config.venue} onChange={e => setC('venue', e.target.value)} />
-            </div>
-          </div>
-
-          {/* Curtain times per day */}
-          <div className="field" style={{ marginBottom: '1.25rem' }}>
-            <label>Curtain times <span style={{ fontWeight: 400, color: 'var(--text3)', fontSize: 11 }}>— per show date</span></label>
-            <CurtainTimesEditor
-              curtainTimes={config.curtainTimes || {}}
-              showDates={config.showDates}
-              onChange={v => setC('curtainTimes', v)}
-            />
-          </div>
-          {/* Appearance */}
-          <div className="field" style={{ marginBottom: '1.25rem' }}>
-            <label>Accent color <span style={{ fontWeight: 400, color: 'var(--text3)', fontSize: 11 }}>— sets the sidebar and nav colors</span></label>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
-              {[
-                { color: '#1a365d', bg: '#EBF4FF', name: 'Navy (default)' },
-                { color: '#7C3AED', bg: '#EDE9FE', name: 'Purple' },
-                { color: '#DC2626', bg: '#FEE2E2', name: 'Crimson' },
-                { color: '#0369A1', bg: '#E0F2FE', name: 'Blue' },
-                { color: '#059669', bg: '#D1FAE5', name: 'Green' },
-                { color: '#D97706', bg: '#FEF3C7', name: 'Amber' },
-                { color: '#DB2777', bg: '#FCE7F3', name: 'Pink' },
-                { color: '#374151', bg: '#F3F4F6', name: 'Slate' },
-              ].map(({ color, bg, name }) => (
-                <button key={color} type="button" title={name}
-                  onClick={() => {
-                    setC('accentColor', color)
-                    setC('accentBg', bg)
-                    applyAccentColor(color, bg)
-                  }}
-                  style={{
-                    width: 32, height: 32, borderRadius: '50%',
-                    background: color,
-                    border: config.accentColor === color ? '3px solid var(--text)' : '2px solid transparent',
-                    cursor: 'pointer', outline: 'none', flexShrink: 0
-                  }} />
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-              <label style={{ fontSize: 11, color: 'var(--text2)', margin: 0, whiteSpace: 'nowrap' }}>Custom hex</label>
-              <input type="text" placeholder="#1a365d"
-                value={config.accentColor || ''}
-                onChange={e => {
-                  const val = e.target.value
-                  setC('accentColor', val)
-                  if (/^#[0-9a-fA-F]{6}$/.test(val)) {
-                    setC('accentBg', val + '20')
-                    applyAccentColor(val, val + '20')
-                  }
-                }}
-                style={{ width: 110, fontSize: 13, fontFamily: 'monospace' }} />
-              <input type="color"
-                value={/^#[0-9a-fA-F]{6}$/.test(config.accentColor) ? config.accentColor : '#1a365d'}
-                onChange={e => {
-                  const val = e.target.value
-                  setC('accentColor', val)
-                  setC('accentBg', val + '20')
-                  applyAccentColor(val, val + '20')
-                }}
-                style={{ width: 36, height: 32, padding: 2, borderRadius: 6, border: '0.5px solid var(--border2)', cursor: 'pointer', background: 'var(--bg)' }} />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 'var(--radius)', background: config.accentColor || '#1a365d' }}>
-              <span style={{ fontSize: 18 }}>🎭</span>
-              <div>
-                <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.95)', margin: 0 }}>{config.title || 'Your Production'}</p>
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', margin: 0 }}>{config.showDates || 'Show dates'}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="field" style={{ marginBottom: '1.25rem' }}>
-            <label>Google Calendar ID (optional)</label>
-            <input type="text" value={config.calendarId} onChange={e => setC('calendarId', e.target.value)}
-              placeholder="c_abc123...@group.calendar.google.com" />
-            <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
-              Share your calendar with altius-qc-functions@altius-project-hub.iam.gserviceaccount.com (Make changes to events), then paste the Calendar ID here.
-            </p>
-          </div>
-          {/* Audition management toggle */}
-          <div style={{ marginBottom: '1.25rem', padding: '12px 14px', background: 'var(--bg2)', borderRadius: 'var(--radius)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <div>
-              <p style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>Audition management</p>
-              <p style={{ fontSize: 12, color: 'var(--text3)' }}>
-                {config.useAuditions === true ? 'Enabled — Auditions tab is active' : 'Disabled — enable to add audition form, profiles, and AI materials'}
-              </p>
-            </div>
-            <button className="btn btn-sm"
-              onClick={() => setC('useAuditions', config.useAuditions === true ? false : true)}
-              style={config.useAuditions === true
-                ? { background: 'var(--green-bg)', color: 'var(--green-text)', borderColor: 'transparent', fontWeight: 500 }
-                : {}}>
-              {config.useAuditions === true ? '✓ On' : 'Enable'}
+        <div className="tabs">
+          {['details', 'scenes', 'characters', 'team', ...((config.useAuditions === true || config.useAuditions === 'true') ? ['auditions'] : [])].map(t => (
+            <button key={t} className={`tab-btn ${activeTab === t ? 'active' : ''}`} onClick={() => setActiveTab(t)}>
+              {t.charAt(0).toUpperCase() + t.slice(1)}
             </button>
-          </div>
-
-          <button className="btn btn-primary" onClick={save} disabled={saving}>
-            {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save changes'}
-          </button>
-
-
-          <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '0.5px solid var(--border)' }}>
-            <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--red-text)', marginBottom: 8 }}>Danger zone</p>
-            <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: '1rem' }}>
-              Permanently delete this production, all its notes, uploaded files, and documents. This cannot be undone.
-            </p>
-            <button className="btn btn-danger" onClick={deleteProduction} disabled={deleting}>
-              {deleting ? 'Deleting…' : 'Delete this production'}
-            </button>
-          </div>
+          ))}
         </div>
-      )}
 
-      {activeTab === 'scenes' && (
-        <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: '1rem' }}>
-            <p className="muted" style={{ margin: 0 }}>These appear in the scene dropdown when logging notes.</p>
-            <button className="btn btn-sm" onClick={lookupScenes} disabled={lookingUpScenes || !config.title}
-              style={{ background: 'var(--blue-bg)', color: 'var(--blue-text)', borderColor: 'transparent', fontWeight: 500, flexShrink: 0 }}>
-              {lookingUpScenes ? '✨ Looking up…' : '✨ Auto-populate from show'}
-            </button>
-          </div>
-          {sceneLookupResult && (
-            <div style={{ background: 'var(--blue-bg)', border: '0.5px solid var(--blue-text)', borderRadius: 'var(--radius)', padding: '1rem', marginBottom: '1rem' }}>
-              <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--blue-text)', marginBottom: 8 }}>
-                ✨ Found {sceneLookupResult.scenes.length} scenes for <em>{sceneLookupResult.showTitle}</em>
-              </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-                {sceneLookupResult.scenes.map(name => {
-                  const added = config.scenes.includes(name)
-                  return (
-                    <button key={name} type="button"
-                      onClick={() => {
-                        if (added) setC('scenes', config.scenes.filter(s => s !== name))
-                        else setC('scenes', [...config.scenes, name])
-                      }}
-                      style={{
-                        fontSize: 12, padding: '4px 10px', borderRadius: 20, cursor: 'pointer',
-                        border: '0.5px solid var(--blue-text)',
-                        background: added ? 'var(--blue-text)' : 'transparent',
-                        color: added ? 'var(--bg)' : 'var(--blue-text)'
-                      }}>
-                      {added ? '✓ ' : ''}{name}
-                    </button>
-                  )
-                })}
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-sm" onClick={() => setC('scenes', [...new Set([...config.scenes, ...sceneLookupResult.scenes])])}>Add all</button>
-                <button className="btn btn-sm" onClick={() => setSceneLookupResult(null)}>Dismiss</button>
-              </div>
-            </div>
-          )}
-          <DraggableTagInput label="Scenes / acts" values={config.scenes} onChange={v => setC('scenes', v)} placeholder="e.g. Act 1 Scene 2" />
-          <button className="btn btn-primary mt2" onClick={save} disabled={saving}>
-            {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save scenes'}
-          </button>
-        </div>
-      )}
+        {error && (
+          <p style={{ fontSize: 13, color: 'var(--red-text)', background: 'var(--red-bg)', padding: '8px 12px', borderRadius: 'var(--radius)', marginBottom: '1rem' }}>
+            {error}
+          </p>
+        )}
 
-      {activeTab === 'characters' && (
-        <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: '1rem' }}>
-            <p className="muted" style={{ margin: 0 }}>
-              These appear in the cast member autocomplete. Click <strong>Edit</strong> on any entry to add email addresses or mark it as a group.
-            </p>
-            <button className="btn btn-sm" onClick={lookupCast} disabled={lookingUpCast || !config.title}
-              style={{ background: 'var(--purple-bg)', color: 'var(--purple-text)', borderColor: 'transparent', fontWeight: 500, flexShrink: 0 }}>
-              {lookingUpCast ? '✨ Looking up…' : '✨ Auto-populate from show'}
-            </button>
-          </div>
-
-          {lookupResult && (
-            <LookupResultPanel
-              result={lookupResult}
-              existing={config.characters}
-              onApply={applyLookupResult}
-              onDismiss={() => setLookupResult(null)}
-            />
-          )}
-          <CastManager
-            label="Cast / characters"
-            characters={config.characters}
-            onChange={v => setC('characters', v)}
-            placeholder="e.g. Elphaba, Ensemble A, Dance Corps"
-          />
-          <TagInput label="Staff members" values={config.staff} onChange={v => setC('staff', v)} placeholder="e.g. Stage Manager" />
-          <button className="btn btn-primary mt2" onClick={save} disabled={saving}>
-            {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save cast & staff'}
-          </button>
-        </div>
-      )}
-
-      {activeTab === 'auditions' && (
-        <div>
-          <div className="card" style={{ marginBottom: '1rem' }}>
-            <p style={{ fontSize: 14, fontWeight: 500, marginBottom: 8 }}>Custom audition questions</p>
-            <p className="muted" style={{ marginBottom: '1rem', fontSize: 13 }}>
-              These appear on the public audition form in addition to the standard fields.
-            </p>
-            <TagInput
-              label="Custom questions"
-              values={config.auditionQuestions}
-              onChange={v => setC('auditionQuestions', v)}
-              placeholder="e.g. What role are you interested in?, Do you play an instrument?"
-            />
-            <button className="btn btn-primary mt2" onClick={save} disabled={saving}>
-              {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save questions'}
-            </button>
-          </div>
+        {activeTab === 'details' && (
           <div className="card">
-            <p style={{ fontSize: 14, fontWeight: 500, marginBottom: '1rem' }}>AI preparation materials</p>
-            <AuditionMaterials showTitle={config.title} />
+            <div className="field" style={{ marginBottom: '1rem' }}>
+              <label>Production title</label>
+              <input type="text" value={config.title} onChange={e => setC('title', e.target.value)} />
+            </div>
+            <div className="grid2" style={{ marginBottom: '1rem' }}>
+              <div className="field">
+                <label>Director name</label>
+                <input type="text" value={config.directorName} onChange={e => setC('directorName', e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Director email</label>
+                <input type="email" value={config.directorEmail} onChange={e => setC('directorEmail', e.target.value)} />
+              </div>
+            </div>
+            <div className="grid2" style={{ marginBottom: '1rem' }}>
+              <div className="field">
+                <label>Show dates</label>
+                <input type="text" value={config.showDates} onChange={e => setC('showDates', e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Venue</label>
+                <input type="text" value={config.venue} onChange={e => setC('venue', e.target.value)} />
+              </div>
+            </div>
+            <div className="field" style={{ marginBottom: '1.25rem' }}>
+              <label>Curtain times <span style={{ fontWeight: 400, color: 'var(--text3)', fontSize: 11 }}>— per show date</span></label>
+              <CurtainTimesEditor curtainTimes={config.curtainTimes || {}} showDates={config.showDates} onChange={v => setC('curtainTimes', v)} />
+            </div>
+            <div className="field" style={{ marginBottom: '1.25rem' }}>
+              <label>Accent color <span style={{ fontWeight: 400, color: 'var(--text3)', fontSize: 11 }}>— sets the sidebar and nav colors</span></label>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
+                {[
+                  { color: '#1a365d', bg: '#EBF4FF', name: 'Navy (default)' },
+                  { color: '#7C3AED', bg: '#EDE9FE', name: 'Purple' },
+                  { color: '#DC2626', bg: '#FEE2E2', name: 'Crimson' },
+                  { color: '#0369A1', bg: '#E0F2FE', name: 'Blue' },
+                  { color: '#059669', bg: '#D1FAE5', name: 'Green' },
+                  { color: '#D97706', bg: '#FEF3C7', name: 'Amber' },
+                  { color: '#DB2777', bg: '#FCE7F3', name: 'Pink' },
+                  { color: '#374151', bg: '#F3F4F6', name: 'Slate' },
+                ].map(({ color, bg, name }) => (
+                  <button key={color} type="button" title={name}
+                    onClick={() => { setC('accentColor', color); setC('accentBg', bg); applyAccentColor(color, bg) }}
+                    style={{ width: 32, height: 32, borderRadius: '50%', background: color, border: config.accentColor === color ? '3px solid var(--text)' : '2px solid transparent', cursor: 'pointer', outline: 'none', flexShrink: 0 }} />
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+                <label style={{ fontSize: 11, color: 'var(--text2)', margin: 0, whiteSpace: 'nowrap' }}>Custom hex</label>
+                <input type="text" placeholder="#1a365d" value={config.accentColor || ''}
+                  onChange={e => { const val = e.target.value; setC('accentColor', val); if (/^#[0-9a-fA-F]{6}$/.test(val)) { setC('accentBg', val + '20'); applyAccentColor(val, val + '20') } }}
+                  style={{ width: 110, fontSize: 13, fontFamily: 'monospace' }} />
+                <input type="color"
+                  value={/^#[0-9a-fA-F]{6}$/.test(config.accentColor) ? config.accentColor : '#1a365d'}
+                  onChange={e => { const val = e.target.value; setC('accentColor', val); setC('accentBg', val + '20'); applyAccentColor(val, val + '20') }}
+                  style={{ width: 36, height: 32, padding: 2, borderRadius: 6, border: '0.5px solid var(--border2)', cursor: 'pointer', background: 'var(--bg)' }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 'var(--radius)', background: config.accentColor || '#1a365d' }}>
+                <span style={{ fontSize: 18 }}>🎭</span>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.95)', margin: 0 }}>{config.title || 'Your Production'}</p>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', margin: 0 }}>{config.showDates || 'Show dates'}</p>
+                </div>
+              </div>
+            </div>
+            <div className="field" style={{ marginBottom: '1.25rem' }}>
+              <label>Google Calendar ID (optional)</label>
+              <input type="text" value={config.calendarId} onChange={e => setC('calendarId', e.target.value)} placeholder="c_abc123...@group.calendar.google.com" />
+              <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+                Share your calendar with altius-qc-functions@altius-project-hub.iam.gserviceaccount.com (Make changes to events), then paste the Calendar ID here.
+              </p>
+            </div>
+            <div style={{ marginBottom: '1.25rem', padding: '12px 14px', background: 'var(--bg2)', borderRadius: 'var(--radius)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 500, marginBottom: 2 }}>Audition management</p>
+                <p style={{ fontSize: 12, color: 'var(--text3)' }}>
+                  {config.useAuditions === true ? 'Enabled — Auditions tab is active' : 'Disabled — enable to add audition form, profiles, and AI materials'}
+                </p>
+              </div>
+              <button className="btn btn-sm"
+                onClick={() => setC('useAuditions', config.useAuditions === true ? false : true)}
+                style={config.useAuditions === true ? { background: 'var(--green-bg)', color: 'var(--green-text)', borderColor: 'transparent', fontWeight: 500 } : {}}>
+                {config.useAuditions === true ? '✓ On' : 'Enable'}
+              </button>
+            </div>
+            <button className="btn btn-primary" onClick={save} disabled={saving}>
+              {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save changes'}
+            </button>
+            <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '0.5px solid var(--border)' }}>
+              <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--red-text)', marginBottom: 8 }}>Danger zone</p>
+              <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: '1rem' }}>
+                Permanently delete this production, all its notes, uploaded files, and documents. This cannot be undone.
+              </p>
+              <button className="btn btn-danger" onClick={deleteProduction} disabled={deleting}>
+                {deleting ? 'Deleting…' : 'Delete this production'}
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {activeTab === 'team' && (
-        <div>
-          <TeamTab
-            config={config} setC={setC}
-            sharedWith={sharedWith} setSharedWith={setSharedWith}
-            newMember={newMember} setNewMember={setNewMember}
-            addMember={addMember} removeMember={removeMember} toggleMemberRole={toggleMemberRole}
-            save={save} saveTeam={saveTeam} saving={saving} saved={saved}
-            session={session}
-          />
-        </div>
-      )}
-    </div>
+        {activeTab === 'scenes' && (
+          <div className="card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: '1rem' }}>
+              <p className="muted" style={{ margin: 0 }}>These appear in the scene dropdown when logging notes.</p>
+              <button className="btn btn-sm" onClick={lookupScenes} disabled={lookingUpScenes || !config.title}
+                style={{ background: 'var(--blue-bg)', color: 'var(--blue-text)', borderColor: 'transparent', fontWeight: 500, flexShrink: 0 }}>
+                {lookingUpScenes ? '✨ Looking up…' : '✨ Auto-populate from show'}
+              </button>
+            </div>
+            {sceneLookupResult && (
+              <div style={{ background: 'var(--blue-bg)', border: '0.5px solid var(--blue-text)', borderRadius: 'var(--radius)', padding: '1rem', marginBottom: '1rem' }}>
+                <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--blue-text)', marginBottom: 8 }}>
+                  ✨ Found {sceneLookupResult.scenes.length} scenes for <em>{sceneLookupResult.showTitle}</em>
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                  {sceneLookupResult.scenes.map(name => {
+                    const added = config.scenes.includes(name)
+                    return (
+                      <button key={name} type="button"
+                        onClick={() => { if (added) setC('scenes', config.scenes.filter(s => s !== name)); else setC('scenes', [...config.scenes, name]) }}
+                        style={{ fontSize: 12, padding: '4px 10px', borderRadius: 20, cursor: 'pointer', border: '0.5px solid var(--blue-text)', background: added ? 'var(--blue-text)' : 'transparent', color: added ? 'var(--bg)' : 'var(--blue-text)' }}>
+                        {added ? '✓ ' : ''}{name}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn btn-sm" onClick={() => setC('scenes', [...new Set([...config.scenes, ...sceneLookupResult.scenes])])}>Add all</button>
+                  <button className="btn btn-sm" onClick={() => setSceneLookupResult(null)}>Dismiss</button>
+                </div>
+              </div>
+            )}
+            <DraggableTagInput label="Scenes / acts" values={config.scenes} onChange={v => setC('scenes', v)} placeholder="e.g. Act 1 Scene 2" />
+            <button className="btn btn-primary mt2" onClick={save} disabled={saving}>
+              {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save scenes'}
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'characters' && (
+          <div className="card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: '1rem' }}>
+              <p className="muted" style={{ margin: 0 }}>
+                These appear in the cast member autocomplete. Click <strong>Edit</strong> on any entry to add email addresses or mark it as a group.
+              </p>
+              <button className="btn btn-sm" onClick={lookupCast} disabled={lookingUpCast || !config.title}
+                style={{ background: 'var(--purple-bg)', color: 'var(--purple-text)', borderColor: 'transparent', fontWeight: 500, flexShrink: 0 }}>
+                {lookingUpCast ? '✨ Looking up…' : '✨ Auto-populate from show'}
+              </button>
+            </div>
+            {lookupResult && (
+              <LookupResultPanel result={lookupResult} existing={config.characters} onApply={applyLookupResult} onDismiss={() => setLookupResult(null)} />
+            )}
+            <CastManager label="Cast / characters" characters={config.characters} onChange={v => setC('characters', v)} placeholder="e.g. Elphaba, Ensemble A, Dance Corps" />
+            <TagInput label="Staff members" values={config.staff} onChange={v => setC('staff', v)} placeholder="e.g. Stage Manager" />
+            <button className="btn btn-primary mt2" onClick={save} disabled={saving}>
+              {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save cast & staff'}
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'auditions' && (
+          <div>
+            <div className="card" style={{ marginBottom: '1rem' }}>
+              <p style={{ fontSize: 14, fontWeight: 500, marginBottom: 8 }}>Custom audition questions</p>
+              <p className="muted" style={{ marginBottom: '1rem', fontSize: 13 }}>These appear on the public audition form in addition to the standard fields.</p>
+              <TagInput label="Custom questions" values={config.auditionQuestions} onChange={v => setC('auditionQuestions', v)} placeholder="e.g. What role are you interested in?" />
+              <button className="btn btn-primary mt2" onClick={save} disabled={saving}>
+                {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save questions'}
+              </button>
+            </div>
+            <div className="card">
+              <p style={{ fontSize: 14, fontWeight: 500, marginBottom: '1rem' }}>AI preparation materials</p>
+              <AuditionMaterials showTitle={config.title} />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'team' && (
+          <div>
+            <TeamTab
+              config={config} setC={setC}
+              sharedWith={sharedWith} setSharedWith={setSharedWith}
+              newMember={newMember} setNewMember={setNewMember}
+              addMember={addMember} removeMember={removeMember} toggleMemberRole={toggleMemberRole}
+              save={save} saveTeam={saveTeam} saving={saving} saved={saved}
+              session={session}
+            />
+          </div>
+        )}
+      </div>
     </AppShell>
   )
 }

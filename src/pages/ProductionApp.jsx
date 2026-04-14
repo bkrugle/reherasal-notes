@@ -49,19 +49,14 @@ function ShowCountdown({ showDates }) {
   } catch { return null }
 }
 
-/**
- * Parse show dates string and check if today falls within the range.
- */
 function isWithinShowDates(showDates) {
   if (!showDates) return false
   try {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const str = showDates.trim()
-
     const yearMatch = str.match(/\b(20\d{2})\b/)
     const year = yearMatch ? parseInt(yearMatch[1]) : today.getFullYear()
-
     const sameMonthRange = str.match(/([A-Za-z]+)\s+(\d+)\s*[-–]\s*(\d+)/)
     if (sameMonthRange) {
       const [, month, d1, d2] = sameMonthRange
@@ -70,7 +65,6 @@ function isWithinShowDates(showDates) {
       start.setHours(0,0,0,0); end.setHours(0,0,0,0)
       if (!isNaN(start) && !isNaN(end)) return today >= start && today <= end
     }
-
     const crossMonthRange = str.match(/([A-Za-z]+)\s+(\d+)\s*[-–]\s*([A-Za-z]+)\s+(\d+)/)
     if (crossMonthRange) {
       const [, m1, d1, m2, d2] = crossMonthRange
@@ -79,12 +73,8 @@ function isWithinShowDates(showDates) {
       start.setHours(0,0,0,0); end.setHours(0,0,0,0)
       if (!isNaN(start) && !isNaN(end)) return today >= start && today <= end
     }
-
     const single = new Date(str)
-    if (!isNaN(single)) {
-      single.setHours(0,0,0,0)
-      return today.getTime() === single.getTime()
-    }
+    if (!isNaN(single)) { single.setHours(0,0,0,0); return today.getTime() === single.getTime() }
   } catch (e) { console.warn('showDates parse failed:', e.message) }
   return false
 }
@@ -117,6 +107,7 @@ export default function ProductionApp() {
     setShowMoreMenu(false)
     try { sessionStorage.setItem(tabKey, String(idx)) } catch {}
   }
+
   const [production, setProduction] = useState(null)
   const [notes, setNotes] = useState([])
   const [loadingNotes, setLoadingNotes] = useState(true)
@@ -132,17 +123,18 @@ export default function ProductionApp() {
     try { return localStorage.getItem(showDayKey) === 'true' } catch { return false }
   })
 
-  // Show greeting modal once per session
+  // Show greeting modal once per session — fires after notes finish loading
   useEffect(() => {
+    if (loadingNotes) return
     const greetingKey = 'rn_greeted_' + (session?.sheetId || 'default')
     const alreadyGreeted = sessionStorage.getItem(greetingKey)
     if (!alreadyGreeted && session?.name) {
       setShowGreeting(true)
       sessionStorage.setItem(greetingKey, 'true')
     }
-  }, [session?.sheetId])
+  }, [loadingNotes])
 
-  // Handle ?showday=1 URL param (from Setup page launch button)
+  // Handle ?showday=1 URL param
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     if (params.get('showday') === '1') {
@@ -179,6 +171,11 @@ export default function ProductionApp() {
     if (next) setTab(11)
   }
 
+  function handleLogout() {
+    logout()
+    navigate('/')
+  }
+
   const [swRunning, setSwRunning] = useState(false)
   const [swElapsed, setSwElapsed] = useState(0)
   const [swStart, setSwStart] = useState(0)
@@ -203,13 +200,9 @@ export default function ProductionApp() {
     try {
       const data = await api.getProduction(session.sheetId)
       setProduction(data)
-      if (data?.config?.accentColor) {
-        applyAccentColor(data.config.accentColor, data.config.accentBg)
-      }
+      if (data?.config?.accentColor) applyAccentColor(data.config.accentColor, data.config.accentBg)
       const calId = data?.config?.calendarId
-      if (calId) {
-        api.getCalendar(calId, 2).then(d => setCalendarEvents(d.events || [])).catch(() => {})
-      }
+      if (calId) api.getCalendar(calId, 2).then(d => setCalendarEvents(d.events || [])).catch(() => {})
     } catch (e) { setError('Failed to load production config') }
   }
 
@@ -257,29 +250,6 @@ export default function ProductionApp() {
   if (meetingMode) {
     return <MeetingMode notes={notes} sheetId={session.sheetId} onUpdated={onNoteUpdated} onClose={() => setMeetingMode(false)} />
   }
-
-  const SIDEBAR_TABS = [
-    { section: 'Rehearsal', items: [
-      { label: 'Home', idx: 0, icon: 'home' },
-      { label: 'Log note', idx: 1, icon: 'edit' },
-      { label: 'Review', idx: 2, icon: 'clipboard' },
-      { label: 'By cast', idx: 3, icon: 'users' },
-      { label: 'Calendar', idx: 4, icon: 'calendar' },
-    ]},
-    { section: 'Communications', items: [
-      { label: 'Send notes', idx: 9, icon: 'send' },
-      { label: 'Report', idx: 8, icon: 'file' },
-      { label: 'Documents', idx: 5, icon: 'folder' },
-    ]},
-    { section: 'Analytics', items: [
-      { label: 'Trends', idx: 6, icon: 'trending' },
-      { label: 'Attendance', idx: 7, icon: 'check-square' },
-      { label: 'Check-in', idx: 12, icon: 'clock' },
-    ]},
-    { section: 'Show', items: [
-      ...(useAuditions ? [{ label: 'Auditions', idx: 10, icon: 'star' }] : []),
-    ]},
-  ]
 
   const SidebarIcon = ({ name }) => {
     const icons = {
@@ -332,8 +302,8 @@ export default function ProductionApp() {
 
   return (
     <>
-      {/* Login greeting modal — shown once per session */}
-      {showGreeting && !loadingNotes && (
+      {/* Login greeting modal — shown once per session after notes load */}
+      {showGreeting && (
         <LoginGreetingModal
           session={session}
           notes={notes}
@@ -446,6 +416,14 @@ export default function ProductionApp() {
               <span style={{ fontSize: 10 }}>{label}</span>
             </button>
           ))}
+          {/* Sign out */}
+          <button
+            className="bottom-nav-btn"
+            onClick={handleLogout}
+            style={{ flexDirection: 'column', padding: '8px 4px', borderRadius: 'var(--radius)', color: 'var(--red-text)' }}>
+            <span style={{ fontSize: 22 }}>🚪</span>
+            <span style={{ fontSize: 10 }}>Sign out</span>
+          </button>
         </div>
       )}
       {showMoreMenu && <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setShowMoreMenu(false)} />}
