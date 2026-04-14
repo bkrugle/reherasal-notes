@@ -116,7 +116,7 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
               {showDates.map(d => (
                 <button key={d} className={`btn btn-sm ${selectedDate === d ? 'btn-primary' : ''}`}
                   onClick={() => setSelectedDate(d)}>{dtLabel(d)}</button>
-              })}
+              ))}
             </div>
           </div>
 
