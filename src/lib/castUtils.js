@@ -79,18 +79,14 @@ export const FULL_ACCESS_ROLES = ['Stage Manager', 'Director', 'Asst. Director',
 // Normalize string for fuzzy matching
 const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
 
-// Map from category values to common department role names
-// This allows #lights (stored as category 'technical') to match staffRole 'Lights'
-const CATEGORY_TO_ROLE = {
-  technical: ['technical', 'tech', 'lights', 'lighting', 'sound', 'audio'],
-  costume: ['costume', 'costumes', 'wardrobe'],
-  set: ['set', 'props', 'scenery'],
-  blocking: ['blocking', 'choreographer', 'choreography'],
-  music: ['music', 'musicdirector', 'vocals'],
-  performance: ['performance', 'acting'],
-}
-
-// Check if a single note matches a user based on their name and staffRole
+// Check if a single note matches a user based on their name and staffRole.
+// Matching priority:
+//   1. note.cast field contains their name or staffRole (e.g. cast = "sound" matches staffRole "Sound")
+//   2. note.castList array contains their name
+//   3. @mention in note.text matches their name
+//   4. #tag in note.text matches their staffRole
+// We intentionally do NOT match on note.category alone — category 'technical' covers both
+// lights and sound, so matching on it would show sound notes to the lights person.
 function noteMatchesUser(note, name, staffRole) {
   if (!note || note.resolved) return false
 
@@ -98,21 +94,24 @@ function noteMatchesUser(note, name, staffRole) {
   const normName = norm(name)
   const normFirst = norm((name || '').split(' ')[0])
 
-  // 1. Check note.cast field — direct name match
+  // 1. Check note.cast field — matches name OR staffRole
   if (note.cast) {
-    const castNames = note.cast.split(',').map(s => norm(s.trim()))
-    if (castNames.some(c => c === normName || c === normFirst || normName.startsWith(c) || normFirst.startsWith(c))) {
-      return true
+    const castValues = note.cast.split(',').map(s => norm(s.trim())).filter(Boolean)
+    for (const c of castValues) {
+      // Match by person name
+      if (normName && (c === normName || normName.startsWith(c) || c.startsWith(normFirst))) return true
+      // Match by staffRole (e.g. cast="sound" matches staffRole="Sound")
+      if (normRole && (c === normRole || normRole.startsWith(c) || c.startsWith(normRole.slice(0, 4)))) return true
     }
   }
 
   // 2. Check note.castList array
   if (Array.isArray(note.castList)) {
-    const inList = note.castList.some(c => {
+    for (const c of note.castList) {
       const nc = norm(c)
-      return nc === normName || nc === normFirst || normName.startsWith(nc) || normFirst.startsWith(nc)
-    })
-    if (inList) return true
+      if (nc === normName || nc === normFirst || normName.startsWith(nc) || normFirst.startsWith(nc)) return true
+      if (normRole && (nc === normRole || normRole.startsWith(nc) || nc.startsWith(normRole.slice(0, 4)))) return true
+    }
   }
 
   // 3. Check @mention in note.text
@@ -121,29 +120,16 @@ function noteMatchesUser(note, name, staffRole) {
   let match
   while ((match = mentionPattern.exec(text)) !== null) {
     const tag = norm(match[1])
-    if (tag === normName || tag === normFirst || normName.startsWith(tag) || normFirst.startsWith(tag)) return true
+    if (normName && (tag === normName || tag === normFirst || normName.startsWith(tag) || normFirst.startsWith(tag))) return true
   }
 
-  // 4. Check #staffRole hashtag in note.text
+  // 4. Check #tag in note.text against staffRole
   if (staffRole) {
     const hashPattern = /#([a-zA-Z0-9_]+)/g
     while ((match = hashPattern.exec(text)) !== null) {
       const tag = norm(match[1])
       if (tag === normRole || normRole.startsWith(tag) || tag.startsWith(normRole.slice(0, 4))) return true
     }
-  }
-
-  // 5. Check note.category against staffRole directly
-  // e.g. staffRole 'Lights' matches category 'technical' via CATEGORY_TO_ROLE
-  if (staffRole && note.category) {
-    const normCat = norm(note.category)
-    // Direct match: staffRole === category
-    if (normRole === normCat) return true
-    // Check if staffRole appears in the category's role aliases
-    const aliases = CATEGORY_TO_ROLE[normCat] || []
-    if (aliases.some(alias => normRole.includes(alias) || alias.includes(normRole))) return true
-    // Check if category appears in staffRole name
-    if (normRole.includes(normCat) || normCat.includes(normRole.slice(0, 4))) return true
   }
 
   return false
