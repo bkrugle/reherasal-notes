@@ -107,7 +107,7 @@ export default function NoteCard({ note, sheetId, scenes, characters, onUpdated,
         </div>
         <div className="grid2" style={{ marginBottom: 8 }}>
           <div className="field">
-            <label>Cast member</label>
+            <label>Cast member/Department</label>
             <input type="text" value={form.cast} onChange={e => set('cast', e.target.value)} list="edit-cast-list" />
             <datalist id="edit-cast-list">
               {castNameList(characters).map(c => <option key={c} value={c} />)}
