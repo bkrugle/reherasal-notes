@@ -22,7 +22,7 @@ export default function WrapUp({ notes, characters, production, session, sheetId
 
   const today = new Date().toISOString().slice(0, 10)
   const todayNotes = notes.filter(n => n.date === today)
-  const openNotes = [...notes.filter(n => !n.resolved)].sort((a, b) => String(a.id).localeCompare(String(b.id)))
+  const openNotes = [...notes.filter(n => !n.resolved)].sort((a, b) => (a.createdAt ? new Date(a.createdAt).getTime() : 0) - (b.createdAt ? new Date(b.createdAt).getTime() : 0))
   const highNotes = openNotes.filter(n => n.priority === 'high')
   const charNames = castNameList(characters)
   const dateLabel = new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })

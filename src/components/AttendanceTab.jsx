@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { castNameList } from '../lib/castUtils'
+import { castNameList, expandedCastList } from '../lib/castUtils'
 import { api } from '../lib/api'
 
 const STORAGE_KEY = 'rn_attendance'
@@ -23,7 +23,9 @@ function parseShowDates(showDates) {
 }
 
 export default function AttendanceTab({ characters, notes, sheetId, production, productionCode }) {
-  const charNames = castNameList(characters)
+  // Use expanded list — groups are replaced by their individual members
+  const expandedCast = expandedCastList(characters)  // [{name, group, castMember}]
+  const charNames = expandedCast.map(c => c.name)
   // Use curtainTimes keys as show dates — more reliable than parsing text
   const showDates = (() => {
     try {
@@ -224,21 +226,38 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
       </div>
 
       <div className="card">
-        {charNames.map(name => (
-          <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: '0.5px solid var(--border)' }}>
-            <span style={{ fontSize: 14, color: isPresent(name) ? 'var(--text)' : 'var(--text3)' }}>{name}</span>
-            <button onClick={() => toggle(name)}
-              style={{
-                padding: '3px 12px', borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: 'pointer',
-                border: '0.5px solid',
-                background: isPresent(name) ? 'var(--green-bg)' : 'var(--red-bg)',
-                color: isPresent(name) ? 'var(--green-text)' : 'var(--red-text)',
-                borderColor: isPresent(name) ? 'var(--green-text)' : 'var(--red-text)',
-              }}>
-              {isPresent(name) ? 'Present' : 'Absent'}
-            </button>
-          </div>
-        ))}
+        {(() => {
+          const grouped = {}
+          expandedCast.forEach(c => {
+            const key = c.group || ''
+            if (!grouped[key]) grouped[key] = []
+            grouped[key].push(c.name)
+          })
+          return Object.entries(grouped).sort((a,b) => a[0].localeCompare(b[0])).map(([grp, names]) => (
+            <div key={grp || 'ungrouped'} style={{ marginBottom: grp ? 8 : 0 }}>
+              {grp && (
+                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 0.5, padding: '8px 0 4px', borderBottom: '0.5px solid var(--border2)' }}>
+                  {grp}
+                </p>
+              )}
+              {names.map(name => (
+                <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 0', borderBottom: '0.5px solid var(--border)' }}>
+                  <span style={{ fontSize: 14, color: isPresent(name) ? 'var(--text)' : 'var(--text3)' }}>{name}</span>
+                  <button onClick={() => toggle(name)}
+                    style={{
+                      padding: '3px 12px', borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                      border: '0.5px solid',
+                      background: isPresent(name) ? 'var(--green-bg)' : 'var(--red-bg)',
+                      color: isPresent(name) ? 'var(--green-text)' : 'var(--red-text)',
+                      borderColor: isPresent(name) ? 'var(--green-text)' : 'var(--red-text)',
+                    }}>
+                    {isPresent(name) ? 'Present' : 'Absent'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          ))
+        })()}
       </div>
     </div>
   )

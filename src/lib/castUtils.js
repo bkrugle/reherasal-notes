@@ -55,3 +55,21 @@ export function getEmailsForCast(name, allCast) {
   })
   return [...new Set([...direct, ...memberEmails])].filter(Boolean)
 }
+
+// Get fully expanded cast list — groups are replaced by their members
+// Returns array of { name, group } where group is set for group members
+export function expandedCastList(characters) {
+  const result = []
+  for (const c of characters) {
+    const char = typeof c === 'string' ? { name: c } : c
+    if (char.isGroup && Array.isArray(char.members) && char.members.length > 0) {
+      for (const member of char.members) {
+        const memberName = typeof member === 'string' ? member : member.name
+        if (memberName) result.push({ name: memberName, group: char.name, castMember: '' })
+      }
+    } else if (!char.isGroup && char.name) {
+      result.push({ name: char.name, group: null, castMember: char.castMember || '' })
+    }
+  }
+  return result
+}
