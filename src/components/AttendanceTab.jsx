@@ -116,7 +116,7 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
               {showDates.map(d => (
                 <button key={d} className={`btn btn-sm ${selectedDate === d ? 'btn-primary' : ''}`}
                   onClick={() => setSelectedDate(d)}>{dtLabel(d)}</button>
-              ))}
+              })}
             </div>
           </div>
 
@@ -174,7 +174,7 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
                     <div key={name} style={{ padding: '5px 0', borderBottom: '0.5px solid var(--border)', fontSize: 13, color: 'var(--text2)' }}>
                       {name}
                     </div>
-                  ))}
+                  })}
             </div>
           </div>
         )}
@@ -199,7 +199,7 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
               {rehearsalDates.slice(0, 5).map(d => (
                 <button key={d} className={`btn btn-sm ${selectedDate === d ? 'btn-primary' : ''}`}
                   onClick={() => setSelectedDate(d)}>{dtLabel(d)}</button>
-              ))}
+              })}
             </div>
           )}
         </div>
@@ -262,7 +262,7 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
                     {isPresent(name) ? 'Present' : 'Absent'}
                   </button>
                 </div>
-              ))}
+              })}
             </div>
           ))
         })()}
