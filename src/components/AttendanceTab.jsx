@@ -25,7 +25,7 @@ function parseShowDates(showDates) {
 export default function AttendanceTab({ characters, notes, sheetId, production, productionCode }) {
   // Use expanded list — groups are replaced by their individual members
   const expandedCast = expandedCastList(characters)  // [{name, group, castMember}]
-  const charNames = expandedCast.map(c => c.name)
+  const charNames = expandedCast.map(c => c.castMember || c.name)
   // Use curtainTimes keys as show dates — more reliable than parsing text
   const showDates = (() => {
     try {
