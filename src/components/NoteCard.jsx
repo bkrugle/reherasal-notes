@@ -14,7 +14,7 @@ function syncNote(sheetId, id, changes) {
   api.updateNote(sheetId, id, changes).catch(e => console.warn('Sync failed:', e.message))
 }
 
-export default function NoteCard({ note, sheetId, scenes, characters, onUpdated, onDeleted }) {
+export default function NoteCard({ note, sheetId, scenes, characters, onUpdated, onDeleted, session }) {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({ ...note })
   const [localNote, setLocalNote] = useState(note)
@@ -59,10 +59,13 @@ export default function NoteCard({ note, sheetId, scenes, characters, onUpdated,
   }
 
   function togglePin() {
-    const updated = { ...localNote, pinned: !localNote.pinned }
+    const newPinned = !localNote.pinned
+    // Store who pinned it — use staffRole if available, otherwise name
+    const pinnedBy = newPinned ? (session?.staffRole || session?.name || '') : ''
+    const updated = { ...localNote, pinned: newPinned, pinnedBy }
     setLocalNote(updated)
     onUpdated(updated)
-    syncNote(sheetId, note.id, { pinned: !localNote.pinned })
+    syncNote(sheetId, note.id, { pinned: newPinned, pinnedBy })
   }
 
   function togglePrivate() {
@@ -123,7 +126,6 @@ export default function NoteCard({ note, sheetId, scenes, characters, onUpdated,
           <textarea rows={3} value={form.text} onChange={e => {
             const val = e.target.value
             set('text', val)
-            // Parse hashtags and update fields live as user types
             const charNames = castNameList(characters)
             const parsed = parseHashtags(val, charNames, scenes)
             if (parsed.category) set('category', parsed.category)

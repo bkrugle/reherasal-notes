@@ -39,7 +39,15 @@ export default function Dashboard({
   const totalNotes = notes.length
   const openCount = notes.filter(n => !n.resolved).length
   const highCount = notes.filter(n => n.priority === 'high' && !n.resolved).length
-  const pinnedCount = notes.filter(n => n.pinned && !n.resolved).length
+  const SM_ROLES = ['Stage Manager', 'Asst. SM', 'Assistant SM']
+  const myPinned = notes.filter(n => n.pinned && !n.resolved && (
+    !n.pinnedBy ||
+    SM_ROLES.includes(session?.staffRole) ||
+    session?.role === 'admin' || session?.role === 'member' ||
+    n.pinnedBy === session?.staffRole ||
+    n.pinnedBy === session?.name
+  ))
+  const pinnedCount = myPinned.length
   const privateCount = notes.filter(n => n.privateNote).length
 
   // Last rehearsal date
@@ -108,7 +116,7 @@ export default function Dashboard({
         <div className="card" style={{ marginBottom: '1rem' }}>
           <p style={{ fontSize: 13, fontWeight: 500, marginBottom: 8 }}>📌 Pinned notes</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {notes.filter(n => n.pinned && !n.resolved).map(n => (
+            {myPinned.map(n => (
               <div key={n.id} style={{ fontSize: 13, padding: '6px 0', borderBottom: '0.5px solid var(--border)', display: 'flex', gap: 8 }}>
                 <span className={`pdot pdot-${n.priority}`} style={{ marginTop: 4, flexShrink: 0 }} />
                 <div>

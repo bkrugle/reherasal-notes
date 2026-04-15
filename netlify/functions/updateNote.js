@@ -14,8 +14,8 @@ exports.handler = async (event) => {
 
   try {
     const sheets = await sheetsClient()
-    // Read full row A:R to preserve all columns including pinned/privateNote/attachmentUrl
-    const rows = await getRows(sheets, sheetId, 'Notes!A:R')
+    // Read full row A:S to preserve all columns including pinnedBy
+    const rows = await getRows(sheets, sheetId, 'Notes!A:S')
     if (rows.length < 2) return err('Note not found', 404)
 
     const [header, ...data] = rows
@@ -26,8 +26,8 @@ exports.handler = async (event) => {
     if (rowIndex === -1) return err('Note not found', 404)
 
     const row = [...data[rowIndex]]
-    // Pad row to full width (A:R = 18 columns)
-    while (row.length < 18) row.push('')
+    // Pad row to full width (A:S = 19 columns)
+    while (row.length < 19) row.push('')
 
     if (changes.text !== undefined) row[idx.text] = changes.text
     if (changes.scene !== undefined) row[idx.scene] = changes.scene
@@ -38,15 +38,17 @@ exports.handler = async (event) => {
     if (changes.resolved !== undefined) row[idx.resolved] = String(changes.resolved)
     if (changes.deleted !== undefined) row[idx.deleted] = String(changes.deleted)
     if (changes.pinned !== undefined) row[idx.pinned] = String(changes.pinned)
+    if (changes.pinnedBy !== undefined) row[idx.pinnedBy] = changes.pinnedBy
     if (changes.privateNote !== undefined) row[idx.privateNote] = String(changes.privateNote)
     if (changes.carriedOver !== undefined) row[idx.carriedOver] = String(changes.carriedOver)
     if (changes.attachmentUrl !== undefined) row[idx.attachmentUrl] = changes.attachmentUrl
+    if (changes.castList !== undefined) row[idx.castList] = Array.isArray(changes.castList) ? changes.castList.join(', ') : changes.castList
     row[idx.updatedAt] = new Date().toISOString()
 
     const sheetRowIndex = rowIndex + 2
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
-      range: `Notes!A${sheetRowIndex}:R${sheetRowIndex}`,
+      range: `Notes!A${sheetRowIndex}:S${sheetRowIndex}`,
       valueInputOption: 'RAW',
       requestBody: { values: [row] }
     })

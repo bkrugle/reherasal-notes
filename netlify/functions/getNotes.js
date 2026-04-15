@@ -10,7 +10,7 @@ exports.handler = async (event) => {
 
   try {
     const sheets = await sheetsClient()
-    const rows = await getRows(sheets, sheetId, 'Notes!A:R')
+    const rows = await getRows(sheets, sheetId, 'Notes!A:S')
     if (rows.length < 2) return ok({ notes: [] })
 
     const [header, ...data] = rows
@@ -36,7 +36,8 @@ exports.handler = async (event) => {
         carriedOver: r[idx.carriedOver] || 'false',
         attachmentUrl: r[idx.attachmentUrl] || '',
         pinned: r[idx.pinned] === 'true',
-        privateNote: r[idx.privateNote] === 'true'
+        privateNote: r[idx.privateNote] === 'true',
+        pinnedBy: r[idx.pinnedBy] || ''
       }))
       .reverse()
 

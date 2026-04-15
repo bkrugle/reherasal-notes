@@ -57,7 +57,7 @@ ul{margin:0;padding-left:1.25rem}li{margin:5px 0;font-size:14px}
   a.click()
 }
 
-export default function ReviewTab({ notes, sheetId, scenes, characters, loading, onRefresh, onNoteUpdated, onNoteDeleted }) {
+export default function ReviewTab({ notes, sheetId, scenes, characters, loading, onRefresh, onNoteUpdated, onNoteDeleted, session }) {
   const [catFilter, setCatFilter] = useState('all')
   const [sessionFilter, setSessionFilter] = useState('all')
   const [showResolved, setShowResolved] = useState(false)
@@ -150,6 +150,7 @@ export default function ReviewTab({ notes, sheetId, scenes, characters, loading,
                 scenes={scenes}
                 characters={characters}
                 onUpdated={onNoteUpdated}
+                session={session}
                 onDeleted={onNoteDeleted}
               />
             ))}

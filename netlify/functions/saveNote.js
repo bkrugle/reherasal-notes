@@ -17,25 +17,26 @@ exports.handler = async (event) => {
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
     const now = new Date().toISOString()
 
-    await appendRows(sheets, sheetId, 'Notes!A:R', [[
-      id,
-      note.date || now.slice(0, 10),
-      note.scene || '',
-      note.category || 'general',
-      note.priority || 'med',
-      note.cast || '',
-      note.cue || '',
-      note.swTime || '',
-      note.text,
-      'false',
-      now,
-      now,
-      note.createdBy || '',
-      'false',
-      note.carriedOver ? 'true' : 'false',
-      note.attachmentUrl || '',
-      note.pinned ? 'true' : 'false',
-      note.privateNote ? 'true' : 'false'
+    await appendRows(sheets, sheetId, 'Notes!A:S', [[
+      id,                                    // A: id
+      note.date || now.slice(0, 10),         // B: date
+      note.scene || '',                      // C: scene
+      note.category || 'general',            // D: category
+      note.priority || 'med',               // E: priority
+      note.cast || '',                       // F: cast
+      note.cue || '',                        // G: cue
+      note.swTime || '',                     // H: swTime
+      note.text,                             // I: text
+      'false',                               // J: resolved
+      now,                                   // K: createdAt
+      now,                                   // L: updatedAt
+      note.createdBy || '',                  // M: createdBy
+      'false',                               // N: deleted
+      note.carriedOver ? 'true' : 'false',   // O: carriedOver
+      note.attachmentUrl || '',              // P: attachmentUrl
+      note.pinned ? 'true' : 'false',        // Q: pinned
+      note.privateNote ? 'true' : 'false',   // R: privateNote
+      note.pinnedBy || ''                    // S: pinnedBy
     ]])
 
     return ok({ id, createdAt: now })
