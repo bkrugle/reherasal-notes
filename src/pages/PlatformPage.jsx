@@ -13,7 +13,7 @@ export default function PlatformPage() {
   const [platformName, setPlatformName] = useState(() => {
     try { return localStorage.getItem("rn_platform_name") || '' } catch { return '' }
   })
-  const [authed, setAuthed] = useState(() => !!localStorage.getItem("rn_platform_pin"))
+  
   const [productions, setProductions] = useState([])
   const [loading, setLoading] = useState(false)
   const [entering, setEntering] = useState(null)
@@ -22,8 +22,8 @@ export default function PlatformPage() {
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    if (authed && platformPin) loadProductions()
-  }, [authed])
+    if (platformPin) loadProductions()
+  }, [platformPin])
 
   async function authenticate() {
     if (!pin.trim()) return
@@ -41,7 +41,7 @@ export default function PlatformPage() {
       setPlatformName(data.name)
       localStorage.setItem("rn_platform_pin", pin.trim())
       localStorage.setItem("rn_platform_name", data.name)
-      setAuthed(true)
+      
       setPin('')
     } catch (e) {
       setError('Invalid platform PIN')
@@ -111,7 +111,7 @@ export default function PlatformPage() {
     localStorage.removeItem("rn_platform_name")
     setPlatformPin('')
     setPlatformName('')
-    setAuthed(false)
+    
     setProductions([])
   }
 
@@ -123,7 +123,7 @@ export default function PlatformPage() {
   )
 
   // ── Login screen ──────────────────────────────────────────────────────────
-  if (!authed) {
+  if (!platformPin) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: '1rem' }}>
         <div style={{ width: '100%', maxWidth: 360 }}>
