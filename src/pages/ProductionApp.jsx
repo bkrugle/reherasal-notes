@@ -273,7 +273,13 @@ export default function ProductionApp() {
   const topBar = (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text2)' }}>{TABS[activeTab] || 'Home'}</span>
+        {session?.platformAdmin && (
+  <button className="btn btn-sm" onClick={() => { logout(); navigate('/platform') }}
+    style={{ fontSize: 11, background: 'var(--purple-bg)', color: 'var(--purple-text)', borderColor: 'transparent' }}>
+    ? Platform
+  </button>
+)}
+		  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text2)' }}>{TABS[activeTab] || 'Home'}</span>
         <ShowCountdown showDates={showDates} />
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
