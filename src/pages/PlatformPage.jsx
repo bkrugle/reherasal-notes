@@ -36,7 +36,7 @@ export default function PlatformPage() {
         body: JSON.stringify({ pin: pin.trim() })
       })
       const data = await res.json()
-      if (!data.ok) throw new Error(data.error || 'Invalid PIN')
+      if (!res.ok) throw new Error(data.error || 'Invalid PIN')
       setPlatformPin(pin.trim())
       setPlatformName(data.name)
       sessionStorage.setItem('rn_platform_pin', pin.trim())
@@ -58,7 +58,7 @@ export default function PlatformPage() {
         headers: { 'x-platform-pin': platformPin }
       })
       const data = await res.json()
-      if (!data.ok) throw new Error(data.error || 'Failed')
+      if (!res.ok) throw new Error(data.error || 'Failed')
       setProductions(data.productions || [])
     } catch (e) {
       setError('Failed to load productions: ' + e.message)
@@ -76,7 +76,7 @@ export default function PlatformPage() {
         body: JSON.stringify({ platformPin, productionCode })
       })
       const data = await res.json()
-      if (!data.ok) throw new Error(data.error || 'Failed')
+      if (!res.ok) throw new Error(data.error || 'Failed')
       // Store platform pin so we can return to platform dashboard
       sessionStorage.setItem('rn_platform_pin', platformPin)
       sessionStorage.setItem('rn_platform_name', platformName)
