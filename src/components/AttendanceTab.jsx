@@ -23,6 +23,10 @@ function parseShowDates(showDates) {
   return []
 }
 
+function getOverrideKey(sheetId, date) {
+  return 'rn_overrides_' + sheetId + '_' + date
+}
+
 export default function AttendanceTab({ characters, notes, sheetId, production, productionCode, session }) {
   const expandedCast = expandedCastList(characters)
   const charNames = expandedCast.map(c => c.castMember || c.name)
@@ -44,14 +48,28 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
   const [loadingCheckin, setLoadingCheckin] = useState(false)
   const [saved, setSaved] = useState(false)
   const [markingIn, setMarkingIn] = useState({})
-  const [manualOverrides, setManualOverrides] = useState({}) // name -> 'present' | 'absent'
+  const [manualOverrides, setManualOverrides] = useState(() => {
+    try {
+      const today = new Date().toLocaleDateString('en-CA')
+      return JSON.parse(localStorage.getItem(getOverrideKey(sheetId, today)) || '{}')
+    } catch { return {} }
+  })
 
   const isShowDate = showDates.includes(selectedDate)
   const rehearsalDates = [...new Set(notes.map(n => n.date))].sort().reverse()
 
-  // Check if current user can manually override check-in
   const canOverride = PRIVILEGED_ROLES.includes(session?.staffRole) ||
     session?.role === 'admin' || session?.role === 'member'
+
+  // Reload overrides when date changes
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(getOverrideKey(sheetId, selectedDate)) || '{}')
+      setManualOverrides(saved)
+    } catch {
+      setManualOverrides({})
+    }
+  }, [selectedDate, sheetId])
 
   // Load check-in data for all dates
   useEffect(() => {
@@ -62,11 +80,9 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
       .finally(() => setLoadingCheckin(false))
   }, [selectedDate, isShowDate, sheetId])
 
-  // Manual override — mark someone as checked in via the check-in API
   async function markPresent(name) {
     setMarkingIn(m => ({ ...m, [name]: true }))
     try {
-      // Find the character entry name (not actor name) for the API call
       const castEntry = (checkinData?.castList || []).find(c =>
         c.castMember === name || c.name === name
       )
@@ -77,7 +93,12 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
         castName: castNameForApi,
         note: 'Manually marked present'
       })
-      // Reload check-in data
+      // Remove any absent override for this person
+      const key = getOverrideKey(sheetId, selectedDate)
+      const overrides = JSON.parse(localStorage.getItem(key) || '{}')
+      delete overrides[name]
+      localStorage.setItem(key, JSON.stringify(overrides))
+      setManualOverrides(overrides)
       const data = await api.getCheckinStatus(sheetId, selectedDate)
       setCheckinData(data)
     } catch (e) {
@@ -87,12 +108,14 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
     }
   }
 
-  async function markAbsent(name) {
-    // Override locally — removes from present list visually
-    setManualOverrides(m => ({ ...m, [name]: 'absent' }))
+  function markAbsent(name) {
+    const key = getOverrideKey(sheetId, selectedDate)
+    const overrides = JSON.parse(localStorage.getItem(key) || '{}')
+    overrides[name] = 'absent'
+    localStorage.setItem(key, JSON.stringify(overrides))
+    setManualOverrides({ ...overrides })
   }
 
-  // Rehearsal attendance (manual localStorage)
   function saveRecord(updated) {
     setRecords(updated)
     localStorage.setItem(STORAGE_KEY + '_' + sheetId, JSON.stringify(updated))
@@ -121,7 +144,6 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
     return <div className="empty">Add cast members in Setup → Characters to track attendance.</div>
   }
 
-  // Live check-in view
   if (checkinData !== null || loadingCheckin) {
     const checkins = checkinData?.checkins || []
     const checkedInNames = new Set(checkins.map(c => c.castName))
@@ -132,7 +154,7 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
       return entry ? checkedInNames.has(entry.name) : false
     }
     const present = charNames.filter(n => manualOverrides[n] !== 'absent' && (isCheckedIn(n) || manualOverrides[n] === 'present'))
-    const absent = charNames.filter(n => manualOverrides[n] !== 'present' && !isCheckedIn(n) || manualOverrides[n] === 'absent')
+    const absent = charNames.filter(n => manualOverrides[n] === 'absent' || (manualOverrides[n] !== 'present' && !isCheckedIn(n)))
     const pct = charNames.length ? Math.round((present.length / charNames.length) * 100) : 0
 
     return (
@@ -235,7 +257,6 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
     )
   }
 
-  // Rehearsal date — manual toggle system (fallback when no check-in data)
   const presentCount = charNames.filter(n => isPresent(n)).length
   const absentCount = charNames.length - presentCount
 
