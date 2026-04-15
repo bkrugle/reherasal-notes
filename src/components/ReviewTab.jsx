@@ -68,7 +68,10 @@ export default function ReviewTab({ notes, sheetId, scenes, characters, loading,
   // Sort: open notes oldest first (top of show), resolved at end
   const sortedScoped = [...scoped].sort((a, b) => {
     if (a.resolved !== b.resolved) return a.resolved ? 1 : -1
-    // Sort by createdAt ascending = oldest first (top of show)
+    // Pinned notes always sort to top
+    if (a.pinned && !b.pinned) return -1
+    if (!a.pinned && b.pinned) return 1
+    // Then oldest first (top of show)
     const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0
     const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0
     return aTime - bTime
@@ -77,6 +80,8 @@ export default function ReviewTab({ notes, sheetId, scenes, characters, loading,
     // Always hide resolved unless showResolved is on
     if (n.resolved && !showResolved) return false
     if (catFilter === 'open') return !n.resolved
+    if (catFilter === 'pinned') return n.pinned === true && !n.resolved
+    if (catFilter === 'private') return n.privateNote === true
     if (catFilter === 'high') return n.priority === 'high' && !n.resolved
     if (catFilter !== 'all') return n.category === catFilter
     return true

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { castNameList, expandedCastList } from '../lib/castUtils'
+import { castNameList, expandedCastList, FULL_ACCESS_ROLES } from '../lib/castUtils'
 import { api } from '../lib/api'
 
 const STORAGE_KEY = 'rn_attendance'
+const PRIVILEGED_ROLES = [...FULL_ACCESS_ROLES, 'Assistant SM', 'Asst. SM']
 
 function parseShowDates(showDates) {
   if (!showDates) return []
@@ -22,11 +23,9 @@ function parseShowDates(showDates) {
   return []
 }
 
-export default function AttendanceTab({ characters, notes, sheetId, production, productionCode }) {
-  // Use expanded list — groups are replaced by their individual members
-  const expandedCast = expandedCastList(characters)  // [{name, group, castMember}]
+export default function AttendanceTab({ characters, notes, sheetId, production, productionCode, session }) {
+  const expandedCast = expandedCastList(characters)
   const charNames = expandedCast.map(c => c.castMember || c.name)
-  // Use curtainTimes keys as show dates — more reliable than parsing text
   const showDates = (() => {
     try {
       const ct = production?.config?.curtainTimes
@@ -44,19 +43,48 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
   const [checkinData, setCheckinData] = useState(null)
   const [loadingCheckin, setLoadingCheckin] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [markingIn, setMarkingIn] = useState({})
 
   const isShowDate = showDates.includes(selectedDate)
   const rehearsalDates = [...new Set(notes.map(n => n.date))].sort().reverse()
 
-  // Load check-in data for all dates — used for both rehearsals and show nights
+  // Check if current user can manually override check-in
+  const canOverride = PRIVILEGED_ROLES.includes(session?.staffRole) ||
+    session?.role === 'admin' || session?.role === 'member'
+
+  // Load check-in data for all dates
   useEffect(() => {
-    // Always load checkin data regardless of show/rehearsal date
     setLoadingCheckin(true)
     api.getCheckinStatus(sheetId, selectedDate)
       .then(data => setCheckinData(data))
       .catch(() => setCheckinData(null))
       .finally(() => setLoadingCheckin(false))
   }, [selectedDate, isShowDate, sheetId])
+
+  // Manual override — mark someone as checked in via the check-in API
+  async function markPresent(name) {
+    setMarkingIn(m => ({ ...m, [name]: true }))
+    try {
+      // Find the character entry name (not actor name) for the API call
+      const castEntry = (checkinData?.castList || []).find(c =>
+        c.castMember === name || c.name === name
+      )
+      const castNameForApi = castEntry?.name || name
+      await api.showCheckin({
+        productionCode,
+        showDate: selectedDate,
+        castName: castNameForApi,
+        note: 'Manually marked present'
+      })
+      // Reload check-in data
+      const data = await api.getCheckinStatus(sheetId, selectedDate)
+      setCheckinData(data)
+    } catch (e) {
+      console.warn('Manual check-in failed:', e.message)
+    } finally {
+      setMarkingIn(m => ({ ...m, [name]: false }))
+    }
+  }
 
   // Rehearsal attendance (manual localStorage)
   function saveRecord(updated) {
@@ -75,7 +103,6 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
     saveRecord(updated)
   }
   function isPresent(name) {
-    // Default to absent (false) — must be explicitly marked present
     return records[selectedDate + '_' + name] === true
   }
 
@@ -88,15 +115,13 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
     return <div className="empty">Add cast members in Setup → Characters to track attendance.</div>
   }
 
-  // Show date — pull from check-in system
+  // Live check-in view
   if (checkinData !== null || loadingCheckin) {
     const checkins = checkinData?.checkins || []
     const checkedInNames = new Set(checkins.map(c => c.castName))
-    // castList has {name=character, castMember=actor} — match by either
     const castListFull = (checkinData?.castList || []).map(c => typeof c === 'string' ? { name: c, castMember: '' } : c)
     function isCheckedIn(charName) {
       if (checkedInNames.has(charName)) return true
-      // Also check if actor name matches a checked-in character
       const entry = castListFull.find(c => c.castMember === charName)
       return entry ? checkedInNames.has(entry.name) : false
     }
@@ -136,7 +161,8 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
           </div>
 
           <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>
-            Live from show day check-in · {checkins.length} check-ins recorded
+            Live from check-in · {checkins.length} check-ins recorded
+            {canOverride && <span style={{ marginLeft: 6, color: 'var(--blue-text)' }}>· tap ✓ to manually mark present</span>}
           </p>
         </div>
 
@@ -158,6 +184,9 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
                         <div>
                           <span style={{ fontWeight: 500 }}>{name}</span>
                           {castEntry?.group && <span style={{ fontSize: 10, color: 'var(--text3)', marginLeft: 6 }}>{castEntry.group}</span>}
+                          {checkinEntry?.note === 'Manually marked present' && (
+                            <span style={{ fontSize: 10, color: 'var(--blue-text)', marginLeft: 6 }}>manual</span>
+                          )}
                         </div>
                         {checkinEntry?.checkedInAt && <span style={{ fontSize: 11, color: 'var(--text3)' }}>{new Date(checkinEntry.checkedInAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</span>}
                       </div>
@@ -171,8 +200,21 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
               {absent.length === 0
                 ? <p style={{ fontSize: 13, color: 'var(--text3)' }}>Everyone is in!</p>
                 : absent.map(name => (
-                    <div key={name} style={{ padding: '5px 0', borderBottom: '0.5px solid var(--border)', fontSize: 13, color: 'var(--text2)' }}>
-                      {name}
+                    <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 0', borderBottom: '0.5px solid var(--border)', fontSize: 13, color: 'var(--text2)' }}>
+                      <span>{name}</span>
+                      {canOverride && (
+                        <button
+                          onClick={() => markPresent(name)}
+                          disabled={markingIn[name]}
+                          style={{
+                            padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 500,
+                            cursor: 'pointer', border: '0.5px solid var(--green-text)',
+                            background: 'var(--green-bg)', color: 'var(--green-text)',
+                            opacity: markingIn[name] ? 0.5 : 1
+                          }}>
+                          {markingIn[name] ? '…' : '✓ Present'}
+                        </button>
+                      )}
                     </div>
                   ))}
             </div>
@@ -182,7 +224,7 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
     )
   }
 
-  // Rehearsal date — manual toggle system
+  // Rehearsal date — manual toggle system (fallback when no check-in data)
   const presentCount = charNames.filter(n => isPresent(n)).length
   const absentCount = charNames.length - presentCount
 

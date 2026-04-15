@@ -329,13 +329,13 @@ export default function ProductionApp() {
           {error && <p style={{ fontSize: 13, color: 'var(--red-text)', background: 'var(--red-bg)', padding: '8px 12px', borderRadius: 'var(--radius)', marginBottom: '1rem' }}>{error}</p>}
           {showSceneTimer && <SceneTimer scenes={scenes} />}
           {activeTab === 0 && <Dashboard notes={notes} production={production} session={session} calendarEvents={calendarEvents} onNavigate={setTab} onLogForDate={onLogForDate} openNotes={openNotes} />}
-          {activeTab === 1 && <LogTab sheetId={session.sheetId} scenes={scenes} characters={[...characterNames, ...staff]} swDisplay={swDisplay} swRunning={swRunning} createdBy={session.name || session.role} onNoteAdded={onNoteAdded} attachFolderId={attachFolderId} />}
+          {activeTab === 1 && <LogTab sheetId={session.sheetId} scenes={scenes} characters={[...characterNames, ...staff]} swDisplay={swDisplay} swRunning={swRunning} createdBy={session.name || session.role} onNoteAdded={onNoteAdded} onNoteUpdated={onNoteUpdated} attachFolderId={attachFolderId} />}
           {activeTab === 2 && <ReviewTab {...tabProps} notes={filteredNotes} loading={loadingNotes} onRefresh={loadNotes} />}
           {activeTab === 3 && <ByCastTab {...tabProps} loading={loadingNotes} />}
           {activeTab === 4 && <CalendarTab calendarId={calendarId} scenes={scenes} notes={notes} onLogForDate={onLogForDate} />}
           {activeTab === 5 && <div><DocumentsTab docsFolderId={docsFolderId} attachFolderId={attachFolderId} isAdmin={session.role === 'admin'} /><div style={{marginTop:'1rem'}}><CastDirectory sheetId={session.sheetId} production={production} session={session} /></div></div>}
           {activeTab === 6 && <TrendsTab notes={notes} />}
-          {activeTab === 7 && <AttendanceTab characters={characters} notes={notes} sheetId={session.sheetId} production={production} productionCode={session.productionCode} />}
+          {activeTab === 7 && <AttendanceTab characters={characters} notes={notes} sheetId={session.sheetId} production={production} productionCode={session.productionCode} session={session} />}
           {activeTab === 8 && <ReportTab notes={notes} production={production} sheetId={session.sheetId} session={session} />}
           {activeTab === 9 && <SendTab notes={notes} characters={characters} characterNames={characterNames} sheetId={session.sheetId} production={production} session={session} />}
           {activeTab === 10 && useAuditions && <AuditionsTab sheetId={session.sheetId} productionCode={session.productionCode} session={session} production={production} onCastAssigned={loadProduction} />}

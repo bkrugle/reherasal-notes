@@ -15,9 +15,21 @@ export default function SendTab({ notes, characters, characterNames, production,
   const productionTitle = production?.config?.title || 'Production'
 
   // Get all names to display — from characters config + any names that appear in notes
+  // note.cast can be comma-separated (e.g. "lights, sound") so split and flatten
   const configNames = castNameList(characters)
-  const noteNames = [...new Set(notes.filter(n => n.cast).map(n => n.cast))]
+  const noteNames = [...new Set(
+    notes
+      .filter(n => n.cast)
+      .flatMap(n => n.cast.split(',').map(s => s.trim()).filter(Boolean))
+  )]
   const allNames = [...new Set([...configNames, ...noteNames])].sort()
+
+  // Check if a note is tagged for a given name (handles comma-separated cast field)
+  function noteIsForName(note, name) {
+    if (!note.cast) return false
+    const castValues = note.cast.split(',').map(s => s.trim().toLowerCase())
+    return castValues.includes(name.toLowerCase())
+  }
 
   function storeEmail(name, val) {
     const updated = { ...storedEmails, [name]: val }
@@ -27,10 +39,8 @@ export default function SendTab({ notes, characters, characterNames, production,
 
   // Get emails for a cast entry — from cast config first, then stored emails
   function getEmails(name) {
-    // Try from cast config (includes group member resolution)
     const configEmails = getEmailsForCast(name, characters)
     if (configEmails.length) return configEmails
-    // Fall back to manually stored email
     const stored = storedEmails[name]
     return stored ? [stored] : []
   }
@@ -39,13 +49,12 @@ export default function SendTab({ notes, characters, characterNames, production,
     return storedEmails[name] || ''
   }
 
-  // Check if emails come from config (not manual)
   function hasConfigEmails(name) {
     return getEmailsForCast(name, characters).length > 0
   }
 
   async function sendNotes(name) {
-    const openNotes = notes.filter(n => n.cast === name && !n.resolved && !n.privateNote)
+    const openNotes = notes.filter(n => noteIsForName(n, name) && !n.resolved && !n.privateNote)
     if (!openNotes.length) return
     const emails = getEmails(name)
     if (!emails.length) {
@@ -55,7 +64,6 @@ export default function SendTab({ notes, characters, characterNames, production,
     setSending(s => ({ ...s, [name]: true }))
     setErrors(e => ({ ...e, [name]: '' }))
     try {
-      // Send to all emails for this cast entry
       await Promise.all(emails.map(email =>
         api.sendCastNotes({
           to: email,
@@ -76,7 +84,7 @@ export default function SendTab({ notes, characters, characterNames, production,
   }
 
   function composeFallback(name) {
-    const openNotes = notes.filter(n => n.cast === name && !n.resolved && !n.privateNote)
+    const openNotes = notes.filter(n => noteIsForName(n, name) && !n.resolved && !n.privateNote)
     if (!openNotes.length) return
     const emails = getEmails(name)
     const to = emails.join(',')
@@ -103,7 +111,7 @@ export default function SendTab({ notes, characters, characterNames, production,
           const group = entry ? isGroup(entry) : false
           const groupMembers = entry ? castMembers(entry) : []
           const configEmails = getEmailsForCast(name, characters)
-          const openNotes = notes.filter(n => n.cast === name && !n.resolved && !n.privateNote)
+          const openNotes = notes.filter(n => noteIsForName(n, name) && !n.resolved && !n.privateNote)
           const initials = name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
 
           return (
@@ -130,7 +138,6 @@ export default function SendTab({ notes, characters, characterNames, production,
                 </div>
               </div>
 
-              {/* Show configured emails or manual input */}
               {configEmails.length > 0 ? (
                 <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8, lineHeight: 1.5 }}>
                   {configEmails.length === 1
@@ -148,7 +155,6 @@ export default function SendTab({ notes, characters, characterNames, production,
                 />
               )}
 
-              {/* Group members preview */}
               {group && groupMembers.length > 0 && (
                 <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>
                   {groupMembers.slice(0, 3).join(', ')}{groupMembers.length > 3 ? ` +${groupMembers.length - 3} more` : ''}

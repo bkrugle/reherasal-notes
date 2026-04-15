@@ -36,8 +36,8 @@ function useVoiceInput(onResult) {
   return { listening, supported, start, stop }
 }
 
-export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunning, createdBy, onNoteAdded, attachFolderId }) {
-  const today = new Date().toISOString().slice(0, 10)
+export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunning, createdBy, onNoteAdded, onNoteUpdated, attachFolderId }) {
+  const today = new Date().toLocaleDateString('en-CA')
   const [form, setForm] = useState({
     date: today, scene: '', category: 'general', priority: 'med',
     cast: '', castList: [], cue: '', text: '', carriedOver: false, privateNote: false
@@ -174,7 +174,7 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
             await api.updateNote(sheetId, result.id, { attachmentUrl })
           } catch (e) { console.warn('Photo upload failed:', e.message) }
         }
-        onNoteAdded({ ...fullNote, id: result.id, createdAt: result.createdAt, attachmentUrl })
+        onNoteUpdated({ ...fullNote, id: result.id, createdAt: result.createdAt, attachmentUrl })
         setPhoto(null)
       })
       .catch(e => console.warn('Note sync failed:', e.message))
