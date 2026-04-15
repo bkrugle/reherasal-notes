@@ -8,10 +8,10 @@ export default function PlatformPage() {
   const { login } = useSession()
   const [pin, setPin] = useState('')
   const [platformPin, setPlatformPin] = useState(() => {
-    try { return sessionStorage.getItem('rn_platform_pin') || '' } catch { return '' }
+    try { return localStorage.getItem("rn_platform_pin") || '' } catch { return '' }
   })
   const [platformName, setPlatformName] = useState(() => {
-    try { return sessionStorage.getItem('rn_platform_name') || '' } catch { return '' }
+    try { return localStorage.getItem("rn_platform_name") || '' } catch { return '' }
   })
   const [authed, setAuthed] = useState(!!platformPin)
   const [productions, setProductions] = useState([])
@@ -39,8 +39,8 @@ export default function PlatformPage() {
       if (!res.ok) throw new Error(data.error || 'Invalid PIN')
       setPlatformPin(pin.trim())
       setPlatformName(data.name)
-      sessionStorage.setItem('rn_platform_pin', pin.trim())
-      sessionStorage.setItem('rn_platform_name', data.name)
+      localStorage.setItem("rn_platform_pin", pin.trim())
+      localStorage.setItem("rn_platform_name", data.name)
       setAuthed(true)
       setPin('')
     } catch (e) {
@@ -78,8 +78,8 @@ export default function PlatformPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed')
       // Store platform pin so we can return to platform dashboard
-      sessionStorage.setItem('rn_platform_pin', platformPin)
-      sessionStorage.setItem('rn_platform_name', platformName)
+      localStorage.setItem("rn_platform_pin", platformPin)
+      localStorage.setItem("rn_platform_name", platformName)
       login(data)
       navigate('/production')
     } catch (e) {
@@ -107,8 +107,8 @@ export default function PlatformPage() {
   }
 
   function logout() {
-    sessionStorage.removeItem('rn_platform_pin')
-    sessionStorage.removeItem('rn_platform_name')
+    localStorage.removeItem("rn_platform_pin")
+    localStorage.removeItem("rn_platform_name")
     setPlatformPin('')
     setPlatformName('')
     setAuthed(false)
