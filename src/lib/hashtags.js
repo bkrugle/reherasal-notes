@@ -27,6 +27,21 @@ const CATEGORY_TAGS = {
   general: 'general',
 }
 
+// Department tags — stored in cast field for routing notes to specific departments
+const DEPARTMENT_TAGS = {
+  lights: 'lights',
+  lighting: 'lights',
+  sound: 'sound',
+  audio: 'sound',
+  costumes: 'costumes',
+  costume: 'costumes',
+  wardrobe: 'costumes',
+  props: 'props',
+  prop: 'props',
+  set: 'set',
+  choreo: 'choreography',
+}
+
 const PRIORITY_TAGS = {
   high: 'high',
   urgent: 'high',
@@ -90,10 +105,14 @@ export function parseHashtags(text, characters = [], scenes = []) {
 
     // Check category — accumulate multiple
     if (CATEGORY_TAGS[lower]) {
-      const cat = CATEGORY_TAGS[lower]
-      if (!categories.includes(cat)) categories.push(cat)
-      continue
-    }
+  		const cat = CATEGORY_TAGS[lower]
+  		if (!categories.includes(cat)) categories.push(cat)
+  		// Also store department-specific tags in castList for note routing
+  		if (DEPARTMENT_TAGS[lower] && !castList.includes(DEPARTMENT_TAGS[lower])) {
+    		castList.push(DEPARTMENT_TAGS[lower])
+		}
+	  continue
+	}
 
     // Check priority
     if (PRIORITY_TAGS[lower]) {

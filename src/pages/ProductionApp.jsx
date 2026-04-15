@@ -126,12 +126,7 @@ export default function ProductionApp() {
   // Show greeting modal once per session — fires after notes finish loading
   useEffect(() => {
     if (loadingNotes) return
-    const greetingKey = 'rn_greeted_' + (session?.sheetId || 'default')
-    const alreadyGreeted = sessionStorage.getItem(greetingKey)
-    if (!alreadyGreeted && session?.name) {
-      setShowGreeting(true)
-      sessionStorage.setItem(greetingKey, 'true')
-    }
+    if (session?.name) setShowGreeting(true)
   }, [loadingNotes])
 
   // Handle ?showday=1 URL param
