@@ -30,7 +30,13 @@ export default function PlatformPage() {
     setLoading(true)
     setError('')
     try {
-      const data = await api.call('/platformAuth', 'POST', { pin: pin.trim() })
+      const res = await fetch('/.netlify/functions/platformAuth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: pin.trim() })
+      })
+      const data = await res.json()
+      if (!data.ok) throw new Error(data.error || 'Invalid PIN')
       setPlatformPin(pin.trim())
       setPlatformName(data.name)
       sessionStorage.setItem('rn_platform_pin', pin.trim())
