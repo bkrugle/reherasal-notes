@@ -13,7 +13,7 @@ export default function PlatformPage() {
   const [platformName, setPlatformName] = useState(() => {
     try { return localStorage.getItem("rn_platform_name") || '' } catch { return '' }
   })
-  const [authed, setAuthed] = useState(!!platformPin)
+  const [authed, setAuthed] = useState(() => !!localStorage.getItem("rn_platform_pin"))
   const [productions, setProductions] = useState([])
   const [loading, setLoading] = useState(false)
   const [entering, setEntering] = useState(null)
