@@ -10,6 +10,7 @@ import ImportPage from './pages/ImportPage'
 import CheckinPage from './pages/CheckinPage'
 import CastPortalPage from './pages/CastPortalPage'
 import CheckinRedirectPage from './pages/CheckinRedirectPage'
+import PlatformPage from './pages/PlatformPage'
 
 function RequireAuth({ children }) {
   const { session } = useSession()
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="/checkin/:productionCode/:showDate" element={<CheckinPage />} />
         <Route path="/checkin/:productionCode" element={<CheckinRedirectPage />} />
         <Route path="/portal/:productionCode" element={<CastPortalPage />} />
+		<Route path="/platform" element={<PlatformPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </SessionProvider>
