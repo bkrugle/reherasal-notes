@@ -44,6 +44,7 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
   const [loadingCheckin, setLoadingCheckin] = useState(false)
   const [saved, setSaved] = useState(false)
   const [markingIn, setMarkingIn] = useState({})
+  const [manualOverrides, setManualOverrides] = useState({}) // name -> 'present' | 'absent'
 
   const isShowDate = showDates.includes(selectedDate)
   const rehearsalDates = [...new Set(notes.map(n => n.date))].sort().reverse()
@@ -86,6 +87,11 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
     }
   }
 
+  async function markAbsent(name) {
+    // Override locally — removes from present list visually
+    setManualOverrides(m => ({ ...m, [name]: 'absent' }))
+  }
+
   // Rehearsal attendance (manual localStorage)
   function saveRecord(updated) {
     setRecords(updated)
@@ -125,8 +131,8 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
       const entry = castListFull.find(c => c.castMember === charName)
       return entry ? checkedInNames.has(entry.name) : false
     }
-    const present = charNames.filter(n => isCheckedIn(n))
-    const absent = charNames.filter(n => !isCheckedIn(n))
+    const present = charNames.filter(n => manualOverrides[n] !== 'absent' && (isCheckedIn(n) || manualOverrides[n] === 'present'))
+    const absent = charNames.filter(n => manualOverrides[n] !== 'present' && !isCheckedIn(n) || manualOverrides[n] === 'absent')
     const pct = charNames.length ? Math.round((present.length / charNames.length) * 100) : 0
 
     return (
@@ -162,7 +168,7 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
 
           <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>
             Live from check-in · {checkins.length} check-ins recorded
-            {canOverride && <span style={{ marginLeft: 6, color: 'var(--blue-text)' }}>· tap ✓ to manually mark present</span>}
+            {canOverride && <span style={{ marginLeft: 6, color: 'var(--blue-text)' }}>· tap ✓ to mark present, ✗ to undo</span>}
           </p>
         </div>
 
@@ -188,7 +194,12 @@ export default function AttendanceTab({ characters, notes, sheetId, production, 
                             <span style={{ fontSize: 10, color: 'var(--blue-text)', marginLeft: 6 }}>manual</span>
                           )}
                         </div>
-                        {checkinEntry?.checkedInAt && <span style={{ fontSize: 11, color: 'var(--text3)' }}>{new Date(checkinEntry.checkedInAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</span>}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {checkinEntry?.checkedInAt && <span style={{ fontSize: 11, color: 'var(--text3)' }}>{new Date(checkinEntry.checkedInAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})}</span>}
+                          {canOverride && (checkinEntry?.note === 'Manually marked present' || manualOverrides[name] === 'present') && (
+                            <button onClick={() => markAbsent(name)} style={{ padding: '1px 8px', borderRadius: 20, fontSize: 10, fontWeight: 500, cursor: 'pointer', border: '0.5px solid var(--red-text)', background: 'var(--red-bg)', color: 'var(--red-text)' }}>✗ Undo</button>
+                          )}
+                        </div>
                       </div>
                     )
                   })}
