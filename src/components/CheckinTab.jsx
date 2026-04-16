@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import QRCode from 'qrcode'
-import { api } from '../lib/api'
+import { api } from "../lib/api"
+import { FULL_ACCESS_ROLES } from "../lib/castUtils"
 import CustomAlertPanel from './CustomAlertPanel'
 
 const POLL_INTERVAL = 20000
@@ -120,6 +121,11 @@ export default function CheckinTab({ sheetId, productionCode, production, sessio
   const [loading, setLoading] = useState(true)
   const [showQR, setShowQR] = useState(false)
   const pollRef = useRef(null)
+  
+  const [markingIn, setMarkingIn] = useState({})
+  const PRIVILEGED_ROLES = [...FULL_ACCESS_ROLES, 'Assistant SM', 'Asst. SM']
+  const canOverride = PRIVILEGED_ROLES.includes(session?.staffRole) ||
+  session?.role === 'admin' || session?.role === 'member'
 
   const checkinUrl = `${window.location.origin}/checkin/${productionCode}/${date}`
   const permanentUrl = `${window.location.origin}/checkin/${productionCode}`
@@ -137,6 +143,20 @@ export default function CheckinTab({ sheetId, productionCode, production, sessio
     } catch (e) { console.warn(e) }
     finally { setLoading(false) }
   }
+
+	async function markPresent(castEntry) {
+	  setMarkingIn(m => ({ ...m, [castEntry.name]: true }))
+	  try {
+		await api.showCheckin({
+		  productionCode,
+		  showDate: date,
+		  castName: castEntry.name,
+		  note: 'Manually marked present'
+		})
+		await load()
+	  } catch (e) { console.warn('Manual check-in failed:', e.message) }
+	  finally { setMarkingIn(m => ({ ...m, [castEntry.name]: false })) }
+	}
 
   const castList = (status?.castList || []).map(c =>
     typeof c === 'string' ? { name: c, castMember: '' } : c
@@ -273,13 +293,24 @@ export default function CheckinTab({ sheetId, productionCode, production, sessio
           {notIn.length === 0
             ? <p style={{ fontSize: 13, color: 'var(--text3)' }}>Everyone's in! 🎉</p>
             : notIn.map(c => (
-              <div key={c.name} style={{ padding: '7px 10px', marginBottom: 4, borderRadius: 'var(--radius)',
-                background: 'var(--red-bg)', border: '0.5px solid var(--red-text)', fontSize: 13, color: 'var(--red-text)' }}>
-                <span style={{ fontWeight: 500 }}>{c.castMember || c.name}</span>
-				{c.castMember && <span style={{ fontSize: 11, opacity: 0.8, display: 'block' }}>{c.name}</span>}
-				{c.group && <span style={{ fontSize: 11, opacity: 0.8, display: 'block' }}>{c.group}</span>}
-              </div>
-            ))
+			  <div key={c.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', marginBottom: 4, borderRadius: 'var(--radius)',
+				background: 'var(--red-bg)', border: '0.5px solid var(--red-text)', fontSize: 13, color: 'var(--red-text)' }}>
+				<div>
+				  <span style={{ fontWeight: 500 }}>{c.castMember || c.name}</span>
+				  {c.castMember && <span style={{ fontSize: 11, opacity: 0.8, display: 'block' }}>{c.name}</span>}
+				  {c.group && <span style={{ fontSize: 11, opacity: 0.8, display: 'block' }}>{c.group}</span>}
+				</div>
+				{canOverride && (
+				  <button onClick={() => markPresent(c)} disabled={markingIn[c.name]}
+					style={{ padding: '2px 10px', borderRadius: 20, fontSize: 11, fontWeight: 500,
+					  cursor: 'pointer', border: '0.5px solid var(--green-text)',
+					  background: 'var(--green-bg)', color: 'var(--green-text)',
+					  opacity: markingIn[c.name] ? 0.5 : 1, flexShrink: 0, marginLeft: 8 }}>
+					{markingIn[c.name] ? '…' : '✓ In'}
+				  </button>
+				)}
+			  </div>
+			))
           }
         </div>
         <div>

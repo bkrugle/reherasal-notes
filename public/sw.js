@@ -1,7 +1,7 @@
 // Ovature Service Worker — v1
 // Caches app shell for offline load, passes API calls through with network-first strategy
 
-const CACHE_NAME = 'ovature-shell-v2'
+const CACHE_NAME = 'ovature-shell-v3'
 
 // These are the built asset patterns we cache on install
 // Vite hashes filenames, so we cache by pattern at runtime instead
