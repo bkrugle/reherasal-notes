@@ -125,7 +125,7 @@ export default function CheckinTab({ sheetId, productionCode, production, sessio
   const [markingIn, setMarkingIn] = useState({})
   const absentKey = `rn_checkin_absent_${sheetId}_${date}`
   const [manualAbsent, setManualAbsent] = useState(() => {
-  	try { return JSON.parse(localStorage.getItem(`rn_checkin_absent_${sheetId}_${today}`) || '{}') } catch { return {} }
+  	try { return JSON.parse(localStorage.getItem(`rn_checkin_absent_${sheetId}_${date}`) || '{}') } catch { return {} }
   })
   const PRIVILEGED_ROLES = [...FULL_ACCESS_ROLES, 'Assistant SM', 'Asst. SM']
   const canOverride = PRIVILEGED_ROLES.includes(session?.staffRole) ||
@@ -181,7 +181,8 @@ export default function CheckinTab({ sheetId, productionCode, production, sessio
   const checkins = status?.checkins || []
   const checkedInNames = new Set(checkins.map(c => c.castName))
   const notIn = castList.filter(c => !checkedInNames.has(c.name) || manualAbsent[c.name])
-  const pct = castList.length ? Math.round((checkedInNames.size / castList.length) * 100) : 0
+  const effectiveCheckedIn = checkins.filter(c => !manualAbsent[c.castName]).length
+  const pct = castList.length ? Math.round((effectiveCheckedIn / castList.length) * 100) : 0
 
   const isShowDate = (() => {
     const showDates = production?.config?.showDates || ''
@@ -222,7 +223,7 @@ export default function CheckinTab({ sheetId, productionCode, production, sessio
       {/* Progress */}
       <div style={{ background: 'var(--bg2)', borderRadius: 'var(--radius-lg)', padding: '1rem', marginBottom: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <p style={{ fontSize: 15, fontWeight: 600 }}>{checkedInNames.size} / {castList.length} checked in</p>
+          <p style={{ fontSize: 15, fontWeight: 600 }}>{effectiveCheckedIn} / {castList.length} checked in</p>
           <span style={{ fontSize: 14, fontWeight: 600, color: pct === 100 ? 'var(--green-text)' : pct > 75 ? 'var(--amber-text)' : 'var(--red-text)' }}>
             {pct}%
           </span>
@@ -332,7 +333,7 @@ export default function CheckinTab({ sheetId, productionCode, production, sessio
         </div>
         <div>
           <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--green-text)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-            ✅ In ({checkedInNames.size})
+            ✅ In ({effectiveCheckedIn})
           </p>
           {checkins.length === 0
             ? <p style={{ fontSize: 13, color: 'var(--text3)' }}>No check-ins yet</p>
