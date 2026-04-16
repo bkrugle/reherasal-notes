@@ -131,8 +131,12 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   const castList = (status?.castList || []).map(c => typeof c === 'string' ? c : c.name).filter(Boolean)
   const checkins = status?.checkins || []
   const checkedInNames = new Set(checkins.map(c => c.castName))
-  const missingCast = castList.filter(n => !checkedInNames.has(n))
-  const pct = castList.length ? Math.round((checkedInNames.size / castList.length) * 100) : 0
+  const manualAbsent = (() => {
+    try { return JSON.parse(localStorage.getItem(`rn_checkin_absent_${sheetId}_${showDate}`) || "{}") } catch { return {} }
+  })()
+  const effectiveCheckins = checkins.filter(c => !manualAbsent[c.castName])
+  const missingCast = castList.filter(n => !checkedInNames.has(n) || manualAbsent[n])
+  const pct = castList.length ? Math.round((effectiveCheckins.length / castList.length) * 100) : 0
   const checkinUrl = `${window.location.origin}/checkin/${productionCode}/${showDate}`
 
   const curtain = todayAt(curtainTime, showDate)
@@ -533,7 +537,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
       {/* Check-in progress */}
       <div style={{ background: 'var(--bg2)', borderRadius: 'var(--radius-lg)', padding: '1rem', marginBottom: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <p style={{ fontSize: 15, fontWeight: 600 }}>{checkedInNames.size} / {castList.length} checked in</p>
+          <p style={{ fontSize: 15, fontWeight: 600 }}>{effectiveCheckins.length} / {castList.length} checked in</p>
           <span style={{ fontSize: 14, fontWeight: 600, color: pct === 100 ? 'var(--green-text)' : pct > 75 ? 'var(--amber-text)' : 'var(--red-text)' }}>{pct}%</span>
         </div>
         <div style={{ height: 8, background: 'var(--bg3)', borderRadius: 4, overflow: 'hidden' }}>
@@ -611,10 +615,10 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
           }
         </div>
         <div>
-          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--green-text)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>✅ Present ({checkedInNames.size})</p>
+          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--green-text)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>✅ Present ({effectiveCheckins.length})</p>
           {checkins.length === 0
             ? <p style={{ fontSize: 13, color: 'var(--text3)' }}>No check-ins yet</p>
-            : checkins.map(c => (
+            : effectiveCheckins.map(c => (
                 <div key={c.castName} style={{ padding: '8px 10px', marginBottom: 4, borderRadius: 'var(--radius)', background: 'var(--bg2)', border: '0.5px solid var(--border)', fontSize: 13 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4 }}>
                     <span style={{ fontWeight: 500 }}>{c.castName}</span>
