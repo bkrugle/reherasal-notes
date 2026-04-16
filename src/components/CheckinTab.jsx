@@ -123,6 +123,10 @@ export default function CheckinTab({ sheetId, productionCode, production, sessio
   const pollRef = useRef(null)
   
   const [markingIn, setMarkingIn] = useState({})
+  const absentKey = `rn_checkin_absent_${sheetId}_${date}`
+  const [manualAbsent, setManualAbsent] = useState(() => {
+  	try { return JSON.parse(localStorage.getItem(`rn_checkin_absent_${sheetId}_${today}`) || '{}') } catch { return {} }
+  })
   const PRIVILEGED_ROLES = [...FULL_ACCESS_ROLES, 'Assistant SM', 'Asst. SM']
   const canOverride = PRIVILEGED_ROLES.includes(session?.staffRole) ||
   session?.role === 'admin' || session?.role === 'member'
@@ -135,6 +139,12 @@ export default function CheckinTab({ sheetId, productionCode, production, sessio
     pollRef.current = setInterval(load, POLL_INTERVAL)
     return () => clearInterval(pollRef.current)
   }, [sheetId, date])
+
+	useEffect(() => {
+	  try {
+		setManualAbsent(JSON.parse(localStorage.getItem(`rn_checkin_absent_${sheetId}_${date}`) || '{}'))
+	  } catch { setManualAbsent({}) }
+	}, [date, sheetId])
 
   async function load() {
     try {
@@ -158,12 +168,19 @@ export default function CheckinTab({ sheetId, productionCode, production, sessio
 	  finally { setMarkingIn(m => ({ ...m, [castEntry.name]: false })) }
 	}
 
+	function markAbsent(castName) {
+	  const key = `rn_checkin_absent_${sheetId}_${date}`
+	  const updated = { ...manualAbsent, [castName]: true }
+	  localStorage.setItem(key, JSON.stringify(updated))
+	  setManualAbsent(updated)
+	}
+
   const castList = (status?.castList || []).map(c =>
     typeof c === 'string' ? { name: c, castMember: '' } : c
   )
   const checkins = status?.checkins || []
   const checkedInNames = new Set(checkins.map(c => c.castName))
-  const notIn = castList.filter(c => !checkedInNames.has(c.name))
+  const notIn = castList.filter(c => !checkedInNames.has(c.name) || manualAbsent[c.name])
   const pct = castList.length ? Math.round((checkedInNames.size / castList.length) * 100) : 0
 
   const isShowDate = (() => {
@@ -319,7 +336,7 @@ export default function CheckinTab({ sheetId, productionCode, production, sessio
           </p>
           {checkins.length === 0
             ? <p style={{ fontSize: 13, color: 'var(--text3)' }}>No check-ins yet</p>
-            : checkins.map(c => {
+            : checkins.filter(c => !manualAbsent[c.castName]).map(c => {
               const match = castList.find(cl => cl.name === c.castName)
               const actorName = match?.castMember || null
               return (
@@ -335,7 +352,15 @@ export default function CheckinTab({ sheetId, productionCode, production, sessio
                   </span>
                 </div>
                 {c.note && <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{c.note}</p>}
-              </div>
+				{canOverride && c.note === 'Manually marked present' && (
+				  <button onClick={() => markAbsent(c.castName)}
+					style={{ marginTop: 4, padding: '1px 8px', borderRadius: 20, fontSize: 10, fontWeight: 500,
+					  cursor: 'pointer', border: '0.5px solid var(--red-text)',
+					  background: 'var(--red-bg)', color: 'var(--red-text)' }}>
+					✗ Undo
+				  </button>
+				)}
+				</div>
               )
             })
           }
