@@ -77,7 +77,7 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
     setParsedTags(parsed.tags)
     if (parsed.category) set('category', parsed.category)
     if (parsed.priority) set('priority', parsed.priority)
-    if (parsed.cast) set('cast', parsed.cast)
+    if (parsed.cast) { set("cast", parsed.cast); set("castList", parsed.cast.split(",").map(s => s.trim()).filter(Boolean)) }
     if (parsed.scene) set('scene', parsed.scene)
     // Suggestions for current incomplete tag
     setSuggestions(getHashtagSuggestions(text, characters, scenes))
