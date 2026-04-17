@@ -825,7 +825,6 @@ export default function SetupPage() {
     // Save directorNtfyTopic to config alongside team
     await api.updateProduction({ sheetId: session.sheetId, config: { directorNtfyTopic: config.directorNtfyTopic || '' } })
     const result = await api.updateProduction({ sheetId: session.sheetId, sharedWith })
-      const result = await api.updateProduction({ sheetId: session.sheetId, sharedWith })
       if (result.newInviteCodes) {
         const appUrl = window.location.origin
         for (const member of sharedWith) {
