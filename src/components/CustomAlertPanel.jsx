@@ -22,35 +22,41 @@ const REHEARSAL_QUICK = [
 export default function CustomAlertPanel({ sheetId, production, isShowDay = false }) {
   const [open, setOpen] = useState(false)
   const [message, setMessage] = useState('')
-  const [recipientIds, setRecipientIds] = useState([]) // empty = all
   const [scheduledTime, setScheduledTime] = useState('')
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState(null)
-  const [scheduled, setScheduled] = useState(null) // { time, message, timer }
+  const [scheduled, setScheduled] = useState(null)
   const timerRef = useRef(null)
 
-  const contacts = (() => {
+  // Build recipient list from SharedWith + notificationContacts
+  const sharedWith = production?.sharedWith || []
+  const notificationContacts = (() => {
     try { return JSON.parse(production?.config?.notificationContacts || '[]') } catch { return [] }
   })()
 
-  function toggleRecipient(i) {
-    setRecipientIds(prev =>
-      prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]
-    )
+  // Count unique recipients with ntfy or phone across both sources
+  const seen = new Set()
+  const allRecipients = []
+
+  if (production?.config?.directorNtfyTopic) {
+    const key = production.config.directorNtfyTopic
+    if (!seen.has(key)) { seen.add(key); allRecipients.push({ name: production.config.directorName || 'Director' }) }
   }
+  sharedWith.forEach(m => {
+    const key = m.ntfyTopic || m.phone
+    if (key && !seen.has(key)) { seen.add(key); allRecipients.push({ name: m.name }) }
+  })
+  notificationContacts.forEach(c => {
+    const key = c.ntfyTopic || c.smsGateway || c.phone
+    if (key && !seen.has(key)) { seen.add(key); allRecipients.push({ name: c.name }) }
+  })
 
-  const allSelected = recipientIds.length === 0
-
-  async function send(msg = message, ids = recipientIds) {
+  async function send(msg = message) {
     if (!msg.trim()) return
     setSending(true)
     setResult(null)
     try {
-      const res = await api.sendCustomAlert({
-        sheetId,
-        message: msg,
-        recipientIds: ids.length > 0 ? ids : undefined
-      })
+      const res = await api.sendCustomAlert({ sheetId, message: msg })
       setResult(res)
       setMessage('')
       setScheduledTime('')
@@ -64,21 +70,16 @@ export default function CustomAlertPanel({ sheetId, production, isShowDay = fals
   function scheduleAlert() {
     if (!scheduledTime || !message.trim()) return
     clearTimeout(timerRef.current)
-
     const [h, m] = scheduledTime.split(':').map(Number)
     const fireAt = new Date()
     fireAt.setHours(h, m, 0, 0)
     const msUntil = fireAt - new Date()
     if (msUntil <= 0) { alert('That time has already passed!'); return }
-
     const msgToSend = message
-    const idsToSend = [...recipientIds]
-
     timerRef.current = setTimeout(async () => {
-      await send(msgToSend, idsToSend)
+      await send(msgToSend)
       setScheduled(null)
     }, msUntil)
-
     setScheduled({ time: scheduledTime, message: msgToSend })
     setMessage('')
     setScheduledTime('')
@@ -103,7 +104,6 @@ export default function CustomAlertPanel({ sheetId, production, isShowDay = fals
         <span style={{ fontSize: 16 }}>{open ? '▲' : '▼'}</span>
       </button>
 
-      {/* Scheduled alert banner */}
       {scheduled && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           background: 'var(--amber-bg)', border: '0.5px solid var(--amber-text)',
@@ -120,7 +120,6 @@ export default function CustomAlertPanel({ sheetId, production, isShowDay = fals
         <div style={{ border: '0.5px solid var(--border)', borderTop: 'none',
           borderRadius: '0 0 var(--radius) var(--radius)', padding: '1rem' }}>
 
-          {/* Quick messages */}
           <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
             Quick messages
           </p>
@@ -134,7 +133,6 @@ export default function CustomAlertPanel({ sheetId, production, isShowDay = fals
             ))}
           </div>
 
-          {/* Message */}
           <div className="field" style={{ marginBottom: 10 }}>
             <label>Message</label>
             <textarea rows={2} value={message} onChange={e => setMessage(e.target.value)}
@@ -142,33 +140,14 @@ export default function CustomAlertPanel({ sheetId, production, isShowDay = fals
               style={{ fontSize: 14, resize: 'vertical' }} />
           </div>
 
-          {/* Recipients */}
-          {contacts.length > 0 && (
+          {allRecipients.length > 0 && (
             <div style={{ marginBottom: 10 }}>
-              <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--text2)', marginBottom: 6 }}>
-                Recipients
+              <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 4 }}>
+                Sends to: {allRecipients.map(r => r.name).join(', ')}
               </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                <button className="btn btn-sm"
-                  onClick={() => setRecipientIds([])}
-                  style={{ fontSize: 11, background: allSelected ? 'var(--bg2)' : 'transparent',
-                    fontWeight: allSelected ? 600 : 400 }}>
-                  Everyone ({contacts.length})
-                </button>
-                {contacts.map((c, i) => (
-                  <button key={i} className="btn btn-sm"
-                    onClick={() => toggleRecipient(i)}
-                    style={{ fontSize: 11,
-                      background: recipientIds.includes(i) ? 'var(--bg2)' : 'transparent',
-                      fontWeight: recipientIds.includes(i) ? 600 : 400 }}>
-                    {c.name}
-                  </button>
-                ))}
-              </div>
             </div>
           )}
 
-          {/* Schedule */}
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginBottom: 12 }}>
             <div className="field" style={{ margin: 0, flex: 1 }}>
               <label style={{ fontSize: 11 }}>Schedule for (optional)</label>
@@ -184,13 +163,11 @@ export default function CustomAlertPanel({ sheetId, production, isShowDay = fals
             )}
           </div>
 
-          {/* Send now */}
           <button className="btn btn-primary btn-full" onClick={() => send()}
             disabled={sending || !message.trim()}>
-            {sending ? 'Sending…' : `📢 Send now${allSelected ? ` to all (${contacts.length})` : ` to ${recipientIds.length}`}`}
+            {sending ? 'Sending…' : `📢 Send now to all (${allRecipients.length})`}
           </button>
 
-          {/* Result */}
           {result && (
             <div style={{ marginTop: 10, fontSize: 13,
               background: result.error ? 'var(--red-bg)' : 'var(--bg2)',

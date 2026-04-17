@@ -1,6 +1,6 @@
 'use strict'
 
-const { sheetsClient, getRows, REGISTRY_SHEET_ID, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, getRows, CORS, ok, err } = require('./_sheets')
 const { sendSMS, sendEmailToNtfy } = require('./_sms')
 
 exports.handler = async (event) => {
@@ -19,26 +19,70 @@ exports.handler = async (event) => {
     const config = {}
     configRows.forEach(([k, v]) => { if (k) config[k] = v })
 
-    let contacts = []
-    try { contacts = JSON.parse(config.notificationContacts || '[]') } catch {}
+    let notificationContacts = []
+    try { notificationContacts = JSON.parse(config.notificationContacts || '[]') } catch {}
+
+    // Build unified contact list from all sources
+    const seen = new Set()
+    const allContacts = []
+
+    // Director ntfy topic
+    if (config.directorNtfyTopic) {
+      const key = config.directorNtfyTopic
+      if (!seen.has(key)) {
+        seen.add(key)
+        allContacts.push({ name: config.directorName || 'Director', ntfyTopic: config.directorNtfyTopic })
+      }
+    }
+
+    // SharedWith team members with ntfy or phone
+    try {
+      const swRows = await getRows(sheets, sheetId, 'SharedWith!A:I')
+      if (swRows.length > 1) {
+        const [header, ...data] = swRows
+        const idx = {}; header.forEach((c, i) => { idx[c] = i })
+        data
+          .filter(r => r.some(Boolean))
+          .forEach(r => {
+            const ntfyTopic = idx.ntfyTopic >= 0 ? (r[idx.ntfyTopic] || '') : ''
+            const phone = idx.phone >= 0 ? (r[idx.phone] || '') : ''
+            const name = r[idx.name] || ''
+            const key = ntfyTopic || phone
+            if (key && !seen.has(key)) {
+              seen.add(key)
+              allContacts.push({ name, ntfyTopic, phone })
+            }
+          })
+      }
+    } catch (e) { console.warn('Could not read SharedWith:', e.message) }
+
+    // Legacy notificationContacts
+    for (const c of notificationContacts) {
+      const key = c.ntfyTopic || c.smsGateway || c.phone
+      if (key && !seen.has(key)) {
+        seen.add(key)
+        allContacts.push({ name: c.name, ntfyTopic: c.ntfyTopic, phone: c.smsGateway || c.phone })
+      }
+    }
 
     // Filter to selected recipients (or all if none specified)
     const targets = recipientIds && recipientIds.length > 0
-      ? contacts.filter((_, i) => recipientIds.includes(i))
-      : contacts
+      ? allContacts.filter((_, i) => recipientIds.includes(i))
+      : allContacts
 
-    const results = { alerted: [], failed: [] }
+    const results = { alerted: [], failed: [], total: allContacts.length }
     const productionTitle = config.title || 'Production'
     const fullMsg = `📢 ${productionTitle} — ${message}`
+    const title = `📢 ${productionTitle}`
 
     for (const contact of targets) {
       try {
         if (contact.ntfyTopic) {
-          await sendEmailToNtfy(contact.ntfyTopic, `📢 ${productionTitle}`, fullMsg)
+          await sendEmailToNtfy(contact.ntfyTopic, title, fullMsg)
+        } else if (contact.phone) {
+          await sendSMS(contact.phone, fullMsg)
         } else {
-          const to = contact.smsGateway || contact.phone
-          if (to) await sendSMS(to, fullMsg)
-          else throw new Error('No contact method')
+          throw new Error('No contact method')
         }
         results.alerted.push(contact.name)
       } catch (e) {
