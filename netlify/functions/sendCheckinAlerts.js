@@ -16,7 +16,7 @@ exports.handler = async (event) => {
   try {
     const sheets = await sheetsClient()
 
-    // Get config — staff phone numbers / SMS gateways
+    // Get config
     const configRows = await getRows(sheets, sheetId, 'Config!A:B')
     const config = {}
     configRows.forEach(([k, v]) => { if (k) config[k] = v })
@@ -25,6 +25,58 @@ exports.handler = async (event) => {
     let notificationContacts = []
     try { characters = JSON.parse(config.characters || '[]') } catch {}
     try { notificationContacts = JSON.parse(config.notificationContacts || '[]') } catch {}
+
+    // Get SharedWith team members who have ntfy topics
+    let sharedWith = []
+    try {
+      const swRows = await getRows(sheets, sheetId, 'SharedWith!A:I')
+      if (swRows.length > 1) {
+        const [header, ...data] = swRows
+        const idx = {}; header.forEach((c, i) => { idx[c] = i })
+        sharedWith = data
+          .filter(r => r.some(Boolean))
+          .map(r => ({
+            name: r[idx.name] || '',
+            email: r[idx.email] || '',
+            ntfyTopic: idx.ntfyTopic >= 0 ? (r[idx.ntfyTopic] || '') : '',
+            phone: idx.phone >= 0 ? (r[idx.phone] || '') : '',
+            staffRole: idx.staffRole >= 0 ? (r[idx.staffRole] || '') : '',
+          }))
+          .filter(m => m.ntfyTopic || m.phone)
+      }
+    } catch (e) { console.warn('Could not read SharedWith:', e.message) }
+
+    // Build unified alert list — combine notificationContacts + sharedWith + director
+    // De-duplicate by ntfyTopic or phone
+    const seen = new Set()
+    const alertList = []
+
+    // Add director ntfy if configured
+    if (config.directorNtfyTopic) {
+      const key = config.directorNtfyTopic
+      if (!seen.has(key)) {
+        seen.add(key)
+        alertList.push({ name: config.directorName || 'Director', ntfyTopic: config.directorNtfyTopic })
+      }
+    }
+
+    // Add SharedWith team members
+    for (const m of sharedWith) {
+      const key = m.ntfyTopic || m.phone
+      if (key && !seen.has(key)) {
+        seen.add(key)
+        alertList.push(m)
+      }
+    }
+
+    // Add notificationContacts (legacy)
+    for (const c of notificationContacts) {
+      const key = c.ntfyTopic || c.smsGateway || c.phone
+      if (key && !seen.has(key)) {
+        seen.add(key)
+        alertList.push({ name: c.name, ntfyTopic: c.ntfyTopic, phone: c.smsGateway || c.phone })
+      }
+    }
 
     // Get today's checkins
     let checkedInNames = new Set()
@@ -45,39 +97,34 @@ exports.handler = async (event) => {
     )
     const missing = castList.filter(c => !checkedInNames.has(c.name))
 
-    // Send alerts to notification contacts (SM, ASM, etc.)
-    const staffWithSMS = notificationContacts.filter(s => s.phone || s.smsGateway)
-
     const results = { alerted: [], failed: [], missingCount: missing.length }
 
     const productionTitle = config.title || 'Production'
     const timeStr = curtainTime ? ` Curtain at ${curtainTime}.` : ''
+    const curtainNote = curtainTime ? ` — Curtain at ${curtainTime}` : ''
+    const countdownNote = alertLabel ? ` — ${alertLabel}` : alertMinutes ? ` — ${alertMinutes}min to curtain` : ''
+    const breakNote = breakALeg ? ' 🌟 Break a leg!' : ''
+    const allClear = missing.length === 0
+    const missingNames = missing.map(c => c.castMember ? `${c.castMember} (${c.name})` : c.name).join(', ')
 
-    for (const sm of staffWithSMS) {
-      const missingNames = missing.map(c => c.castMember ? `${c.castMember} (${c.name})` : c.name).join(', ')
-      const allClear = missing.length === 0
-      const curtainNote = curtainTime ? ` — Curtain at ${curtainTime}` : ''
-      const countdownNote = alertLabel ? ` — ${alertLabel}` : ''
-      const breakNote = breakALeg ? ' 🌟 Break a leg!' : ''
-      const title = allClear
-        ? `✅ All cast checked in!${countdownNote}`
-        : `⚠️ ${missing.length} cast member${missing.length !== 1 ? 's' : ''} missing${countdownNote}`
-      const msg = allClear
-        ? `✅ ${productionTitle}${curtainNote}${countdownNote} — ALL CAST CHECKED IN! 🎭${breakNote}`
-        : `⚠️ ${productionTitle}${curtainNote}${countdownNote} — ${missing.length} NOT checked in: ${missingNames}.${breakNote}`
+    const title = allClear
+      ? `✅ All cast checked in!${countdownNote}`
+      : `⚠️ ${missing.length} cast member${missing.length !== 1 ? 's' : ''} missing${countdownNote}`
+    const msg = allClear
+      ? `✅ ${productionTitle}${curtainNote}${countdownNote} — ALL CAST CHECKED IN! 🎭${breakNote}`
+      : `⚠️ ${productionTitle}${curtainNote}${countdownNote} — ${missing.length} NOT checked in: ${missingNames}.${breakNote}`
 
+    // Send to all alert recipients
+    for (const recipient of alertList) {
       try {
-        if (sm.ntfyTopic) {
-          // Send via ntfy email gateway (ntfy.sh accepts email → push)
-          // Format: topic@ntfy.sh receives email and delivers as push notification
-          await sendEmailToNtfy(sm.ntfyTopic, title, msg)
-        } else {
-          const smsTo = sm.smsGateway || sm.phone
-          await sendSMS(smsTo, msg)
+        if (recipient.ntfyTopic) {
+          await sendEmailToNtfy(recipient.ntfyTopic, title, msg)
+        } else if (recipient.phone) {
+          await sendSMS(recipient.phone, msg)
         }
-        results.alerted.push(sm.name || sm.ntfyTopic || sm.phone)
+        results.alerted.push(recipient.name || recipient.ntfyTopic || recipient.phone)
       } catch (e) {
-        results.failed.push({ name: sm.name, error: e.message })
+        results.failed.push({ name: recipient.name, error: e.message })
       }
     }
 
@@ -85,9 +132,9 @@ exports.handler = async (event) => {
     for (const castMember of missing) {
       const smsTo = castMember.smsGateway || castMember.phone
       if (!smsTo) continue
-      const msg = `📢 ${productionTitle} — You haven't checked in yet! Please check in at the stage door ASAP.${timeStr}`
+      const castMsg = `📢 ${productionTitle} — You haven't checked in yet! Please check in at the stage door ASAP.${timeStr}`
       try {
-        await sendSMS(smsTo, msg)
+        await sendSMS(smsTo, castMsg)
         results.alerted.push(castMember.name)
       } catch (e) {
         results.failed.push({ name: castMember.name, error: e.message })

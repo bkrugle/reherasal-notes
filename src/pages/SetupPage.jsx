@@ -531,26 +531,34 @@ function TeamTab({ config, setC, sharedWith, setSharedWith, newMember, setNewMem
           Team members ({sharedWith.length + 1})
         </p>
 
-        {/* Director row — always first, read-only */}
+{/* Director row � expandable for ntfy topic */}
         {directorName && (
           <div style={{ border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: 8, overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--bg)' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 14, fontWeight: 500 }}>{directorName}</span>
-                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20,
-                    background: 'var(--purple-bg)', color: 'var(--purple-text)',
-                    border: '0.5px solid var(--border)' }}>★ Admin</span>
-                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20,
-                    background: 'var(--bg2)', color: 'var(--text2)',
-                    border: '0.5px solid var(--border)' }}>Director</span>
-                  <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 10,
-                    background: 'var(--green-bg)', color: 'var(--green-text)' }}>active</span>
-                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>👤 You</span>
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--purple-bg)', color: 'var(--purple-text)', border: '0.5px solid var(--border)' }}>? Admin</span>
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: 'var(--bg2)', color: 'var(--text2)', border: '0.5px solid var(--border)' }}>Director</span>
+                  <span style={{ fontSize: 11, padding: '2px 6px', borderRadius: 10, background: 'var(--green-bg)', color: 'var(--green-text)' }}>active</span>
+                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>? You</span>
+                  {config.directorNtfyTopic && <span style={{ fontSize: 11, color: 'var(--teal-text)' }}>?</span>}
                 </div>
                 {directorEmail && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{directorEmail}</div>}
               </div>
+              <button className="btn btn-sm" onClick={() => setC('showDirectorNtfy', !config.showDirectorNtfy)} style={{ fontSize: 11, flexShrink: 0 }}>
+                {config.showDirectorNtfy ? 'Done' : 'Edit'}
+              </button>
             </div>
+            {config.showDirectorNtfy && (
+              <div style={{ padding: '12px', borderTop: '0.5px solid var(--border)', background: 'var(--bg2)' }}>
+                <div className="field" style={{ margin: 0 }}>
+                  <label>Your ntfy push topic</label>
+                  <input type="text" value={config.directorNtfyTopic || ''} onChange={e => setC('directorNtfyTopic', e.target.value)} placeholder={config.ntfyTopic || 'your-ntfy-topic'} />
+                </div>
+                <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>This sends show day alerts to your ntfy app.</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -711,8 +719,8 @@ export default function SetupPage() {
   const [activeTab, setActiveTab] = useState('details')
 
   const [config, setConfig] = useState({
-    title: '', directorName: '', directorEmail: '',
-    showDates: '', venue: '', calendarId: '', useAuditions: 'false', auditionQuestions: [], scenes: [], characters: [], staff: [], curtainTimes: {}, notificationContacts: [], accentColor: '', accentBg: ''
+    title: '', directorName: '', directorEmail: '', directorNtfyTopic: '',
+	showDates: '', venue: '', calendarId: '', useAuditions: 'false', auditionQuestions: [], scenes: [], characters: [], staff: [], curtainTimes: {}, notificationContacts: [], accentColor: '', accentBg: ''
   })
   const [sharedWith, setSharedWith] = useState([])
   const [newMember, setNewMember] = useState({ name: '', email: '', pin: '', role: 'member' })
@@ -736,6 +744,7 @@ export default function SetupPage() {
         useAuditions: (data.config.useAuditions === true || data.config.useAuditions === 'true' || String(data.config.useAuditions) === 'true') ? true : false,
         curtainTimes: typeof data.config.curtainTimes === 'object' ? data.config.curtainTimes : {},
         ntfyTopic: data.config.ntfyTopic || '',
+		directorNtfyTopic: data.config.directorNtfyTopic || '',
         accentColor: data.config.accentColor || '',
         accentBg: data.config.accentBg || '',
         auditionQuestions: Array.isArray(data.config.auditionQuestions) ? data.config.auditionQuestions : [],
