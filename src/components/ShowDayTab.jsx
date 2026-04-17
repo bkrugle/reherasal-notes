@@ -87,7 +87,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
     await saveTimelineRemote(sheetId, showDate, fresh)
   }
 
-  function applyManualEntry() {
+  async function applyManualEntry() {
     const mf = manualForm
     const act1Start = parseTimeToISO(mf.act1Start, showDate)
     const act1End = parseTimeToISO(mf.act1End, showDate)
@@ -96,7 +96,10 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
     const act2Start = parseTimeToISO(mf.act2Start, showDate)
     const act2End = parseTimeToISO(mf.act2End, showDate)
     const phase = act2End ? 'done' : act2Start ? 'act2' : intermissionEnd ? 'act2' : intermissionStart ? 'intermission' : act1Start ? 'act1' : 'preshow'
-    updateTimeline({ phase, act1Start, act1End: act1End || intermissionStart, intermissionStart, intermissionEnd: intermissionEnd || act2Start, act2Start, act2End })
+    const next = { ...timeline, phase, act1Start, act1End: act1End || intermissionStart, intermissionStart, intermissionEnd: intermissionEnd || act2Start, act2Start, act2End }
+    setTimeline(next)
+    setLockedBy(next.lockedBy || null)
+    await saveTimelineRemote(sheetId, showDate, next)
     setManualEntry(false)
   }
 

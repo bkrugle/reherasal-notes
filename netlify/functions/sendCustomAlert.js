@@ -10,7 +10,7 @@ exports.handler = async (event) => {
   let body
   try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
 
-  const { sheetId, message, recipientIds, scheduledTime } = body
+  const { sheetId, message, recipientIds, scheduledTime, alertTarget = 'staff' } = body
   if (!sheetId || !message) return err('sheetId and message required')
 
   try {
@@ -22,17 +22,12 @@ exports.handler = async (event) => {
     let notificationContacts = []
     try { notificationContacts = JSON.parse(config.notificationContacts || '[]') } catch {}
 
-    // Build unified contact list from all sources
-    const seen = new Set()
+    // Build contact list from all sources — send to each person
     const allContacts = []
 
     // Director ntfy topic
-    if (config.directorNtfyTopic) {
-      const key = config.directorNtfyTopic
-      if (!seen.has(key)) {
-        seen.add(key)
-        allContacts.push({ name: config.directorName || 'Director', ntfyTopic: config.directorNtfyTopic })
-      }
+    if (config.directorNtfyTopic || config.directorPhone) {
+      allContacts.push({ name: config.directorName || 'Director', ntfyTopic: config.directorNtfyTopic, phone: config.directorPhone })
     }
 
     // SharedWith team members with ntfy or phone
@@ -47,11 +42,7 @@ exports.handler = async (event) => {
             const ntfyTopic = idx.ntfyTopic >= 0 ? (r[idx.ntfyTopic] || '') : ''
             const phone = idx.phone >= 0 ? (r[idx.phone] || '') : ''
             const name = r[idx.name] || ''
-            const key = ntfyTopic || phone
-            if (key && !seen.has(key)) {
-              seen.add(key)
-              allContacts.push({ name, ntfyTopic, phone })
-            }
+            if (ntfyTopic || phone) allContacts.push({ name, ntfyTopic, phone })
           })
       }
     } catch (e) { console.warn('Could not read SharedWith:', e.message) }
@@ -59,34 +50,50 @@ exports.handler = async (event) => {
     // Legacy notificationContacts
     for (const c of notificationContacts) {
       const key = c.ntfyTopic || c.smsGateway || c.phone
-      if (key && !seen.has(key)) {
-        seen.add(key)
-        allContacts.push({ name: c.name, ntfyTopic: c.ntfyTopic, phone: c.smsGateway || c.phone })
-      }
+      if (key) allContacts.push({ name: c.name, ntfyTopic: c.ntfyTopic, phone: c.smsGateway || c.phone })
     }
-
-    // Filter to selected recipients (or all if none specified)
-    const targets = recipientIds && recipientIds.length > 0
-      ? allContacts.filter((_, i) => recipientIds.includes(i))
-      : allContacts
 
     const results = { alerted: [], failed: [], total: allContacts.length }
     const productionTitle = config.title || 'Production'
     const fullMsg = `📢 ${productionTitle} — ${message}`
     const title = `📢 ${productionTitle}`
 
-    for (const contact of targets) {
-      try {
-        if (contact.ntfyTopic) {
-          await sendEmailToNtfy(contact.ntfyTopic, title, fullMsg)
-        } else if (contact.phone) {
-          await sendSMS(contact.phone, fullMsg)
-        } else {
-          throw new Error('No contact method')
+    // Send to staff
+    if (alertTarget === 'staff' || alertTarget === 'all') {
+      const targets = recipientIds && recipientIds.length > 0
+        ? allContacts.filter((_, i) => recipientIds.includes(i))
+        : allContacts
+
+      for (const contact of targets) {
+        try {
+          if (contact.ntfyTopic) {
+            await sendEmailToNtfy(contact.ntfyTopic, title, fullMsg)
+          } else if (contact.phone) {
+            await sendSMS(contact.phone, fullMsg)
+          } else {
+            throw new Error('No contact method')
+          }
+          results.alerted.push(contact.name)
+        } catch (e) {
+          results.failed.push({ name: contact.name, error: e.message })
         }
-        results.alerted.push(contact.name)
-      } catch (e) {
-        results.failed.push({ name: contact.name, error: e.message })
+      }
+    }
+
+    // Send to cast members with phone numbers
+    if (alertTarget === 'cast' || alertTarget === 'all') {
+      let characters = []
+      try { characters = JSON.parse(config.characters || '[]') } catch {}
+      for (const c of characters) {
+        const smsTo = (typeof c === 'object') ? (c.smsGateway || c.phone) : null
+        if (!smsTo) continue
+        const name = (typeof c === 'object') ? (c.castMember || c.name) : c
+        try {
+          await sendSMS(smsTo, fullMsg)
+          results.alerted.push(name)
+        } catch (e) {
+          results.failed.push({ name, error: e.message })
+        }
       }
     }
 

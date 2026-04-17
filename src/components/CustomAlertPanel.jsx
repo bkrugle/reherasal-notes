@@ -34,29 +34,25 @@ export default function CustomAlertPanel({ sheetId, production, isShowDay = fals
     try { return JSON.parse(production?.config?.notificationContacts || '[]') } catch { return [] }
   })()
 
-  // Count unique recipients with ntfy or phone across both sources
-  const seen = new Set()
+  // Count all recipients who have a contact method — don't deduplicate by topic
   const allRecipients = []
 
-  if (production?.config?.directorNtfyTopic) {
-    const key = production.config.directorNtfyTopic
-    if (!seen.has(key)) { seen.add(key); allRecipients.push({ name: production.config.directorName || 'Director' }) }
+  if (production?.config?.directorNtfyTopic || production?.config?.directorPhone) {
+    allRecipients.push({ name: production.config.directorName || 'Director' })
   }
   sharedWith.forEach(m => {
-    const key = m.ntfyTopic || m.phone
-    if (key && !seen.has(key)) { seen.add(key); allRecipients.push({ name: m.name }) }
+    if (m.ntfyTopic || m.phone) allRecipients.push({ name: m.name })
   })
   notificationContacts.forEach(c => {
-    const key = c.ntfyTopic || c.smsGateway || c.phone
-    if (key && !seen.has(key)) { seen.add(key); allRecipients.push({ name: c.name }) }
+    if (c.ntfyTopic || c.smsGateway || c.phone) allRecipients.push({ name: c.name })
   })
 
-  async function send(msg = message) {
+  async function send(msg = message, alertTarget = 'staff') {
     if (!msg.trim()) return
     setSending(true)
     setResult(null)
     try {
-      const res = await api.sendCustomAlert({ sheetId, message: msg })
+      const res = await api.sendCustomAlert({ sheetId, message: msg, alertTarget })
       setResult(res)
       setMessage('')
       setScheduledTime('')
@@ -77,7 +73,7 @@ export default function CustomAlertPanel({ sheetId, production, isShowDay = fals
     if (msUntil <= 0) { alert('That time has already passed!'); return }
     const msgToSend = message
     timerRef.current = setTimeout(async () => {
-      await send(msgToSend)
+      await send(msgToSend, 'staff')
       setScheduled(null)
     }, msUntil)
     setScheduled({ time: scheduledTime, message: msgToSend })
@@ -163,10 +159,20 @@ export default function CustomAlertPanel({ sheetId, production, isShowDay = fals
             )}
           </div>
 
-          <button className="btn btn-primary btn-full" onClick={() => send()}
-            disabled={sending || !message.trim()}>
-            {sending ? 'Sending…' : `📢 Send now to all (${allRecipients.length})`}
-          </button>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 6 }}>
+            <button className="btn btn-sm" onClick={() => send(message, 'staff')} disabled={sending || !message.trim()}
+              style={{ background: 'var(--blue-bg)', color: 'var(--blue-text)', borderColor: 'transparent', fontWeight: 500, fontSize: 12 }}>
+              {sending ? '…' : '📲 Alert Staff'}
+            </button>
+            <button className="btn btn-sm" onClick={() => send(message, 'cast')} disabled={sending || !message.trim()}
+              style={{ background: 'var(--amber-bg)', color: 'var(--amber-text)', borderColor: 'transparent', fontWeight: 500, fontSize: 12 }}>
+              {sending ? '…' : '⚠ Alert Cast'}
+            </button>
+            <button className="btn btn-sm" onClick={() => send(message, 'all')} disabled={sending || !message.trim()}
+              style={{ background: 'var(--red-bg)', color: 'var(--red-text)', borderColor: 'transparent', fontWeight: 500, fontSize: 12 }}>
+              {sending ? '…' : '🔔 Alert All'}
+            </button>
+          </div>
 
           {result && (
             <div style={{ marginTop: 10, fontSize: 13,
