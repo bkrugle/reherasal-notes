@@ -3,6 +3,23 @@
 const { sheetsClient, getRows, REGISTRY_SHEET_ID, CORS, ok, err } = require('./_sheets')
 const { sendSMS, sendEmailToNtfy } = require('./_sms')
 
+// Expand cast list — groups are replaced by their individual members
+function expandCastList(characters) {
+  const expanded = []
+  for (const c of characters) {
+    if (typeof c === 'string') {
+      expanded.push({ name: c, castMember: '', phone: '', smsGateway: '' })
+    } else if (c.isGroup && Array.isArray(c.members) && c.members.length > 0) {
+      for (const member of c.members) {
+        expanded.push({ name: member, castMember: '', phone: '', smsGateway: '' })
+      }
+    } else {
+      expanded.push(c)
+    }
+  }
+  return expanded
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
   if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
@@ -11,7 +28,6 @@ exports.handler = async (event) => {
   try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
 
   const { sheetId, showDate, curtainTime, alertMinutes = 30, alertLabel, breakALeg, alertTarget = 'staff' } = body
-  // alertTarget: 'staff' | 'cast' | 'all'
   if (!sheetId || !showDate) return err('sheetId and showDate required')
 
   try {
@@ -27,7 +43,7 @@ exports.handler = async (event) => {
     try { characters = JSON.parse(config.characters || '[]') } catch {}
     try { notificationContacts = JSON.parse(config.notificationContacts || '[]') } catch {}
 
-    // Get SharedWith team members who have ntfy topics
+    // Get SharedWith team members
     let sharedWith = []
     try {
       const swRows = await getRows(sheets, sheetId, 'SharedWith!A:I')
@@ -38,45 +54,37 @@ exports.handler = async (event) => {
           .filter(r => r.some(Boolean))
           .map(r => ({
             name: r[idx.name] || '',
-            email: r[idx.email] || '',
-            ntfyTopic: idx.ntfyTopic >= 0 ? (r[idx.ntfyTopic] || '') : '',
-            phone: idx.phone >= 0 ? (r[idx.phone] || '') : '',
-            staffRole: idx.staffRole >= 0 ? (r[idx.staffRole] || '') : '',
+            ntfyTopic: r[idx.ntfyTopic] || '',
+            phone: r[idx.phone] || '',
+            staffRole: r[idx.staffRole] || '',
           }))
           .filter(m => m.ntfyTopic || m.phone)
       }
     } catch (e) { console.warn('Could not read SharedWith:', e.message) }
 
-    // Build unified alert list — combine notificationContacts + sharedWith + director
-    // De-duplicate by ntfyTopic or phone
-    const seen = new Set()
+    // Build alert list — deduplicate by topic/phone but track all names
+    const sentKeys = new Set()
     const alertList = []
 
-    // Add director ntfy if configured
-    if (config.directorNtfyTopic) {
-      const key = config.directorNtfyTopic
-      if (!seen.has(key)) {
-        seen.add(key)
-        alertList.push({ name: config.directorName || 'Director', ntfyTopic: config.directorNtfyTopic })
+    function addRecipient(name, ntfyTopic, phone) {
+      const key = ntfyTopic || phone
+      if (!key) return
+      if (!sentKeys.has(key)) {
+        sentKeys.add(key)
+        alertList.push({ name, ntfyTopic, phone, skipSend: false })
+      } else {
+        alertList.push({ name, ntfyTopic, phone, skipSend: true })
       }
     }
 
-    // Add SharedWith team members
+    if (config.directorNtfyTopic || config.directorPhone) {
+      addRecipient(config.directorName || 'Director', config.directorNtfyTopic, config.directorPhone)
+    }
     for (const m of sharedWith) {
-      const key = m.ntfyTopic || m.phone
-      if (key && !seen.has(key)) {
-        seen.add(key)
-        alertList.push(m)
-      }
+      addRecipient(m.name, m.ntfyTopic, m.phone)
     }
-
-    // Add notificationContacts (legacy)
     for (const c of notificationContacts) {
-      const key = c.ntfyTopic || c.smsGateway || c.phone
-      if (key && !seen.has(key)) {
-        seen.add(key)
-        alertList.push({ name: c.name, ntfyTopic: c.ntfyTopic, phone: c.smsGateway || c.phone })
-      }
+      addRecipient(c.name, c.ntfyTopic, c.smsGateway || c.phone)
     }
 
     // Get today's checkins
@@ -91,12 +99,9 @@ exports.handler = async (event) => {
       }
     } catch (e) { console.warn('No checkins tab yet') }
 
-    // Find missing cast members
-    const castList = characters.map(c => typeof c === 'string'
-      ? { name: c, castMember: '', phone: '', smsGateway: '' }
-      : c
-    )
-    const missing = castList.filter(c => !checkedInNames.has(c.name))
+    // Expand groups and find missing cast members
+    const expandedCast = expandCastList(characters)
+    const missing = expandedCast.filter(c => !checkedInNames.has(c.name))
 
     const results = { alerted: [], failed: [], missingCount: missing.length }
 
@@ -104,35 +109,29 @@ exports.handler = async (event) => {
     const timeStr = curtainTime ? ` Curtain at ${curtainTime}.` : ''
     const curtainNote = curtainTime ? ` — Curtain at ${curtainTime}` : ''
     const countdownNote = alertLabel ? ` — ${alertLabel}` : alertMinutes ? ` — ${alertMinutes}min to curtain` : ''
-    const breakNote = breakALeg ? ' 🌟 Break a leg!' : ''
+    const breakNote = breakALeg ? ' Break a leg!' : ''
     const allClear = missing.length === 0
-    const missingNames = missing.map(c => c.castMember ? `${c.castMember} (${c.name})` : c.name).join(', ')
+    const missingNames = missing.map(c => c.castMember || c.name).join(', ')
 
     const title = allClear
-      ? `✅ All cast checked in!${countdownNote}`
-      : `⚠️ ${missing.length} cast member${missing.length !== 1 ? 's' : ''} missing${countdownNote}`
+      ? `All cast checked in!${countdownNote}`
+      : `${missing.length} cast member${missing.length !== 1 ? 's' : ''} missing${countdownNote}`
     const msg = allClear
-      ? `✅ ${productionTitle}${curtainNote}${countdownNote} — ALL CAST CHECKED IN! 🎭${breakNote}`
-      : `⚠️ ${productionTitle}${curtainNote}${countdownNote} — ${missing.length} NOT checked in: ${missingNames}.${breakNote}`
+      ? `${productionTitle}${curtainNote}${countdownNote} - ALL CAST CHECKED IN!${breakNote}`
+      : `${productionTitle}${curtainNote}${countdownNote} - ${missing.length} NOT checked in: ${missingNames}.${breakNote}`
 
-    // Send to staff alert recipients — deduplicate by ntfy topic
+    // Send to staff
     if (alertTarget === 'staff' || alertTarget === 'all') {
-      const sentTopics = new Set()
-      const sentPhones = new Set()
       for (const recipient of alertList) {
         try {
-          if (recipient.ntfyTopic) {
-            if (!sentTopics.has(recipient.ntfyTopic)) {
+          if (!recipient.skipSend) {
+            if (recipient.ntfyTopic) {
               await sendEmailToNtfy(recipient.ntfyTopic, title, msg)
-              sentTopics.add(recipient.ntfyTopic)
-            }
-          } else if (recipient.phone) {
-            if (!sentPhones.has(recipient.phone)) {
+            } else if (recipient.phone) {
               await sendSMS(recipient.phone, msg)
-              sentPhones.add(recipient.phone)
             }
           }
-          results.alerted.push(recipient.name || recipient.ntfyTopic || recipient.phone)
+          results.alerted.push(recipient.name)
         } catch (e) {
           results.failed.push({ name: recipient.name, error: e.message })
         }
@@ -144,7 +143,7 @@ exports.handler = async (event) => {
       for (const castMember of missing) {
         const smsTo = castMember.smsGateway || castMember.phone
         if (!smsTo) continue
-        const castMsg = `📢 ${productionTitle} — You haven't checked in yet! Please check in at the stage door ASAP.${timeStr}`
+        const castMsg = `${productionTitle} - You haven't checked in yet! Please check in at the stage door ASAP.${timeStr}`
         try {
           await sendSMS(smsTo, castMsg)
           results.alerted.push(castMember.castMember || castMember.name)
