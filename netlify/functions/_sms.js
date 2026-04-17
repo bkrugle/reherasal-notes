@@ -22,7 +22,6 @@ async function sendSMS(to, message) {
   const from = process.env.TWILIO_FROM_NUMBER
 
   if (!sid || !token || !from) {
-    // No Twilio configured — try email-to-SMS if we have a carrier gateway
     throw new Error('Twilio not configured. Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER to env vars.')
   }
 
@@ -100,10 +99,38 @@ async function sendEmailSMS(to, message, subject) {
   })
 }
 
-// Send to ntfy via email gateway (topic@ntfy.sh)
-// This works from server-side without needing direct ntfy.sh HTTP access
-async function sendEmailToNtfy(topic, subject, message) {
-  return sendEmailSMS(`${topic}@ntfy.sh`, message, subject)
+// Send push notification via ntfy.sh HTTP API
+// POST https://ntfy.sh/{topic} with title and message
+async function sendEmailToNtfy(topic, title, message) {
+  if (!topic) throw new Error('No ntfy topic provided')
+
+  const body = message || title
+
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'ntfy.sh',
+      path: '/' + encodeURIComponent(topic),
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain',
+        'Title': title || 'Ovature Alert',
+        'Priority': 'high',
+        'Tags': 'theatre,alert',
+        'Content-Length': Buffer.byteLength(body)
+      }
+    }, res => {
+      let data = ''
+      res.on('data', d => data += d)
+      res.on('end', () => {
+        if (res.statusCode >= 400) reject(new Error(`ntfy error ${res.statusCode}: ${data}`))
+        else resolve({ status: 'sent', topic })
+      })
+    })
+    req.on('error', reject)
+    req.setTimeout(10000, () => { req.destroy(); reject(new Error('ntfy timeout')) })
+    req.write(body)
+    req.end()
+  })
 }
 
 module.exports = { sendSMS, sendEmailToNtfy }
