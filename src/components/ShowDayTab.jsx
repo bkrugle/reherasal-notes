@@ -167,10 +167,10 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
     try { await api.updateProduction({ sheetId, config: { curtainTimes: JSON.stringify(updated) } }) } catch {}
   }
 
-  async function sendAlerts() {
+  async function sendAlerts(alertTarget = 'staff') {
     setAlerting(true); setAlertResult(null)
     try {
-      const result = await api.sendCheckinAlerts({ sheetId, showDate, curtainTime, alertMinutes: 60 })
+      const result = await api.sendCheckinAlerts({ sheetId, showDate, curtainTime, alertMinutes: 60, alertTarget })
       setAlertResult(result)
     } catch (e) { setAlertResult({ error: e.message }) }
     finally { setAlerting(false) }
@@ -575,9 +575,20 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
       <CustomAlertPanel sheetId={sheetId} production={production} isShowDay={true} />
 
       <div style={{ marginBottom: 14 }}>
-        <button className="btn btn-primary btn-full" onClick={sendAlerts} disabled={alerting}>
-          {alerting ? 'Sending…' : missingCast.length === 0 ? '📱 Send "All clear" to stage manager' : `📱 Alert stage manager — ${missingCast.length} missing`}
-        </button>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 6 }}>
+          <button className="btn btn-sm" onClick={() => sendAlerts('staff')} disabled={alerting}
+            style={{ background: 'var(--blue-bg)', color: 'var(--blue-text)', borderColor: 'transparent', fontWeight: 500, fontSize: 12 }}>
+            {alerting ? '…' : '📲 Alert Staff'}
+          </button>
+          <button className="btn btn-sm" onClick={() => sendAlerts('cast')} disabled={alerting}
+            style={{ background: 'var(--amber-bg)', color: 'var(--amber-text)', borderColor: 'transparent', fontWeight: 500, fontSize: 12 }}>
+            {alerting ? '…' : `⚠ Alert Cast (${missingCast.length})`}
+          </button>
+          <button className="btn btn-sm" onClick={() => sendAlerts('all')} disabled={alerting}
+            style={{ background: 'var(--red-bg)', color: 'var(--red-text)', borderColor: 'transparent', fontWeight: 500, fontSize: 12 }}>
+            {alerting ? '…' : '🔔 Alert All'}
+          </button>
+        </div>
         {alertResult && (
           <div style={{ marginTop: 8, padding: '0.75rem', background: alertResult.error ? 'var(--red-bg)' : 'var(--bg2)', border: `0.5px solid ${alertResult.error ? 'var(--red-text)' : 'var(--border)'}`, borderRadius: 'var(--radius)', fontSize: 13 }}>
             {alertResult.error

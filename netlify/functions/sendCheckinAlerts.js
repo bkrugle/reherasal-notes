@@ -10,7 +10,8 @@ exports.handler = async (event) => {
   let body
   try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
 
-  const { sheetId, showDate, curtainTime, alertMinutes = 30, alertLabel, breakALeg } = body
+  const { sheetId, showDate, curtainTime, alertMinutes = 30, alertLabel, breakALeg, alertTarget = 'staff' } = body
+  // alertTarget: 'staff' | 'cast' | 'all'
   if (!sheetId || !showDate) return err('sheetId and showDate required')
 
   try {
@@ -114,30 +115,34 @@ exports.handler = async (event) => {
       ? `✅ ${productionTitle}${curtainNote}${countdownNote} — ALL CAST CHECKED IN! 🎭${breakNote}`
       : `⚠️ ${productionTitle}${curtainNote}${countdownNote} — ${missing.length} NOT checked in: ${missingNames}.${breakNote}`
 
-    // Send to all alert recipients
-    for (const recipient of alertList) {
-      try {
-        if (recipient.ntfyTopic) {
-          await sendEmailToNtfy(recipient.ntfyTopic, title, msg)
-        } else if (recipient.phone) {
-          await sendSMS(recipient.phone, msg)
+    // Send to staff alert recipients
+    if (alertTarget === 'staff' || alertTarget === 'all') {
+      for (const recipient of alertList) {
+        try {
+          if (recipient.ntfyTopic) {
+            await sendEmailToNtfy(recipient.ntfyTopic, title, msg)
+          } else if (recipient.phone) {
+            await sendSMS(recipient.phone, msg)
+          }
+          results.alerted.push(recipient.name || recipient.ntfyTopic || recipient.phone)
+        } catch (e) {
+          results.failed.push({ name: recipient.name, error: e.message })
         }
-        results.alerted.push(recipient.name || recipient.ntfyTopic || recipient.phone)
-      } catch (e) {
-        results.failed.push({ name: recipient.name, error: e.message })
       }
     }
 
-    // Also alert missing cast members directly if they have phone numbers
-    for (const castMember of missing) {
-      const smsTo = castMember.smsGateway || castMember.phone
-      if (!smsTo) continue
-      const castMsg = `📢 ${productionTitle} — You haven't checked in yet! Please check in at the stage door ASAP.${timeStr}`
-      try {
-        await sendSMS(smsTo, castMsg)
-        results.alerted.push(castMember.name)
-      } catch (e) {
-        results.failed.push({ name: castMember.name, error: e.message })
+    // Alert missing cast members directly if they have phone numbers
+    if (alertTarget === 'cast' || alertTarget === 'all') {
+      for (const castMember of missing) {
+        const smsTo = castMember.smsGateway || castMember.phone
+        if (!smsTo) continue
+        const castMsg = `📢 ${productionTitle} — You haven't checked in yet! Please check in at the stage door ASAP.${timeStr}`
+        try {
+          await sendSMS(smsTo, castMsg)
+          results.alerted.push(castMember.castMember || castMember.name)
+        } catch (e) {
+          results.failed.push({ name: castMember.name, error: e.message })
+        }
       }
     }
 
