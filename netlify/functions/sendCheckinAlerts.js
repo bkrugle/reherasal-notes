@@ -115,14 +115,22 @@ exports.handler = async (event) => {
       ? `✅ ${productionTitle}${curtainNote}${countdownNote} — ALL CAST CHECKED IN! 🎭${breakNote}`
       : `⚠️ ${productionTitle}${curtainNote}${countdownNote} — ${missing.length} NOT checked in: ${missingNames}.${breakNote}`
 
-    // Send to staff alert recipients
+    // Send to staff alert recipients — deduplicate by ntfy topic
     if (alertTarget === 'staff' || alertTarget === 'all') {
+      const sentTopics = new Set()
+      const sentPhones = new Set()
       for (const recipient of alertList) {
         try {
           if (recipient.ntfyTopic) {
-            await sendEmailToNtfy(recipient.ntfyTopic, title, msg)
+            if (!sentTopics.has(recipient.ntfyTopic)) {
+              await sendEmailToNtfy(recipient.ntfyTopic, title, msg)
+              sentTopics.add(recipient.ntfyTopic)
+            }
           } else if (recipient.phone) {
-            await sendSMS(recipient.phone, msg)
+            if (!sentPhones.has(recipient.phone)) {
+              await sendSMS(recipient.phone, msg)
+              sentPhones.add(recipient.phone)
+            }
           }
           results.alerted.push(recipient.name || recipient.ntfyTopic || recipient.phone)
         } catch (e) {

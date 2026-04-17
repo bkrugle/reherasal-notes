@@ -58,18 +58,27 @@ exports.handler = async (event) => {
     const fullMsg = `📢 ${productionTitle} — ${message}`
     const title = `📢 ${productionTitle}`
 
-    // Send to staff
+    // Send to staff — deduplicate by ntfy topic so shared topics only get one notification
     if (alertTarget === 'staff' || alertTarget === 'all') {
       const targets = recipientIds && recipientIds.length > 0
         ? allContacts.filter((_, i) => recipientIds.includes(i))
         : allContacts
 
+      const sentTopics = new Set()
+      const sentPhones = new Set()
+
       for (const contact of targets) {
         try {
           if (contact.ntfyTopic) {
-            await sendEmailToNtfy(contact.ntfyTopic, title, fullMsg)
+            if (!sentTopics.has(contact.ntfyTopic)) {
+              await sendEmailToNtfy(contact.ntfyTopic, title, fullMsg)
+              sentTopics.add(contact.ntfyTopic)
+            }
           } else if (contact.phone) {
-            await sendSMS(contact.phone, fullMsg)
+            if (!sentPhones.has(contact.phone)) {
+              await sendSMS(contact.phone, fullMsg)
+              sentPhones.add(contact.phone)
+            }
           } else {
             throw new Error('No contact method')
           }
