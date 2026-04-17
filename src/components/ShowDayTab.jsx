@@ -29,13 +29,10 @@ function fmtCountdown(totalSec) {
   return `${m}:${String(s).padStart(2,'0')}`
 }
 
-// Parse a time string like "7:32 PM" or "19:32" into an ISO string on a given date
 function parseTimeToISO(timeStr, dateStr) {
   if (!timeStr || !dateStr) return null
   try {
-    const d = new Date(dateStr + 'T00:00:00')
     const t = new Date(`${dateStr}T00:00:00`)
-    // Try parsing as HH:MM AM/PM
     const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i)
     if (!match) return null
     let h = parseInt(match[1])
@@ -57,7 +54,6 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   const [alertResult, setAlertResult] = useState(null)
   const [showQR, setShowQR] = useState(false)
 
-  // Curtain time
   const curtainTimes = (() => {
     const raw = production?.config?.curtainTimes
     if (!raw) return {}
@@ -66,14 +62,12 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   })()
   const [curtainTime, setCurtainTime] = useState(curtainTimes[showDate] || '')
 
-  // Show timeline — synced remotely
   const [timeline, setTimeline] = useState(() => getTimeline(sheetId, showDate))
   const [lockedBy, setLockedBy] = useState(null)
   const [manualEntry, setManualEntry] = useState(false)
   const [manualForm, setManualForm] = useState({ act1Start: '', act1End: '', intermissionStart: '', intermissionEnd: '', act2Start: '', act2End: '' })
   const timelinePollRef = useRef(null)
 
-  // SM control logic — only the SM who started the clock can control it
   const isSM = session?.staffRole === 'Stage Manager'
   const isController = isSM && (!lockedBy || lockedBy === session?.name)
 
@@ -101,14 +95,11 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
     const intermissionEnd = parseTimeToISO(mf.intermissionEnd, showDate)
     const act2Start = parseTimeToISO(mf.act2Start, showDate)
     const act2End = parseTimeToISO(mf.act2End, showDate)
-
     const phase = act2End ? 'done' : act2Start ? 'act2' : intermissionEnd ? 'act2' : intermissionStart ? 'intermission' : act1Start ? 'act1' : 'preshow'
-
     updateTimeline({ phase, act1Start, act1End: act1End || intermissionStart, intermissionStart, intermissionEnd: intermissionEnd || act2Start, act2Start, act2End })
     setManualEntry(false)
   }
 
-  // Poll remote timeline every 5s
   useEffect(() => {
     async function pollTimeline() {
       const { timeline: remote, lockedBy: lb } = await getTimelineRemote(sheetId, showDate)
@@ -123,7 +114,6 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
     return () => clearInterval(timelinePollRef.current)
   }, [sheetId, showDate])
 
-  // Alert tracking
   const [alertsFired, setAlertsFired] = useState({ 60: false, 30: false, 15: false })
   const alertRefs = useRef({})
   const pollRef = useRef(null)
@@ -144,7 +134,6 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
     return () => clearInterval(pollRef.current)
   }, [sheetId, showDate])
 
-  // Auto alerts
   useEffect(() => {
     if (!curtainTime || !showDate) return
     Object.values(alertRefs.current).forEach(t => clearTimeout(t))
@@ -187,7 +176,6 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
     finally { setAlerting(false) }
   }
 
-  // ── Computed values ──────────────────────────────────────────────────────────
   const castList = (status?.castList || []).map(c => typeof c === 'string' ? c : c.name).filter(Boolean)
   const checkins = status?.checkins || []
   const checkedInNames = new Set(checkins.map(c => c.castName))
@@ -204,50 +192,9 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   const curtainPast = secsLeft !== null && secsLeft < 0
   const overCurtainSecs = curtainPast ? Math.abs(secsLeft) : 0
 
-  // Intermission overrun
   const intermissionMs = elapsedMs(timeline.intermissionStart)
   const intermissionOver = timeline.phase === 'intermission' && intermissionMs > INTERMISSION_STANDARD
-  const intermissionOverMs = intermissionOver ? intermissionMs - INTERMISSION_STANDARD : 0
 
-  // ── Manual entry modal ────────────────────────────────────────────────────────
-  function ManualEntryModal() {
-    const fields = [
-      { key: 'act1Start', label: 'Act 1 Start' },
-      { key: 'act1End', label: 'Act 1 End / Intermission Start' },
-      { key: 'intermissionStart', label: 'Intermission Start (if different)' },
-      { key: 'intermissionEnd', label: 'Intermission End / Act 2 Start' },
-      { key: 'act2Start', label: 'Act 2 Start (if different)' },
-      { key: 'act2End', label: 'Act 2 End / Show End' },
-    ]
-    return (
-      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-        <div style={{ background: 'var(--bg)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', width: '100%', maxWidth: 400, maxHeight: '90vh', overflowY: 'auto' }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Enter show times manually</h2>
-          <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: '1rem' }}>
-            Enter times in any format: 7:32 PM, 19:32, 8:05 PM
-          </p>
-          {fields.map(f => (
-            <div key={f.key} className="field" style={{ marginBottom: 10 }}>
-              <label style={{ fontSize: 12 }}>{f.label}</label>
-              <input
-                type="text"
-                placeholder="e.g. 7:32 PM"
-                value={manualForm[f.key]}
-                onChange={e => setManualForm(fm => ({ ...fm, [f.key]: e.target.value }))}
-                style={{ fontSize: 13 }}
-              />
-            </div>
-          ))}
-          <div style={{ display: 'flex', gap: 8, marginTop: '1rem' }}>
-            <button className="btn btn-primary" onClick={applyManualEntry}>Apply times</button>
-            <button className="btn" onClick={() => setManualEntry(false)}>Cancel</button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // ── Run history — all shows in this run pulled from localStorage ─────────────
   function RunHistory({ currentDate }) {
     const showDates = Object.keys(curtainTimes).sort()
     if (showDates.length < 2) return null
@@ -258,7 +205,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
       const a1 = t.act1Start && t.act1End ? new Date(t.act1End) - new Date(t.act1Start) : 0
       const int = t.intermissionStart && t.intermissionEnd ? new Date(t.intermissionEnd) - new Date(t.intermissionStart) : 0
       const a2 = t.act2Start && t.act2End ? new Date(t.act2End) - new Date(t.act2Start) : 0
-      return { a1, int, a2, show: a1 + a2, total: a1 + int + a2 }
+      return { a1, int, a2, total: a1 + int + a2 }
     }
 
     function fmtMs2(ms) {
@@ -271,46 +218,34 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
       return `${m}:${String(s).padStart(2,'0')}`
     }
 
-    const rows = showDates.map((date, i) => {
+    const rows = showDates.map((date) => {
       const times = msForDate(date)
       const isCurrent = date === currentDate
       const label = new Date(date + 'T12:00:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
-      return { date, times, isCurrent, label, perfNum: i + 1 }
+      return { date, times, isCurrent, label }
     })
 
-    const completedRows = rows.filter(r => r.times)
-    if (completedRows.length === 0 && !rows.some(r => r.isCurrent)) return null
+    if (!rows.some(r => r.times || r.isCurrent)) return null
 
     return (
       <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '12px 14px', marginTop: 12 }}>
-        <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
-          Run history
-        </p>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Run history</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: '4px 10px', alignItems: 'center' }}>
           <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Show</div>
           <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'right' }}>Act 1</div>
           <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'right' }}>Int.</div>
           <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'right' }}>Act 2</div>
           <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'right' }}>Total</div>
-
           {rows.map(row => (
             <React.Fragment key={row.date}>
               <div style={{ fontSize: 11, color: row.isCurrent ? '#a78bfa' : row.times ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)', fontWeight: row.isCurrent ? 700 : 400, display: 'flex', alignItems: 'center', gap: 4 }}>
                 {row.isCurrent && <span style={{ fontSize: 8, background: '#a78bfa', color: '#0f2340', borderRadius: 3, padding: '1px 4px', fontWeight: 800 }}>NOW</span>}
                 {row.label}
               </div>
-              <div style={{ fontSize: 12, fontWeight: row.isCurrent ? 700 : 400, color: row.times ? (row.isCurrent ? '#a78bfa' : 'rgba(255,255,255,0.7)') : 'rgba(255,255,255,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                {row.times ? fmtMs2(row.times.a1) : '—'}
-              </div>
-              <div style={{ fontSize: 12, fontWeight: row.isCurrent ? 700 : 400, color: row.times ? (row.times.int > 15*60*1000 ? '#fca5a5' : (row.isCurrent ? '#a78bfa' : 'rgba(255,255,255,0.7)')) : 'rgba(255,255,255,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                {row.times ? fmtMs2(row.times.int) : '—'}
-              </div>
-              <div style={{ fontSize: 12, fontWeight: row.isCurrent ? 700 : 400, color: row.times ? (row.isCurrent ? '#a78bfa' : 'rgba(255,255,255,0.7)') : 'rgba(255,255,255,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                {row.times ? fmtMs2(row.times.a2) : '—'}
-              </div>
-              <div style={{ fontSize: 12, fontWeight: row.isCurrent ? 800 : 400, color: row.times ? (row.isCurrent ? '#fff' : 'rgba(255,255,255,0.7)') : 'rgba(255,255,255,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                {row.times ? fmtMs2(row.times.total) : '—'}
-              </div>
+              <div style={{ fontSize: 12, fontWeight: row.isCurrent ? 700 : 400, color: row.times ? (row.isCurrent ? '#a78bfa' : 'rgba(255,255,255,0.7)') : 'rgba(255,255,255,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{row.times ? fmtMs2(row.times.a1) : '—'}</div>
+              <div style={{ fontSize: 12, fontWeight: row.isCurrent ? 700 : 400, color: row.times ? (row.times.int > 15*60*1000 ? '#fca5a5' : (row.isCurrent ? '#a78bfa' : 'rgba(255,255,255,0.7)')) : 'rgba(255,255,255,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{row.times ? fmtMs2(row.times.int) : '—'}</div>
+              <div style={{ fontSize: 12, fontWeight: row.isCurrent ? 700 : 400, color: row.times ? (row.isCurrent ? '#a78bfa' : 'rgba(255,255,255,0.7)') : 'rgba(255,255,255,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{row.times ? fmtMs2(row.times.a2) : '—'}</div>
+              <div style={{ fontSize: 12, fontWeight: row.isCurrent ? 800 : 400, color: row.times ? (row.isCurrent ? '#fff' : 'rgba(255,255,255,0.7)') : 'rgba(255,255,255,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{row.times ? fmtMs2(row.times.total) : '—'}</div>
             </React.Fragment>
           ))}
         </div>
@@ -318,57 +253,38 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
     )
   }
 
-  // ── Timeline header card ─────────────────────────────────────────────────────
   function TimelineHeader() {
     const phase = timeline.phase
-
-    // Lock indicator for non-controllers
     const lockBanner = !isController && lockedBy ? (
-      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', textAlign: 'center', marginTop: 8 }}>
-        🔒 Clock controlled by {lockedBy}
-      </p>
+      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', textAlign: 'center', marginTop: 8 }}>🔒 Clock controlled by {lockedBy}</p>
     ) : null
 
-    // PRE-SHOW
     if (phase === 'preshow') {
-      const overdue = curtainPast && timeline.phase === 'preshow'
+      const overdue = curtainPast
       return (
         <div style={{ background: overdue ? 'var(--red-text)' : '#0f2340', borderRadius: 'var(--radius-lg)', padding: '16px 20px', marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <div>
-              <p style={{ fontSize: 13, fontWeight: 700, color: overdue ? '#fff' : 'rgba(255,255,255,0.6)', margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>
-                {overdue ? '⚠ CURTAIN OVERDUE' : 'Time to Curtain'}
-              </p>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
-                {production?.config?.title}
-                {curtainTime && ` · Curtain ${new Date(`1970-01-01T${curtainTime}`).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}
-              </p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: overdue ? '#fff' : 'rgba(255,255,255,0.6)', margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>{overdue ? '⚠ CURTAIN OVERDUE' : 'Time to Curtain'}</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: 0 }}>{production?.config?.title}{curtainTime && ` · Curtain ${new Date(`1970-01-01T${curtainTime}`).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}</p>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginBottom: 2 }}>
-                {now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-              </div>
-            </div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>{now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
           </div>
           <div style={{ textAlign: 'center', padding: '8px 0' }}>
             {!curtainTime ? (
               <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.4)' }}>Set curtain time below</p>
             ) : overdue ? (
               <div>
-                <div style={{ fontSize: 56, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
-                  +{fmtCountdown(overCurtainSecs)}
-                </div>
+                <div style={{ fontSize: 56, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>+{fmtCountdown(overCurtainSecs)}</div>
                 <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 6 }}>over scheduled curtain — start Act 1 when ready</p>
               </div>
             ) : (
-              <div style={{ fontSize: 56, fontWeight: 900, color: secsLeft < 600 ? '#fbbf24' : '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
-                {fmtCountdown(secsLeft)}
-              </div>
+              <div style={{ fontSize: 56, fontWeight: 900, color: secsLeft < 600 ? '#fbbf24' : '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{fmtCountdown(secsLeft)}</div>
             )}
           </div>
           {isController ? (
             <button onClick={() => updateTimeline({ phase: 'act1', act1Start: new Date().toISOString() })}
-              style={{ width: '100%', marginTop: 12, background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer', letterSpacing: '-0.2px' }}>
+              style={{ width: '100%', marginTop: 12, background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
               ▶ Start Act 1
             </button>
           ) : (
@@ -382,7 +298,6 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
       )
     }
 
-    // ACT 1 RUNNING
     if (phase === 'act1') {
       return (
         <div style={{ background: '#0f2340', borderRadius: 'var(--radius-lg)', padding: '16px 20px', marginBottom: 14 }}>
@@ -390,17 +305,11 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
             <div>
               <p style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)', margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>Now Playing</p>
               <p style={{ fontSize: 28, fontWeight: 900, color: '#fff', margin: '2px 0 0', letterSpacing: '-0.5px', lineHeight: 1 }}>Act One</p>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
-                Started {new Date(timeline.act1Start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-              </p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Started {new Date(timeline.act1Start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
             </div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>
-              {now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}
-            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>{now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</div>
           </div>
-          <div style={{ fontSize: 44, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', textAlign: 'center', lineHeight: 1, marginBottom: 12 }}>
-            {fmtElapsed(timeline.act1Start)}
-          </div>
+          <div style={{ fontSize: 44, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', textAlign: 'center', lineHeight: 1, marginBottom: 12 }}>{fmtElapsed(timeline.act1Start)}</div>
           {isController ? (
             <button onClick={() => { const n = new Date().toISOString(); updateTimeline({ phase: 'intermission', act1End: n, intermissionStart: n }) }}
               style={{ width: '100%', background: '#fbbf24', border: 'none', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#0f0f0f', cursor: 'pointer' }}>
@@ -417,36 +326,25 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
       )
     }
 
-    // INTERMISSION
     if (phase === 'intermission') {
       return (
         <div style={{ background: intermissionOver ? 'var(--red-text)' : '#1e1b4b', borderRadius: 'var(--radius-lg)', padding: '16px 20px', marginBottom: 14, transition: 'background 0.5s' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <div>
-              <p style={{ fontSize: 13, fontWeight: 700, color: intermissionOver ? '#fff' : 'rgba(255,255,255,0.6)', margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>
-                {intermissionOver ? '⏰ INTERMISSION OVER TIME' : 'Intermission'}
-              </p>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: 0 }}>
-                Started {new Date(timeline.intermissionStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-              </p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: intermissionOver ? '#fff' : 'rgba(255,255,255,0.6)', margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>{intermissionOver ? '⏰ INTERMISSION OVER TIME' : 'Intermission'}</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: 0 }}>Started {new Date(timeline.intermissionStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
             </div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>
-              {now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}
-            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>{now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</div>
           </div>
           <div style={{ textAlign: 'center', marginBottom: 8 }}>
             {intermissionOver ? (
               <div>
-                <div style={{ fontSize: 52, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
-                  +{fmtElapsed(new Date(timeline.intermissionStart).getTime() + INTERMISSION_STANDARD)}
-                </div>
+                <div style={{ fontSize: 52, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>+{fmtElapsed(new Date(timeline.intermissionStart).getTime() + INTERMISSION_STANDARD)}</div>
                 <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>over 15 minutes</p>
               </div>
             ) : (
               <div>
-                <div style={{ fontSize: 52, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
-                  {fmtElapsed(timeline.intermissionStart)}
-                </div>
+                <div style={{ fontSize: 52, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{fmtElapsed(timeline.intermissionStart)}</div>
                 <div style={{ height: 5, background: 'rgba(255,255,255,0.2)', borderRadius: 3, margin: '8px 0 0', overflow: 'hidden' }}>
                   <div style={{ height: '100%', borderRadius: 3, width: `${Math.min(100, (intermissionMs / INTERMISSION_STANDARD) * 100)}%`, background: intermissionMs > INTERMISSION_STANDARD * 0.8 ? '#fbbf24' : '#a78bfa', transition: 'width 1s linear' }} />
                 </div>
@@ -470,7 +368,6 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
       )
     }
 
-    // ACT 2
     if (phase === 'act2') {
       return (
         <div style={{ background: '#14532d', borderRadius: 'var(--radius-lg)', padding: '16px 20px', marginBottom: 14 }}>
@@ -478,17 +375,11 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
             <div>
               <p style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)', margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>Now Playing</p>
               <p style={{ fontSize: 28, fontWeight: 900, color: '#fff', margin: '2px 0 0', letterSpacing: '-0.5px', lineHeight: 1 }}>Act Two</p>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
-                Intermission ran {fmtElapsed(timeline.intermissionStart)} · Act 2 called {new Date(timeline.act2Start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-              </p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Intermission ran {fmtElapsed(timeline.intermissionStart)} · Act 2 called {new Date(timeline.act2Start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
             </div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>
-              {now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}
-            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>{now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</div>
           </div>
-          <div style={{ fontSize: 44, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', textAlign: 'center', lineHeight: 1, marginBottom: 12 }}>
-            {fmtElapsed(timeline.act2Start)}
-          </div>
+          <div style={{ fontSize: 44, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', textAlign: 'center', lineHeight: 1, marginBottom: 12 }}>{fmtElapsed(timeline.act2Start)}</div>
           {isController ? (
             <button onClick={() => { const n = new Date().toISOString(); updateTimeline({ phase: 'done', act2End: n, showEnd: n }) }}
               style={{ width: '100%', background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
@@ -526,44 +417,20 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
         <div style={{ textAlign: 'center', marginBottom: 16 }}>
           <p style={{ fontSize: 24, margin: 0 }}>🎉</p>
           <p style={{ fontSize: 18, fontWeight: 800, color: '#fff', margin: '4px 0 2px' }}>Show complete!</p>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
-            {production?.config?.title} · Performance {timeline.perfNum}
-          </p>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>{production?.config?.title} · Performance {timeline.perfNum}</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
-          <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 8px', textAlign: 'center' }}>
-            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 0.5 }}>Act 1</p>
-            <p style={{ fontSize: 20, fontWeight: 800, color: '#fff', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-              {timeline.act1Start ? fmtMs(act1Ms) : '—'}
-            </p>
-            {timeline.act1Start && (
-              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', margin: '3px 0 0' }}>
-                {new Date(timeline.act1Start).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})} → {timeline.act1End ? new Date(timeline.act1End).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}) : '?'}
-              </p>
-            )}
-          </div>
-          <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 8px', textAlign: 'center' }}>
-            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 0.5 }}>Intermission</p>
-            <p style={{ fontSize: 20, fontWeight: 800, color: intermissionMs2 > 15*60*1000 ? '#fca5a5' : '#fff', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-              {timeline.intermissionStart ? fmtMs(intermissionMs2) : '—'}
-            </p>
-            {timeline.intermissionStart && (
-              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', margin: '3px 0 0' }}>
-                {new Date(timeline.intermissionStart).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})} → {timeline.intermissionEnd ? new Date(timeline.intermissionEnd).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}) : '?'}
-              </p>
-            )}
-          </div>
-          <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 8px', textAlign: 'center' }}>
-            <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 0.5 }}>Act 2</p>
-            <p style={{ fontSize: 20, fontWeight: 800, color: '#fff', margin: 0, fontVariantNumeric: 'tabular-nums' }}>
-              {timeline.act2Start ? fmtMs(act2Ms) : '—'}
-            </p>
-            {timeline.act2Start && (
-              <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', margin: '3px 0 0' }}>
-                {new Date(timeline.act2Start).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})} → {timeline.act2End ? new Date(timeline.act2End).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}) : '?'}
-              </p>
-            )}
-          </div>
+          {[
+            { label: 'Act 1', ms: act1Ms, start: timeline.act1Start, end: timeline.act1End },
+            { label: 'Intermission', ms: intermissionMs2, start: timeline.intermissionStart, end: timeline.intermissionEnd, warn: intermissionMs2 > 15*60*1000 },
+            { label: 'Act 2', ms: act2Ms, start: timeline.act2Start, end: timeline.act2End },
+          ].map(({ label, ms, start, end, warn }) => (
+            <div key={label} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 8px', textAlign: 'center' }}>
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</p>
+              <p style={{ fontSize: 20, fontWeight: 800, color: warn ? '#fca5a5' : '#fff', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{start ? fmtMs(ms) : '—'}</p>
+              {start && <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', margin: '3px 0 0' }}>{new Date(start).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})} → {end ? new Date(end).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}) : '?'}</p>}
+            </div>
+          ))}
         </div>
         <div style={{ borderTop: '0.5px solid rgba(255,255,255,0.12)', paddingTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
           <div style={{ textAlign: 'center' }}>
@@ -588,13 +455,39 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
     )
   }
 
-  // ── Main render ──────────────────────────────────────────────────────────────
   return (
     <div>
-      {manualEntry && <ManualEntryModal />}
+      {/* Manual entry modal — inlined to prevent focus loss on re-render */}
+      {manualEntry && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ background: 'var(--bg)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', width: '100%', maxWidth: 400, maxHeight: '90vh', overflowY: 'auto' }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Enter show times manually</h2>
+            <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: '1rem' }}>Enter times in any format: 7:32 PM, 19:32, 8:05 PM</p>
+            {[
+              { key: 'act1Start', label: 'Act 1 Start' },
+              { key: 'act1End', label: 'Act 1 End / Intermission Start' },
+              { key: 'intermissionStart', label: 'Intermission Start (if different)' },
+              { key: 'intermissionEnd', label: 'Intermission End / Act 2 Start' },
+              { key: 'act2Start', label: 'Act 2 Start (if different)' },
+              { key: 'act2End', label: 'Act 2 End / Show End' },
+            ].map(f => (
+              <div key={f.key} className="field" style={{ marginBottom: 10 }}>
+                <label style={{ fontSize: 12 }}>{f.label}</label>
+                <input type="text" placeholder="e.g. 7:32 PM" value={manualForm[f.key]}
+                  onChange={e => setManualForm(fm => ({ ...fm, [f.key]: e.target.value }))}
+                  style={{ fontSize: 13 }} />
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: 8, marginTop: '1rem' }}>
+              <button className="btn btn-primary" onClick={applyManualEntry}>Apply times</button>
+              <button className="btn" onClick={() => setManualEntry(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <TimelineHeader />
 
-      {/* Curtain time + date controls */}
       <div style={{ background: 'var(--bg2)', borderRadius: 'var(--radius)', padding: '0.75rem 1rem', marginBottom: 14 }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div className="field" style={{ margin: 0, flex: '0 0 auto' }}>
@@ -602,10 +495,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
             <input type="date" value={showDate} onChange={e => setShowDate(e.target.value)} style={{ fontSize: 13, padding: '5px 8px' }} />
           </div>
           <div className="field" style={{ margin: 0, flex: '0 0 auto' }}>
-            <label style={{ fontSize: 11 }}>
-              Curtain time
-              {curtainTimes[showDate] && <span style={{ color: 'var(--green-text)', marginLeft: 4 }}>✓ saved</span>}
-            </label>
+            <label style={{ fontSize: 11 }}>Curtain time{curtainTimes[showDate] && <span style={{ color: 'var(--green-text)', marginLeft: 4 }}>✓ saved</span>}</label>
             <input type="time" value={curtainTime}
               onChange={e => { setCurtainTime(e.target.value); setAlertsFired({ 60: false, 30: false, 15: false }) }}
               onBlur={e => { if (e.target.value) saveCurtainTime(showDate, e.target.value) }}
@@ -636,7 +526,6 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
         )}
       </div>
 
-      {/* Check-in progress */}
       <div style={{ background: 'var(--bg2)', borderRadius: 'var(--radius-lg)', padding: '1rem', marginBottom: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <p style={{ fontSize: 15, fontWeight: 600 }}>{effectiveCheckins.length} / {castList.length} checked in</p>
@@ -651,7 +540,6 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
         }
       </div>
 
-      {/* Check-in link */}
       <button onClick={onGoToCheckin}
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0.875rem 1rem', marginBottom: 12, background: 'var(--bg2)', border: '0.5px solid var(--border2)', borderRadius: 'var(--radius-lg)', cursor: 'pointer', color: 'var(--text)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -686,7 +574,6 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
 
       <CustomAlertPanel sheetId={sheetId} production={production} isShowDay={true} />
 
-      {/* Manual alert */}
       <div style={{ marginBottom: 14 }}>
         <button className="btn btn-primary btn-full" onClick={sendAlerts} disabled={alerting}>
           {alerting ? 'Sending…' : missingCast.length === 0 ? '📱 Send "All clear" to stage manager' : `📱 Alert stage manager — ${missingCast.length} missing`}
@@ -698,14 +585,13 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
               : <>
                 {alertResult.alerted?.length > 0 && <p style={{ color: 'var(--green-text)', marginBottom: 2 }}>✓ Alerted: {alertResult.alerted.join(', ')}</p>}
                 {alertResult.failed?.length > 0 && <p style={{ color: 'var(--red-text)' }}>✗ Failed: {alertResult.failed.map(f => f.name).join(', ')}</p>}
-                {!alertResult.alerted?.length && !alertResult.failed?.length && <p style={{ color: 'var(--text2)' }}>No SMS numbers on file for staff.</p>}
+                {!alertResult.alerted?.length && !alertResult.failed?.length && <p style={{ color: 'var(--text2)' }}>No notification contacts on file.</p>}
               </>
             }
           </div>
         )}
       </div>
 
-      {/* Missing / Present */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
           <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--red-text)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>⚠ Missing ({missingCast.length})</p>
@@ -724,9 +610,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
                 <div key={c.castName} style={{ padding: '8px 10px', marginBottom: 4, borderRadius: 'var(--radius)', background: 'var(--bg2)', border: '0.5px solid var(--border)', fontSize: 13 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 4 }}>
                     <span style={{ fontWeight: 500 }}>{c.castName}</span>
-                    <span style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>
-                      {new Date(c.checkedInAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>{new Date(c.checkedInAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>
                   </div>
                   {c.note && <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{c.note}</p>}
                 </div>

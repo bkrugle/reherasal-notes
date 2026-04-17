@@ -113,7 +113,7 @@ async function sendEmailToNtfy(topic, title, message) {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain',
-        'Title': title || 'Ovature Alert',
+        'Title': Buffer.from((title || 'Ovature Alert').replace(/[^\x00-\x7F]/g, '').trim() || 'Ovature Alert').toString(),
         'Priority': 'high',
         'Tags': 'theatre,alert',
         'Content-Length': Buffer.byteLength(body)
