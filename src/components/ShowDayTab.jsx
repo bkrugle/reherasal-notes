@@ -65,6 +65,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   const [timeline, setTimeline] = useState(() => getTimeline(sheetId, showDate))
   const [lockedBy, setLockedBy] = useState(null)
   const [manualEntry, setManualEntry] = useState(false)
+  const [historyVersion, setHistoryVersion] = useState(0)
   const [manualForm, setManualForm] = useState({ act1Start: '', act1End: '', intermissionStart: '', intermissionEnd: '', act2Start: '', act2End: '' })
   const timelinePollRef = useRef(null)
 
@@ -116,6 +117,15 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
     timelinePollRef.current = setInterval(pollTimeline, TIMELINE_POLL_INTERVAL)
     return () => clearInterval(timelinePollRef.current)
   }, [sheetId, showDate])
+
+  // Pre-fetch all show date timelines so Run History displays correctly
+  useEffect(() => {
+    const dates = Object.keys(curtainTimes).filter(d => d !== showDate)
+    Promise.all(dates.map(async date => {
+      const { timeline: remote } = await getTimelineRemote(sheetId, date)
+      if (remote) saveTimeline(sheetId, date, remote)
+    })).then(() => setHistoryVersion(v => v + 1))
+  }, [sheetId])
 
   const [alertsFired, setAlertsFired] = useState({ 60: false, 30: false, 15: false })
   const alertRefs = useRef({})
@@ -198,7 +208,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   const intermissionMs = elapsedMs(timeline.intermissionStart)
   const intermissionOver = timeline.phase === 'intermission' && intermissionMs > INTERMISSION_STANDARD
 
-  function RunHistory({ currentDate }) {
+  function RunHistory({ currentDate, version }) {
     const showDates = Object.keys(curtainTimes).sort()
     if (showDates.length < 2) return null
 
@@ -296,7 +306,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
             </div>
           )}
           {lockBanner}
-          <RunHistory currentDate={showDate} />
+          <RunHistory currentDate={showDate} version={historyVersion} />
         </div>
       )
     }
@@ -324,7 +334,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
             </div>
           )}
           {lockBanner}
-          <RunHistory currentDate={showDate} />
+          <RunHistory currentDate={showDate} version={historyVersion} />
         </div>
       )
     }
@@ -366,7 +376,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
             </div>
           )}
           {lockBanner}
-          <RunHistory currentDate={showDate} />
+          <RunHistory currentDate={showDate} version={historyVersion} />
         </div>
       )
     }
@@ -394,7 +404,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
             </div>
           )}
           {lockBanner}
-          <RunHistory currentDate={showDate} />
+          <RunHistory currentDate={showDate} version={historyVersion} />
         </div>
       )
     }
@@ -453,7 +463,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
             Reset for next performance
           </button>
         )}
-        <RunHistory currentDate={showDate} />
+        <RunHistory currentDate={showDate} version={historyVersion} />
       </div>
     )
   }
