@@ -10,21 +10,53 @@ export function saveTimeline(sheetId, showDate, state) {
   localStorage.setItem(KEY(sheetId, showDate), JSON.stringify(state))
 }
 
+export async function saveTimelineRemote(sheetId, showDate, timeline) {
+  try {
+    await fetch('/.netlify/functions/saveTimeline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sheetId, showDate, timeline })
+    })
+    // Also save locally as cache
+    saveTimeline(sheetId, showDate, timeline)
+  } catch (e) {
+    console.warn('Remote timeline save failed:', e.message)
+    // Fall back to local only
+    saveTimeline(sheetId, showDate, timeline)
+  }
+}
+
+export async function getTimelineRemote(sheetId, showDate) {
+  try {
+    const res = await fetch(`/.netlify/functions/getTimeline?sheetId=${sheetId}&showDate=${showDate}`)
+    const data = await res.json()
+    if (data.timeline) {
+      // Cache locally
+      saveTimeline(sheetId, showDate, data.timeline)
+      return { timeline: data.timeline, lockedBy: data.lockedBy || '' }
+    }
+  } catch (e) {
+    console.warn('Remote timeline fetch failed:', e.message)
+  }
+  // Fall back to local
+  return { timeline: getTimeline(sheetId, showDate), lockedBy: '' }
+}
+
 export function defaultTimeline() {
   return {
     phase: 'preshow',
     act1Start: null,
-    act1End: null,        // set when intermission starts
+    act1End: null,
     intermissionStart: null,
-    intermissionEnd: null, // set when act 2 starts
+    intermissionEnd: null,
     act2Start: null,
-    act2End: null,         // set when show ends
+    act2End: null,
     perfNum: 1,
+    lockedBy: null,
   }
 }
 
 // fmtElapsed(startIso, endIso?)
-// If endIso provided, shows frozen elapsed. Otherwise live.
 export function fmtElapsed(startIso, endIso = null) {
   if (!startIso) return '0:00'
   const end = endIso ? new Date(endIso).getTime() : Date.now()
