@@ -183,7 +183,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   async function sendAlerts(alertTarget = 'staff') {
     setAlerting(true); setAlertResult(null)
     try {
-      const result = await api.sendCheckinAlerts({ sheetId, showDate, curtainTime, alertMinutes: 60, alertTarget })
+      const result = await api.sendCheckinAlerts({ sheetId, showDate, curtainTime, alertTarget })
       setAlertResult(result)
     } catch (e) { setAlertResult({ error: e.message }) }
     finally { setAlerting(false) }
