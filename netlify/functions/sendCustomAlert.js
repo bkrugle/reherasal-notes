@@ -40,7 +40,7 @@ exports.handler = async (event) => {
           .filter(r => r.some(Boolean))
           .forEach(r => {
             const ntfyTopic = r[idx.ntfyTopic] || ''
-			const phone = r[idx.phone] || ''
+			sed -n '93,100p' netlify/functions/sendCheckinAlerts.jsconst phone = r[idx.phone] || ''
             const name = r[idx.name] || ''
             if (ntfyTopic || phone) allContacts.push({ name, ntfyTopic, phone })
           })
