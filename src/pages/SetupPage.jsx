@@ -550,15 +550,6 @@ function TeamTab({ config, setC, sharedWith, setSharedWith, newMember, setNewMem
                 {config.showDirectorNtfy ? 'Done' : 'Edit'}
               </button>
             </div>
-            {config.showDirectorNtfy && (
-              <div style={{ padding: '12px', borderTop: '0.5px solid var(--border)', background: 'var(--bg2)' }}>
-                <div className="field" style={{ margin: 0 }}>
-                  <label>Your ntfy push topic</label>
-                  <input type="text" value={config.directorNtfyTopic || ''} onChange={e => setC('directorNtfyTopic', e.target.value)} placeholder={config.ntfyTopic || 'your-ntfy-topic'} />
-                </div>
-                <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>This sends show day alerts to your ntfy app.</p>
-              </div>
-            )}
           </div>
         )}
 
@@ -932,6 +923,10 @@ export default function SetupPage() {
                 <label>Director email</label>
                 <input type="email" value={config.directorEmail} onChange={e => setC('directorEmail', e.target.value)} />
               </div>
+            </div>
+            <div className="field" style={{ marginBottom: '1rem' }}>
+              <label>Your ntfy push topic <span style={{ fontWeight: 400, color: 'var(--text3)', fontSize: 11 }}>— receive show day alerts on your device</span></label>
+              <input type="text" value={config.directorNtfyTopic || ''} onChange={e => setC('directorNtfyTopic', e.target.value)} placeholder={config.ntfyTopic || 'your-ntfy-topic'} />
             </div>
             <div className="grid2" style={{ marginBottom: '1rem' }}>
               <div className="field">
