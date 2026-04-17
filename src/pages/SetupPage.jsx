@@ -551,12 +551,17 @@ function TeamTab({ config, setC, sharedWith, setSharedWith, newMember, setNewMem
               </button>
             </div>
             {config.showDirectorNtfy && (
-              <div style={{ padding: '12px', borderTop: '0.5px solid var(--border)', background: 'var(--bg2)' }}>
+              <div style={{ padding: '12px', borderTop: '0.5px solid var(--border)', background: 'var(--bg2)', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div className="field" style={{ margin: 0 }}>
-                  <label>Your ntfy push topic</label>
-                  <input type="text" value={config.directorNtfyTopic || ''} onChange={e => setC('directorNtfyTopic', e.target.value)} placeholder={config.ntfyTopic || 'your-ntfy-topic'} />
+                  <label>Phone <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(optional)</span></label>
+                  <input type="tel" value={config.directorPhone || ''} onChange={e => setC('directorPhone', e.target.value)} placeholder="4125550100" />
                 </div>
-                <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Save using the Save team button below.</p>
+                <div className="field" style={{ margin: 0 }}>
+                  <label>ntfy push topic <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(for show day alerts)</span></label>
+                  <input type="text" value={config.directorNtfyTopic || ''} onChange={e => setC('directorNtfyTopic', e.target.value)} placeholder={config.ntfyTopic || 'your-ntfy-topic'} />
+                  {config.directorNtfyTopic && <TestButton topic={config.directorNtfyTopic} productionTitle={config.title} />}
+                </div>
+                <p style={{ fontSize: 11, color: 'var(--text3)' }}>Click Save team below to save.</p>
               </div>
             )}
           </div>
@@ -719,7 +724,7 @@ export default function SetupPage() {
   const [activeTab, setActiveTab] = useState('details')
 
   const [config, setConfig] = useState({
-    title: '', directorName: '', directorEmail: '', directorNtfyTopic: '',
+    title: '', directorName: '', directorEmail: '', directorNtfyTopic: '', directorPhone: '',
 	showDates: '', venue: '', calendarId: '', useAuditions: 'false', auditionQuestions: [], scenes: [], characters: [], staff: [], curtainTimes: {}, notificationContacts: [], accentColor: '', accentBg: ''
   })
   const [sharedWith, setSharedWith] = useState([])
@@ -745,6 +750,7 @@ export default function SetupPage() {
         curtainTimes: typeof data.config.curtainTimes === 'object' ? data.config.curtainTimes : {},
         ntfyTopic: data.config.ntfyTopic || '',
 		directorNtfyTopic: data.config.directorNtfyTopic || '',
+		directorPhone: data.config.directorPhone || '',
         accentColor: data.config.accentColor || '',
         accentBg: data.config.accentBg || '',
         auditionQuestions: Array.isArray(data.config.auditionQuestions) ? data.config.auditionQuestions : [],
@@ -823,7 +829,7 @@ export default function SetupPage() {
   setError('')
   try {
     // Save directorNtfyTopic to config alongside team
-    await api.updateProduction({ sheetId: session.sheetId, config: { directorNtfyTopic: config.directorNtfyTopic || '' } })
+    await api.updateProduction({ sheetId: session.sheetId, config: { directorNtfyTopic: config.directorNtfyTopic || '', directorPhone: config.directorPhone || '' } })
     const result = await api.updateProduction({ sheetId: session.sheetId, sharedWith })
       if (result.newInviteCodes) {
         const appUrl = window.location.origin
