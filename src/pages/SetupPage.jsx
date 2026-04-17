@@ -550,6 +550,15 @@ function TeamTab({ config, setC, sharedWith, setSharedWith, newMember, setNewMem
                 {config.showDirectorNtfy ? 'Done' : 'Edit'}
               </button>
             </div>
+            {config.showDirectorNtfy && (
+              <div style={{ padding: '12px', borderTop: '0.5px solid var(--border)', background: 'var(--bg2)' }}>
+                <div className="field" style={{ margin: 0 }}>
+                  <label>Your ntfy push topic</label>
+                  <input type="text" value={config.directorNtfyTopic || ''} onChange={e => setC('directorNtfyTopic', e.target.value)} placeholder={config.ntfyTopic || 'your-ntfy-topic'} />
+                </div>
+                <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Save using the Save team button below.</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -810,9 +819,12 @@ export default function SetupPage() {
   }
 
   async function saveTeam() {
-    setSaving(true)
-    setError('')
-    try {
+  setSaving(true)
+  setError('')
+  try {
+    // Save directorNtfyTopic to config alongside team
+    await api.updateProduction({ sheetId: session.sheetId, config: { directorNtfyTopic: config.directorNtfyTopic || '' } })
+    const result = await api.updateProduction({ sheetId: session.sheetId, sharedWith })
       const result = await api.updateProduction({ sheetId: session.sheetId, sharedWith })
       if (result.newInviteCodes) {
         const appUrl = window.location.origin
