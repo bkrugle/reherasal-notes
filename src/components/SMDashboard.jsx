@@ -57,7 +57,8 @@ export default function SMDashboard({ sheetId, productionCode, production, sessi
   // Timeline
   const [timeline, setTimeline] = useState(defaultTimeline)
   const [lockedBy, setLockedBy] = useState(null)
-  const [savingTimeline, setSavingTimeline] = useState(false)
+  const [savingTimeline, setSavingTimeline] = useState(false) // keep for button UI
+  const savingTimelineRef = useRef(false)
   const timelinePollRef = useRef(null)
 
   // Manual time entry
@@ -137,7 +138,8 @@ export default function SMDashboard({ sheetId, productionCode, production, sessi
   }, [timeline.phase, timeline.act2End])
 
   async function updateTimeline(changes) {
-    if (savingTimeline) return
+    if (savingTimelineRef.current) return
+    savingTimelineRef.current = true
     setSavingTimeline(true)
     try {
       const next = { ...timeline, ...changes }
@@ -146,6 +148,7 @@ export default function SMDashboard({ sheetId, productionCode, production, sessi
       setLockedBy(next.lockedBy || null)
       await saveTimelineRemote(sheetId, showDate, next)
     } finally {
+      savingTimelineRef.current = false
       setSavingTimeline(false)
     }
   }

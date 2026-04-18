@@ -65,17 +65,17 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   const [timeline, setTimeline] = useState(defaultTimeline)
   const [lockedBy, setLockedBy] = useState(null)
   const [manualEntry, setManualEntry] = useState(false)
-  const [savingTimeline, setSavingTimeline] = useState(false)
   const [historyVersion, setHistoryVersion] = useState(0)
   const [manualForm, setManualForm] = useState({ act1Start: '', act1End: '', intermissionStart: '', intermissionEnd: '', act2Start: '', act2End: '' })
   const timelinePollRef = useRef(null)
+  const savingTimelineRef = useRef(false)
 
   const isSM = session?.staffRole === 'Stage Manager'
   const isController = isSM && (!lockedBy || lockedBy === session?.name)
 
   async function updateTimeline(changes) {
-    if (savingTimeline) return
-    setSavingTimeline(true)
+    if (savingTimelineRef.current) return
+    savingTimelineRef.current = true
     try {
       const next = { ...timeline, ...changes }
       if (!next.lockedBy && isSM) next.lockedBy = session.name
@@ -83,7 +83,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
       setLockedBy(next.lockedBy || null)
       await saveTimelineRemote(sheetId, showDate, next)
     } finally {
-      setSavingTimeline(false)
+      savingTimelineRef.current = false
     }
   }
 
@@ -303,7 +303,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
             )}
           </div>
           {isController ? (
-            <button onClick={() => updateTimeline({ phase: 'act1', act1Start: new Date().toISOString() })} disabled={savingTimeline}
+            <button onClick={() => updateTimeline({ phase: 'act1', act1Start: new Date().toISOString() })}
               style={{ width: '100%', marginTop: 12, background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
               ▶ Start Act 1
             </button>
@@ -331,7 +331,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
           </div>
           <div style={{ fontSize: 44, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', textAlign: 'center', lineHeight: 1, marginBottom: 12 }}>{fmtElapsed(timeline.act1Start)}</div>
           {isController ? (
-            <button onClick={() => { const n = new Date().toISOString(); updateTimeline({ phase: 'intermission', act1End: n, intermissionStart: n }) }} disabled={savingTimeline}
+            <button onClick={() => { const n = new Date().toISOString(); updateTimeline({ phase: 'intermission', act1End: n, intermissionStart: n }) }}
               style={{ width: '100%', background: '#fbbf24', border: 'none', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#0f0f0f', cursor: 'pointer' }}>
               ⏸ Start Intermission
             </button>
@@ -373,7 +373,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
             )}
           </div>
           {isController ? (
-            <button onClick={() => { const n = new Date().toISOString(); updateTimeline({ phase: 'act2', intermissionEnd: n, act2Start: n }) }} disabled={savingTimeline}
+            <button onClick={() => { const n = new Date().toISOString(); updateTimeline({ phase: 'act2', intermissionEnd: n, act2Start: n }) }}
               style={{ width: '100%', background: '#059669', border: 'none', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
               ▶ Call Act 2 — House Open
             </button>
@@ -401,7 +401,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
           </div>
           <div style={{ fontSize: 44, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', textAlign: 'center', lineHeight: 1, marginBottom: 12 }}>{fmtElapsed(timeline.act2Start)}</div>
           {isController ? (
-            <button onClick={() => { const n = new Date().toISOString(); updateTimeline({ phase: 'done', act2End: n, showEnd: n }) }} disabled={savingTimeline}
+            <button onClick={() => { const n = new Date().toISOString(); updateTimeline({ phase: 'done', act2End: n, showEnd: n }) }}
               style={{ width: '100%', background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
               🎉 End Show
             </button>
