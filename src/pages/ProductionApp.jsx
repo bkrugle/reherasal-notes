@@ -143,10 +143,11 @@ export default function ProductionApp() {
   useEffect(() => {
     if (!production?.config?.showDates) return
     const isShowDay = isWithinShowDates(production.config.showDates)
-    if (isShowDay && !showDayMode) {
+    if (isShowDay) {
       setShowDayMode(true)
       try { localStorage.setItem(showDayKey, 'true') } catch {}
-      setTab(11)
+      const showTabs = [11, 12, 13, 14, 15, 16]
+      if (!showTabs.includes(activeTab)) setTab(11)
     }
   }, [production])
 

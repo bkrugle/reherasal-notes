@@ -66,6 +66,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   const [lockedBy, setLockedBy] = useState(null)
   const [manualEntry, setManualEntry] = useState(false)
   const [historyVersion, setHistoryVersion] = useState(0)
+  const [allTimelines, setAllTimelines] = useState({})
   const [manualForm, setManualForm] = useState({ act1Start: '', act1End: '', intermissionStart: '', intermissionEnd: '', act2Start: '', act2End: '' })
   const timelinePollRef = useRef(null)
   const savingTimelineRef = useRef(false)
@@ -131,8 +132,17 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
     const dates = Object.keys(curtainTimes).filter(d => d !== showDate)
     Promise.all(dates.map(async date => {
       const { timeline: remote } = await getTimelineRemote(sheetId, date)
-      if (remote) saveTimeline(sheetId, date, remote)
-    })).then(() => setHistoryVersion(v => v + 1))
+      if (remote) {
+        saveTimeline(sheetId, date, remote)
+        return [date, remote]
+      }
+      return [date, getTimeline(sheetId, date)]
+    })).then(results => {
+      const map = {}
+      results.forEach(([date, t]) => { if (t) map[date] = t })
+      setAllTimelines(map)
+      setHistoryVersion(v => v + 1)
+    })
   }, [sheetId, timeline.phase, JSON.stringify(curtainTimes)])
 
   const [alertsFired, setAlertsFired] = useState({ 60: false, 30: false, 15: false })
@@ -221,7 +231,8 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
     if (showDates.length < 2) return null
 
     function msForDate(date) {
-      const t = getTimeline(sheetId, date)
+      // Use allTimelines state for other dates, live timeline for current date
+      const t = date === showDate ? timeline : (allTimelines[date] || getTimeline(sheetId, date))
       if (t.phase !== 'done') return null
       const a1 = t.act1Start && t.act1End ? new Date(t.act1End) - new Date(t.act1Start) : 0
       const int = t.intermissionStart && t.intermissionEnd ? new Date(t.intermissionEnd) - new Date(t.intermissionStart) : 0
