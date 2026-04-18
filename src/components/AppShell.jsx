@@ -25,6 +25,7 @@ const NAV_SECTIONS = [
     { label: 'Mic tracker', idx: 13, icon: 'mic' },
     { label: 'Pre-show', idx: 14, icon: 'list' },
     { label: 'Intermission', idx: 15, icon: 'coffee' },
+	{ label: 'SM Dashboard', idx: 16, icon: 'film', smOnly: true },
     { label: 'Auditions', idx: 10, icon: 'star', auditionsOnly: true },
   ]},
 ]
@@ -46,6 +47,7 @@ const ICONS = {
   mic: <><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></>,
   list: <><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>,
   coffee: <><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></>,
+  film: <><rect x="2" y="7" width="20" height="15" rx="2" fill="none"/><polyline points="17 2 12 7 7 2"/></>,
   settings: <><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></>,
   logout: <><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></>,
 }
@@ -116,7 +118,12 @@ export default function AppShell({ children, title, productionCode, activeTab, o
 
           <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
             {NAV_SECTIONS.map(section => {
-              const items = section.items.filter(i => !i.auditionsOnly || useAuditions)
+              const smRoles = ['Stage Manager', 'Asst. SM', 'Assistant SM', 'Director', 'Asst. Director', 'Assistant Director']
+			  const items = section.items.filter(i => {
+			  	if (i.auditionsOnly && !useAuditions) return false
+			  	if (i.smOnly && !smRoles.includes(session?.staffRole) && session?.role !== 'admin') return false
+			  return true
+})
               if (!items.length) return null
               return (
                 <div key={section.label} className="sidebar-section">

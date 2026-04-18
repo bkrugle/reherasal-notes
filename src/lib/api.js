@@ -81,6 +81,7 @@ export const api = {
   getCheckinStatus: (sheetId, showDate) => call(`/getCheckinStatus?sheetId=${sheetId}&showDate=${showDate}`),
   getPublicCheckinStatus: (productionCode, showDate) => call(`/showCheckin?productionCode=${productionCode}&showDate=${showDate}`),
   sendCheckinAlerts: (data) => call('/sendCheckinAlerts', 'POST', data),
+  sendShowReport: (data) => call('/sendShowReport', 'POST', data),
   sendCustomAlert: (data) => call('/sendCustomAlert', 'POST', data),
   sendTestNotification: async ({ ntfyTopic, productionTitle }) => {
     const res = await fetch(`https://ntfy.sh/${ntfyTopic}`, {

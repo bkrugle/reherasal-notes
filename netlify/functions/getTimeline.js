@@ -11,7 +11,6 @@ exports.handler = async (event) => {
   try {
     const sheets = await sheetsClient()
 
-    // Check if Timeline tab exists
     const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: sheetId })
     const timelineSheet = spreadsheet.data.sheets.find(s => s.properties.title === 'Timeline')
     if (!timelineSheet) return ok({ timeline: null })
@@ -24,7 +23,15 @@ exports.handler = async (event) => {
     if (!row) return ok({ timeline: null })
 
     const timeline = JSON.parse(row[1] || 'null')
-    return ok({ timeline, lockedBy: row[2] || '', updatedAt: row[3] || '' })
+    return {
+      statusCode: 200,
+      headers: {
+        ...CORS,
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      },
+      body: JSON.stringify({ timeline, lockedBy: row[2] || '', updatedAt: row[3] || '' })
+    }
   } catch (e) {
     console.error(e)
     return err('Failed to get timeline: ' + e.message, 500)

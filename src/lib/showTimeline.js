@@ -17,28 +17,27 @@ export async function saveTimelineRemote(sheetId, showDate, timeline) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sheetId, showDate, timeline })
     })
-    // Also save locally as cache
     saveTimeline(sheetId, showDate, timeline)
   } catch (e) {
     console.warn('Remote timeline save failed:', e.message)
-    // Fall back to local only
     saveTimeline(sheetId, showDate, timeline)
   }
 }
 
 export async function getTimelineRemote(sheetId, showDate) {
   try {
-    const res = await fetch(`/.netlify/functions/getTimeline?sheetId=${sheetId}&showDate=${showDate}`)
+    const res = await fetch(
+      `/.netlify/functions/getTimeline?sheetId=${sheetId}&showDate=${showDate}`,
+      { cache: 'no-store' }
+    )
     const data = await res.json()
     if (data.timeline) {
-      // Cache locally
       saveTimeline(sheetId, showDate, data.timeline)
       return { timeline: data.timeline, lockedBy: data.lockedBy || '' }
     }
   } catch (e) {
     console.warn('Remote timeline fetch failed:', e.message)
   }
-  // Fall back to local
   return { timeline: getTimeline(sheetId, showDate), lockedBy: '' }
 }
 
@@ -53,10 +52,11 @@ export function defaultTimeline() {
     act2End: null,
     perfNum: 1,
     lockedBy: null,
+    holdStart: null,
+    totalHoldMs: 0,
   }
 }
 
-// fmtElapsed(startIso, endIso?)
 export function fmtElapsed(startIso, endIso = null) {
   if (!startIso) return '0:00'
   const end = endIso ? new Date(endIso).getTime() : Date.now()
@@ -66,7 +66,6 @@ export function fmtElapsed(startIso, endIso = null) {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-// elapsedMs(startIso, endIso?)
 export function elapsedMs(startIso, endIso = null) {
   if (!startIso) return 0
   const end = endIso ? new Date(endIso).getTime() : Date.now()
