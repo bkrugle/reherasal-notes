@@ -103,6 +103,7 @@ export default function SMDashboard({ sheetId, productionCode, production, sessi
   // Poll timeline
   useEffect(() => {
     async function poll() {
+      if (savingTimelineRef.current) return // don't overwrite while saving
       const { timeline: remote, lockedBy: lb } = await getTimelineRemote(sheetId, showDate)
       if (remote) { setTimeline(remote); setLockedBy(lb || null); saveTimeline(sheetId, showDate, remote) }
     }

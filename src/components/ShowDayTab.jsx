@@ -113,6 +113,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
 
   useEffect(() => {
     async function pollTimeline() {
+      if (savingTimelineRef.current) return // don't overwrite while saving
       const { timeline: remote, lockedBy: lb } = await getTimelineRemote(sheetId, showDate)
       if (remote) {
         setTimeline(remote)
