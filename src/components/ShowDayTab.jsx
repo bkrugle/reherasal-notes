@@ -133,7 +133,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
       const { timeline: remote } = await getTimelineRemote(sheetId, date)
       if (remote) saveTimeline(sheetId, date, remote)
     })).then(() => setHistoryVersion(v => v + 1))
-  }, [sheetId, timeline.phase])
+  }, [sheetId, timeline.phase, JSON.stringify(curtainTimes)])
 
   const [alertsFired, setAlertsFired] = useState({ 60: false, 30: false, 15: false })
   const alertRefs = useRef({})
