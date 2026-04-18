@@ -6,7 +6,7 @@ import { getTimeline, saveTimeline, saveTimelineRemote, getTimelineRemote, defau
 
 const INTERMISSION_STANDARD = 15 * 60 * 1000
 const REPORT_DELAY_MINUTES = 30
-const TIMELINE_POLL_INTERVAL = 5000
+const TIMELINE_POLL_INTERVAL = 15000
 
 function fmtMs(ms) {
   if (!ms) return '—'

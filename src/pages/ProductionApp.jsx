@@ -199,7 +199,7 @@ export default function ProductionApp() {
 
     // Run immediately on mount to set lastPhase, then start polling
     checkPhase().then(() => {
-      interval = setInterval(checkPhase, 10000)
+      interval = setInterval(checkPhase, 20000)
     })
 
     return () => clearInterval(interval)

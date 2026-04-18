@@ -4,7 +4,7 @@ import CustomAlertPanel from './CustomAlertPanel'
 import { getTimeline, saveTimeline, saveTimelineRemote, getTimelineRemote, defaultTimeline, fmtElapsed, elapsedMs } from '../lib/showTimeline'
 
 const POLL_INTERVAL = 20000
-const TIMELINE_POLL_INTERVAL = 5000
+const TIMELINE_POLL_INTERVAL = 15000
 const INTERMISSION_STANDARD = 15 * 60 * 1000 // 15 min
 
 function todayAt(timeStr, dateStr) {
