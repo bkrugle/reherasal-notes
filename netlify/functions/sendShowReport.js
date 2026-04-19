@@ -84,7 +84,7 @@ exports.handler = async (event) => {
         const [header, ...data] = swRows
         const idx = {}; header.forEach((c, i) => { idx[c] = i })
         const sm = data.find(r => (r[idx.staffRole] || '').toLowerCase().includes('stage manager'))
-        if (sm) { smEmail = r[idx.email] || ''; smName = sm[idx.name] || 'Stage Manager' }
+        if (sm) { smEmail = sm[idx.email] || ''; smName = sm[idx.name] || 'Stage Manager' }
       }
     } catch (e) { console.warn('Could not read SharedWith:', e.message) }
 

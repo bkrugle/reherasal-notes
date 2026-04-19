@@ -103,9 +103,14 @@ export default function SMDashboard({ sheetId, productionCode, production, sessi
   // Poll timeline
   useEffect(() => {
     async function poll() {
-      if (savingTimelineRef.current) return // don't overwrite while saving
+      if (savingTimelineRef.current) return
       const { timeline: remote, lockedBy: lb } = await getTimelineRemote(sheetId, showDate)
-      if (remote) { setTimeline(remote); setLockedBy(lb || null); saveTimeline(sheetId, showDate, remote) }
+      if (remote) {
+        setTimeline(remote)
+        setLockedBy(lb || null)
+        saveTimeline(sheetId, showDate, remote)
+        if (remote.reportFired) setReportFired(true)
+      }
     }
     poll()
     timelinePollRef.current = setInterval(poll, TIMELINE_POLL_INTERVAL)
@@ -211,6 +216,8 @@ export default function SMDashboard({ sheetId, productionCode, production, sessi
     if (reportFired) return
     setReportFired(true)
     setReportSending(true)
+    // Save to sheet so all devices know report was sent
+    await saveTimelineRemote(sheetId, showDate, { ...timeline, reportFired: true })
     try {
       await api.sendShowReport({ sheetId, showDate, timeline, closingNote: extraNote, productionCode })
     } catch (e) { console.warn('Report send failed:', e.message) }
