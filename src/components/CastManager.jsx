@@ -196,7 +196,8 @@ function parseCSV(text) {
 // Map header variants to canonical keys
 function normalizeHeader(h) {
   h = h.toLowerCase().trim()
-  if (h.includes('character')) return 'character'
+  if (h.includes('character') || h.includes('group name')) return 'character'
+  if (h.includes('group') && h.includes('member')) return 'groupMembers'
   if (h.includes('cast') && h.includes('member')) return 'castMember'
   if (h.includes('actor') || h.includes('real name') || h.includes('performer')) return 'castMember'
   if (h.includes('phone') || h.includes('mobile') || h.includes('cell')) return 'phone'
@@ -206,10 +207,11 @@ function normalizeHeader(h) {
 
 function downloadTemplate() {
   const csv = [
-    'Character Name,Cast Member Name,Phone,Email',
-    'Cinderella,Jane Smith,412-555-0100,jsmith@email.com',
-    'Prince Charming,John Doe,412-555-0101,jdoe@email.com',
-    'Fairy Godmother,Mary Johnson,,mjohnson@email.com',
+    'Character/Group Name,Cast Member Name,Group Members,Phone,Email',
+    'Cinderella,Jane Smith,,412-555-0100,jsmith@email.com',
+    'Prince Charming,John Doe,,,jdoe@email.com',
+    'Sopranos,,Emma Jones|Taylor Smith|Jordan Lee,,',
+    'Altos,,Madison Brown|Ashley White,,',
   ].join('\n')
   const blob = new Blob([csv], { type: 'text/csv' })
   const url = URL.createObjectURL(blob)
@@ -265,18 +267,25 @@ export default function CastManager({ characters, onChange, label, placeholder }
         const next = [...normalized]
 
         normalizedRows.forEach(row => {
-          // If no character name but has a performer/cast name, use that as both
           const charName = row.character || row.name || row.castMember || row.performer || ''
           const actorName = row.castMember || row.performer || row.actor || ''
+          const groupMembers = row.groupMembers ? row.groupMembers.split('|').map(s => s.trim()).filter(Boolean) : []
+          const isGroupRow = groupMembers.length > 0
           if (!charName) return
+
           const existing = next.findIndex(e => castName(e).toLowerCase() === charName.toLowerCase())
           const entry = existing >= 0 ? { ...next[existing] } : {
             name: charName, emails: [], members: [], isGroup: false
           }
-          // Only set castMember if it's different from the character name
-          if (actorName && actorName !== charName) entry.castMember = actorName
-          if (row.phone) entry.phone = row.phone
-          if (row.email && !entry.emails.includes(row.email)) entry.emails = [...(entry.emails || []), row.email]
+
+          if (isGroupRow) {
+            entry.isGroup = true
+            entry.members = groupMembers
+          } else {
+            if (actorName && actorName !== charName) entry.castMember = actorName
+            if (row.phone) entry.phone = row.phone
+            if (row.email && !entry.emails.includes(row.email)) entry.emails = [...(entry.emails || []), row.email]
+          }
 
           if (existing >= 0) { next[existing] = entry; updated++ }
           else { next.push(entry); added++ }
