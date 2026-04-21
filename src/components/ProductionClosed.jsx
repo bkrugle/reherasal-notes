@@ -215,6 +215,8 @@ export default function ProductionClosed({ production, session, notes, sheetId, 
   // Averages
   const avgTotal = completedRuns.length ? completedRuns.reduce((s, r) => s + r.times.total, 0) / completedRuns.length : 0
   const avgInt = completedRuns.length ? completedRuns.reduce((s, r) => s + r.times.int, 0) / completedRuns.length : 0
+  const avgA1 = completedRuns.length ? completedRuns.reduce((s, r) => s + r.times.a1, 0) / completedRuns.length : 0
+  const avgA2 = completedRuns.length ? completedRuns.reduce((s, r) => s + r.times.a2, 0) / completedRuns.length : 0
 
   async function sendCloseoutReport() {
     setSendingReport(true)
@@ -336,9 +338,9 @@ export default function ProductionClosed({ production, session, notes, sheetId, 
               ))}
               {completedRuns.length > 1 && <>
                 <div style={{ fontSize: 11, color: 'var(--text3)', paddingTop: 8, borderTop: '0.5px solid var(--border)' }}>Average</div>
-                <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'right', borderTop: '0.5px solid var(--border)', paddingTop: 8, fontVariantNumeric: 'tabular-nums' }}>—</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'right', borderTop: '0.5px solid var(--border)', paddingTop: 8, fontVariantNumeric: 'tabular-nums' }}>{fmtMs(avgA1)}</div>
                 <div style={{ fontSize: 12, color: avgInt > 15*60*1000 ? 'var(--red-text)' : 'var(--text3)', textAlign: 'right', borderTop: '0.5px solid var(--border)', paddingTop: 8, fontVariantNumeric: 'tabular-nums' }}>{fmtMs(avgInt)}</div>
-                <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'right', borderTop: '0.5px solid var(--border)', paddingTop: 8, fontVariantNumeric: 'tabular-nums' }}>—</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', textAlign: 'right', borderTop: '0.5px solid var(--border)', paddingTop: 8, fontVariantNumeric: 'tabular-nums' }}>{fmtMs(avgA2)}</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', textAlign: 'right', borderTop: '0.5px solid var(--border)', paddingTop: 8, fontVariantNumeric: 'tabular-nums' }}>{fmtMs(avgTotal)}</div>
               </>}
             </div>
