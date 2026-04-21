@@ -278,16 +278,18 @@ export default function ProductionApp() {
     return <MeetingMode notes={notes} sheetId={session.sheetId} onUpdated={onNoteUpdated} onClose={() => setMeetingMode(false)} />
   }
 
+  const [forceOpen, setForceOpen] = useState(false)
+
   // Show closed screen if production is manually closed OR show dates have passed
-  const isClosed = production?.config?.productionClosed === 'true' ||
-    (production?.config?.showDates && isAfterShowDates(production.config.showDates))
+  const isClosed = !forceOpen && (production?.config?.productionClosed === 'true' ||
+    (production?.config?.showDates && isAfterShowDates(production.config.showDates)))
   if (isClosed && production) {
     return <ProductionClosed
       production={production}
       session={session}
       notes={notes}
       sheetId={session.sheetId}
-      onReopen={loadProduction}
+      onReopen={() => { setForceOpen(true); loadProduction() }}
     />
   }
 

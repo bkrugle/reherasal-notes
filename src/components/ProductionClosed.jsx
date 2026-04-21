@@ -17,33 +17,56 @@ function Confetti({ active }) {
     canvas.width = window.innerWidth
     canvas.height = window.innerHeight
 
-    const colors = ['#a78bfa', '#34d399', '#fbbf24', '#f472b6', '#60a5fa', '#fb923c']
-    particlesRef.current = Array.from({ length: 180 }, () => ({
+    const colors = ['#a78bfa', '#34d399', '#fbbf24', '#f472b6', '#60a5fa', '#fb923c', '#e879f9', '#4ade80', '#38bdf8', '#f87171']
+
+    particlesRef.current = Array.from({ length: 350 }, () => ({
       x: Math.random() * canvas.width,
-      y: -20 - Math.random() * 100,
-      w: 6 + Math.random() * 8,
-      h: 10 + Math.random() * 6,
+      y: -20 - Math.random() * 300,
+      w: 7 + Math.random() * 10,
+      h: 12 + Math.random() * 8,
       color: colors[Math.floor(Math.random() * colors.length)],
-      vx: (Math.random() - 0.5) * 4,
-      vy: 2 + Math.random() * 4,
+      vx: (Math.random() - 0.5) * 3,
+      vy: 1.2 + Math.random() * 2.5,
       angle: Math.random() * Math.PI * 2,
-      spin: (Math.random() - 0.5) * 0.2,
+      spin: (Math.random() - 0.5) * 0.15,
+      wobble: Math.random() * Math.PI * 2,
+      wobbleSpeed: 0.05 + Math.random() * 0.05,
+      wobbleAmp: 1 + Math.random() * 2,
       opacity: 1,
+      shape: Math.random() > 0.5 ? 'rect' : 'circle',
     }))
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       let alive = false
       particlesRef.current.forEach(p => {
-        p.x += p.vx; p.y += p.vy; p.angle += p.spin
-        p.vy += 0.05
-        if (p.y < canvas.height) { alive = true; p.opacity = Math.max(0, 1 - p.y / canvas.height) }
+        p.wobble += p.wobbleSpeed
+        p.x += p.vx + Math.sin(p.wobble) * p.wobbleAmp
+        p.y += p.vy
+        p.angle += p.spin
+        p.vy += 0.02 // very gentle gravity
+
+        if (p.y < canvas.height + 20) {
+          alive = true
+          // Fade out in the bottom 30% of screen
+          p.opacity = p.y > canvas.height * 0.7
+            ? Math.max(0, 1 - (p.y - canvas.height * 0.7) / (canvas.height * 0.3))
+            : 1
+        }
+
         ctx.save()
         ctx.globalAlpha = p.opacity
         ctx.translate(p.x, p.y)
         ctx.rotate(p.angle)
         ctx.fillStyle = p.color
-        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h)
+
+        if (p.shape === 'circle') {
+          ctx.beginPath()
+          ctx.arc(0, 0, p.w / 2, 0, Math.PI * 2)
+          ctx.fill()
+        } else {
+          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h)
+        }
         ctx.restore()
       })
       if (alive) animRef.current = requestAnimationFrame(draw)
@@ -128,7 +151,7 @@ export default function ProductionClosed({ production, session, notes, sheetId, 
   useEffect(() => {
     if (showConfetti) {
       try { localStorage.setItem(confettiKey, String(Date.now())) } catch {}
-      const t = setTimeout(() => setShowConfetti(false), 5000)
+      const t = setTimeout(() => setShowConfetti(false), 8000)
       return () => clearTimeout(t)
     }
   }, [])
@@ -221,6 +244,16 @@ export default function ProductionClosed({ production, session, notes, sheetId, 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '2rem 1.5rem 6rem', maxWidth: 800, margin: '0 auto' }}>
       <Confetti active={showConfetti} />
+
+      {/* Escape hatch */}
+      {isAdmin && (
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <button className="btn btn-sm" onClick={onReopen}
+            style={{ fontSize: 12, color: 'var(--text3)', background: 'transparent', borderColor: 'var(--border)' }}>
+            ← Back to production
+          </button>
+        </div>
+      )}
 
       {/* Hero */}
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
@@ -327,14 +360,14 @@ export default function ProductionClosed({ production, session, notes, sheetId, 
           style={{ width: '100%', boxSizing: 'border-box', fontSize: 13, resize: 'none', marginBottom: 10 }} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
           {[
-            { label: '📲 Alert Staff', target: 'staff', bg: 'var(--blue-bg)', color: 'var(--blue-text)' },
+            { label: '📧 Email Staff', target: 'staff', bg: 'var(--blue-bg)', color: 'var(--blue-text)' },
             { label: '⚠ Alert Cast', target: 'cast', bg: 'var(--amber-bg)', color: 'var(--amber-text)' },
             { label: '🔔 Alert All', target: 'all', bg: 'var(--red-bg)', color: 'var(--red-text)' },
           ].map(({ label, target, bg, color }) => (
             <button key={target} className="btn btn-sm" disabled={!closingMessage.trim()}
               onClick={async () => {
                 try {
-                  const res = await api.sendCustomAlert({ sheetId, message: closingMessage, alertTarget: target })
+                  const res = await api.sendCustomAlert({ sheetId, message: closingMessage, alertTarget: target, useEmail: target === 'staff' || target === 'all' })
                   setAlertResult(res)
                 } catch (e) { setAlertResult({ error: e.message }) }
               }}
