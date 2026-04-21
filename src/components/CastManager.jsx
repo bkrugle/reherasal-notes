@@ -206,9 +206,12 @@ function normalizeHeader(h) {
 function downloadTemplate() {
   const csv = [
     'Character Name,Cast Member Name,Phone,Email',
+    '# Theater example: Character Name + Actor Name',
     'William Barfée,Madison Bryant,412-555-0100,mbryant@email.com',
     'Marcy Park,Emma Wiles,,ewiles@email.com',
-    'Olive Ostrovsky,Jasmine Lorent,412-555-0102,',
+    '# Concert/simple example: just use Name column (leave Character Name blank)',
+    ',Jordan Smith,412-555-0103,jsmith@email.com',
+    ',Taylor Jones,412-555-0104,',
   ].join('\n')
   const blob = new Blob([csv], { type: 'text/csv' })
   const url = URL.createObjectURL(blob)
@@ -264,14 +267,17 @@ export default function CastManager({ characters, onChange, label, placeholder }
         const next = [...normalized]
 
         normalizedRows.forEach(row => {
-          const charName = row.character || row.name || ''
+          // If no character name but has a performer/cast name, use that as both
+          const charName = row.character || row.name || row.castMember || row.performer || ''
+          const actorName = row.castMember || row.performer || row.actor || ''
           if (!charName) return
           const existing = next.findIndex(e => castName(e).toLowerCase() === charName.toLowerCase())
           const entry = existing >= 0 ? { ...next[existing] } : {
             name: charName, emails: [], members: [], isGroup: false
           }
-          if (row.castMember) entry.castMember = row.castMember
-          if (row.phone) entry.phone = row.phone.replace(/\D/g, '').length >= 10 ? row.phone : entry.phone
+          // Only set castMember if it's different from the character name
+          if (actorName && actorName !== charName) entry.castMember = actorName
+          if (row.phone) entry.phone = row.phone
           if (row.email && !entry.emails.includes(row.email)) entry.emails = [...(entry.emails || []), row.email]
 
           if (existing >= 0) { next[existing] = entry; updated++ }
