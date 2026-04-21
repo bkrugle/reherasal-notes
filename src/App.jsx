@@ -35,8 +35,8 @@ export default function App() {
         <Route path="/checkin/:productionCode" element={<CheckinRedirectPage />} />
         <Route path="/portal/:productionCode" element={<CastPortalPage />} />
 		<Route path="/platform" element={<PlatformPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
 		<Route path="/help" element={<HelpPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </SessionProvider>
   )
