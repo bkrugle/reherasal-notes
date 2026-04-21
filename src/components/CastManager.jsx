@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { castName, castEmails, castMembers, isGroup, normalizeCast } from '../lib/castUtils'
 
 function EmailList({ emails, onChange }) {
@@ -65,16 +65,15 @@ function MemberSelector({ members, allNames, onChange }) {
       </div>
       {members.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
-          {members.map(m => (
-            <span key={m} style={{
+          {members.map(n => (
+            <span key={n} style={{
               display: 'inline-flex', alignItems: 'center', gap: 4,
               fontSize: 11, padding: '2px 8px',
-              background: 'var(--gray-bg)', color: 'var(--gray-text)',
-              border: '0.5px solid var(--border)', borderRadius: 20
+              background: 'var(--bg2)', borderRadius: 20
             }}>
-              {m}
-              <button type="button" onClick={() => remove(m)}
-                style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1 }}>×</button>
+              {n}
+              <button type="button" onClick={() => remove(n)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, padding: 0, lineHeight: 1 }}>×</button>
             </span>
           ))}
         </div>
@@ -83,90 +82,50 @@ function MemberSelector({ members, allNames, onChange }) {
   )
 }
 
-function CastEntry({ entry: rawEntry, allNames, onChange, onRemove }) {
+function CastEntry({ entry, allNames, onChange, onRemove }) {
   const [expanded, setExpanded] = useState(false)
-  // Normalize — entry might be a plain string from tag input
-  const entry = typeof rawEntry === 'string'
-    ? { name: rawEntry, emails: [], members: [], isGroup: false, phone: '', smsGateway: '' }
-    : { phone: '', smsGateway: '', ...rawEntry }
   const name = castName(entry)
   const emails = castEmails(entry)
   const members = castMembers(entry)
   const group = isGroup(entry)
 
   return (
-    <div style={{
-      background: 'var(--bg)',
-      border: '0.5px solid var(--border)',
-      borderRadius: 'var(--radius)',
-      marginBottom: 6,
-      overflow: 'hidden'
-    }}>
-      {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px' }}>
-        {group && (
-          <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 10, background: 'var(--purple-bg)', color: 'var(--purple-text)', flexShrink: 0 }}>
-            GROUP
-          </span>
-        )}
-        {emails.length > 0 && !group && (
-          <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 10, background: 'var(--blue-bg)', color: 'var(--blue-text)', flexShrink: 0 }}>
-            {emails.length} email{emails.length !== 1 ? 's' : ''}
-          </span>
-        )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 14, fontWeight: 500 }}>{name}</span>
-          {entry.castMember && (
-            <span style={{ fontSize: 12, color: 'var(--text3)', marginLeft: 8 }}>→ {entry.castMember}</span>
-          )}
-        </div>
-        <button type="button" className="btn btn-sm"
-          onClick={() => setExpanded(e => !e)}
-          style={{ fontSize: 11, padding: '3px 8px' }}>
-          {expanded ? 'Done' : 'Edit'}
-        </button>
-        <button type="button" onClick={onRemove}
-          style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 18, padding: '0 2px', lineHeight: 1 }}>×</button>
+    <div style={{ border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: 6, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'var(--bg2)', cursor: 'pointer' }}
+        onClick={() => setExpanded(e => !e)}>
+        <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{name || '(unnamed)'}</span>
+        {entry.castMember && <span style={{ fontSize: 11, color: 'var(--text3)' }}>{entry.castMember}</span>}
+        {emails.length > 0 && <span style={{ fontSize: 10, color: 'var(--blue-text)' }}>✉ {emails.length}</span>}
+        {entry.phone && <span style={{ fontSize: 10, color: 'var(--green-text)' }}>📱</span>}
+        {group && <span style={{ fontSize: 10, background: 'var(--purple-bg)', color: 'var(--purple-text)', padding: '1px 6px', borderRadius: 10 }}>group</span>}
+        <button type="button" onClick={e => { e.stopPropagation(); onRemove() }}
+          style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 16, padding: '0 2px', lineHeight: 1 }}>×</button>
+        <span style={{ fontSize: 12, color: 'var(--text3)' }}>{expanded ? '▲' : '▼'}</span>
       </div>
-
-      {/* Expanded edit panel */}
       {expanded && (
-        <div style={{ padding: '0 10px 10px', borderTop: '0.5px solid var(--border)', paddingTop: 10 }}>
-
-          {/* Actor name */}
+        <div style={{ padding: '10px' }}>
+          <div style={{ marginBottom: 10 }}>
+            <p style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, marginBottom: 4 }}>Character name</p>
+            <input type="text" value={name}
+              onChange={e => onChange({ ...entry, name: e.target.value, emails, members, isGroup: group })}
+              style={{ fontSize: 13 }} />
+          </div>
           {!group && (
             <div style={{ marginBottom: 10 }}>
-              <p style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, marginBottom: 4 }}>
-                Actor name <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(shown on check-in portal)</span>
-              </p>
+              <p style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, marginBottom: 4 }}>Cast member (actor's real name)</p>
               <input type="text" value={entry.castMember || ''}
-                onChange={e => onChange({ ...entry, castMember: e.target.value })}
-                placeholder="e.g. Josh Smith"
+                onChange={e => onChange({ ...entry, name, emails, members, isGroup: group, castMember: e.target.value })}
+                placeholder="e.g. Madison Bryant"
                 style={{ fontSize: 13 }} />
             </div>
           )}
-          {/* Group toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <input type="checkbox" id={`group-${name}`} checked={group}
-              onChange={e => onChange({ ...entry, isGroup: e.target.checked, name, emails, members })}
-              style={{ width: 15, height: 15, cursor: 'pointer' }} />
-            <label htmlFor={`group-${name}`} style={{ fontSize: 13, color: 'var(--text2)', cursor: 'pointer', marginBottom: 0 }}>
-              This is a group (e.g. Ensemble, Dance Corps)
-            </label>
-          </div>
-
-          {/* Email addresses */}
-          <div style={{ marginBottom: 10 }}>
-            <p style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, marginBottom: 2 }}>
-              Email addresses {group ? '(sent to all when group is selected)' : '(for sending notes)'}
-            </p>
-            <EmailList
-              emails={emails}
-              onChange={newEmails => onChange({ ...entry, name, emails: newEmails, members, isGroup: group })}
-            />
-          </div>
-
-          {/* Phone / SMS */}
+          {!group && (
+            <div style={{ marginBottom: 10 }}>
+              <p style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, marginBottom: 4 }}>Email addresses</p>
+              <EmailList emails={emails}
+                onChange={newEmails => onChange({ ...entry, name, emails: newEmails, members, isGroup: group })} />
+            </div>
+          )}
           {!group && (
             <div style={{ marginBottom: 10 }}>
               <p style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, marginBottom: 4 }}>
@@ -176,9 +135,7 @@ function CastEntry({ entry: rawEntry, allNames, onChange, onRemove }) {
                 onChange={e => onChange({ ...entry, name, emails, members, isGroup: group, phone: e.target.value })}
                 placeholder="e.g. 412-555-0100"
                 style={{ fontSize: 13, marginBottom: 6 }} />
-              <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>
-                Or use free email-to-SMS gateway:
-              </p>
+              <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>Or use free email-to-SMS gateway:</p>
               <input type="text" value={entry.smsGateway || ''}
                 onChange={e => onChange({ ...entry, name, emails, members, isGroup: group, smsGateway: e.target.value })}
                 placeholder="e.g. 4125550100@vtext.com (Verizon)"
@@ -188,8 +145,6 @@ function CastEntry({ entry: rawEntry, allNames, onChange, onRemove }) {
               </p>
             </div>
           )}
-
-          {/* Group members */}
           {group && (
             <div>
               <p style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500, marginBottom: 2 }}>
@@ -216,8 +171,56 @@ function CastEntry({ entry: rawEntry, allNames, onChange, onRemove }) {
   )
 }
 
+// Parse CSV text into rows
+function parseCSV(text) {
+  const lines = text.trim().split('\n')
+  if (lines.length < 2) return []
+  const header = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase())
+  return lines.slice(1).map(line => {
+    // Handle quoted fields
+    const fields = []
+    let current = '', inQuote = false
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] === '"') { inQuote = !inQuote }
+      else if (line[i] === ',' && !inQuote) { fields.push(current.trim()); current = '' }
+      else current += line[i]
+    }
+    fields.push(current.trim())
+    const row = {}
+    header.forEach((h, i) => { row[h] = (fields[i] || '').replace(/^"|"$/g, '').trim() })
+    return row
+  }).filter(r => Object.values(r).some(v => v))
+}
+
+// Map header variants to canonical keys
+function normalizeHeader(h) {
+  h = h.toLowerCase().trim()
+  if (h.includes('character')) return 'character'
+  if (h.includes('cast') && h.includes('member')) return 'castMember'
+  if (h.includes('actor') || h.includes('real name') || h.includes('performer')) return 'castMember'
+  if (h.includes('phone') || h.includes('mobile') || h.includes('cell')) return 'phone'
+  if (h.includes('email') || h.includes('e-mail')) return 'email'
+  return h
+}
+
+function downloadTemplate() {
+  const csv = [
+    'Character Name,Cast Member Name,Phone,Email',
+    'William Barfée,Madison Bryant,412-555-0100,mbryant@email.com',
+    'Marcy Park,Emma Wiles,,ewiles@email.com',
+    'Olive Ostrovsky,Jasmine Lorent,412-555-0102,',
+  ].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = 'cast-template.csv'; a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function CastManager({ characters, onChange, label, placeholder }) {
   const [input, setInput] = useState('')
+  const [uploadResult, setUploadResult] = useState(null)
+  const fileRef = useRef(null)
   const normalized = normalizeCast(characters)
   const allNames = normalized.map(castName)
 
@@ -241,17 +244,85 @@ export default function CastManager({ characters, onChange, label, placeholder }
     onChange(normalized.filter((_, idx) => idx !== i))
   }
 
+  function handleFile(file) {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const text = e.target.result
+        const rows = parseCSV(text)
+        if (!rows.length) { setUploadResult({ error: 'No data found in file.' }); return }
+
+        // Normalize headers
+        const normalizedRows = rows.map(row => {
+          const out = {}
+          Object.entries(row).forEach(([k, v]) => { out[normalizeHeader(k)] = v })
+          return out
+        })
+
+        let added = 0, updated = 0
+        const next = [...normalized]
+
+        normalizedRows.forEach(row => {
+          const charName = row.character || row.name || ''
+          if (!charName) return
+          const existing = next.findIndex(e => castName(e).toLowerCase() === charName.toLowerCase())
+          const entry = existing >= 0 ? { ...next[existing] } : {
+            name: charName, emails: [], members: [], isGroup: false
+          }
+          if (row.castMember) entry.castMember = row.castMember
+          if (row.phone) entry.phone = row.phone.replace(/\D/g, '').length >= 10 ? row.phone : entry.phone
+          if (row.email && !entry.emails.includes(row.email)) entry.emails = [...(entry.emails || []), row.email]
+
+          if (existing >= 0) { next[existing] = entry; updated++ }
+          else { next.push(entry); added++ }
+        })
+
+        onChange(next)
+        setUploadResult({ added, updated })
+      } catch (e) {
+        setUploadResult({ error: 'Could not parse file. Please use the CSV template.' })
+      }
+    }
+    reader.readAsText(file)
+  }
+
   return (
     <div className="field" style={{ marginBottom: '1rem' }}>
       <label>{label}</label>
+
+      {/* Upload strip */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '8px 10px', background: 'var(--bg2)', borderRadius: 'var(--radius)', border: '0.5px solid var(--border)' }}>
+        <span style={{ fontSize: 12, color: 'var(--text3)', flex: 1 }}>📋 Import from spreadsheet</span>
+        <button type="button" className="btn btn-sm" onClick={downloadTemplate} style={{ fontSize: 11 }}>
+          ↓ Template
+        </button>
+        <button type="button" className="btn btn-sm btn-primary" onClick={() => fileRef.current?.click()} style={{ fontSize: 11 }}>
+          ↑ Upload CSV
+        </button>
+        <input ref={fileRef} type="file" accept=".csv,.txt" style={{ display: 'none' }}
+          onChange={e => { handleFile(e.target.files[0]); e.target.value = '' }} />
+      </div>
+
+      {uploadResult && (
+        <div style={{ marginBottom: 8, padding: '6px 10px', borderRadius: 'var(--radius)', fontSize: 12,
+          background: uploadResult.error ? 'var(--red-bg)' : 'var(--green-bg)',
+          color: uploadResult.error ? 'var(--red-text)' : 'var(--green-text)' }}>
+          {uploadResult.error
+            ? `✗ ${uploadResult.error}`
+            : `✓ Imported: ${uploadResult.added} added, ${uploadResult.updated} updated`}
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
         <input type="text" value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
           placeholder={placeholder} />
-      <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>Separate multiple entries with commas</p>
         <button type="button" className="btn btn-sm" onClick={add}>Add</button>
       </div>
+      <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>Separate multiple entries with commas</p>
+
       {normalized.length > 0 && (
         <div>
           {normalized.map((entry, i) => (
