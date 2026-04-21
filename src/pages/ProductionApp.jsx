@@ -28,6 +28,7 @@ import CastDirectory from '../components/CastDirectory'
 import WrapUp from '../components/WrapUp'
 import LoginGreetingModal from '../components/LoginGreetingModal'
 import ProductionClosed, { isAfterShowDates } from '../components/ProductionClosed'
+import OvaWidget from '../components/OvaWidget'
 
 const TABS = ['Home', 'Log', 'Review', 'By cast', 'Calendar', 'Documents', 'Trends', 'Attendance', 'Report', 'Send', 'Auditions', 'Show Day', 'Check-in', 'Mic Tracker', 'Pre-show', 'Intermission', 'SM Dashboard']
 
@@ -449,6 +450,8 @@ export default function ProductionApp() {
         </div>
       )}
       {showMoreMenu && <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setShowMoreMenu(false)} />}
+
+      <OvaWidget hidden={showDayMode && [11, 12, 15, 16].includes(activeTab)} />
     </>
   )
 }
