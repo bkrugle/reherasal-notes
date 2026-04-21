@@ -174,10 +174,11 @@ function CastEntry({ entry, allNames, onChange, onRemove }) {
 // Parse CSV text into rows
 function parseCSV(text) {
   const lines = text.trim().split('\n')
+    .map(l => l.trim())
+    .filter(l => l && !l.startsWith('#'))
   if (lines.length < 2) return []
   const header = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase())
   return lines.slice(1).map(line => {
-    // Handle quoted fields
     const fields = []
     let current = '', inQuote = false
     for (let i = 0; i < line.length; i++) {
@@ -206,12 +207,9 @@ function normalizeHeader(h) {
 function downloadTemplate() {
   const csv = [
     'Character Name,Cast Member Name,Phone,Email',
-    '# Theater example: Character Name + Actor Name',
-    'William Barfée,Madison Bryant,412-555-0100,mbryant@email.com',
-    'Marcy Park,Emma Wiles,,ewiles@email.com',
-    '# Concert/simple example: just use Name column (leave Character Name blank)',
-    ',Jordan Smith,412-555-0103,jsmith@email.com',
-    ',Taylor Jones,412-555-0104,',
+    'Cinderella,Jane Smith,412-555-0100,jsmith@email.com',
+    'Prince Charming,John Doe,412-555-0101,jdoe@email.com',
+    'Fairy Godmother,Mary Johnson,,mjohnson@email.com',
   ].join('\n')
   const blob = new Blob([csv], { type: 'text/csv' })
   const url = URL.createObjectURL(blob)
