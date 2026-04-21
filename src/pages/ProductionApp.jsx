@@ -27,6 +27,7 @@ import AuditionsTab from '../components/AuditionsTab'
 import CastDirectory from '../components/CastDirectory'
 import WrapUp from '../components/WrapUp'
 import LoginGreetingModal from '../components/LoginGreetingModal'
+import ProductionClosed, { isAfterShowDates } from '../components/ProductionClosed'
 
 const TABS = ['Home', 'Log', 'Review', 'By cast', 'Calendar', 'Documents', 'Trends', 'Attendance', 'Report', 'Send', 'Auditions', 'Show Day', 'Check-in', 'Mic Tracker', 'Pre-show', 'Intermission', 'SM Dashboard']
 
@@ -275,6 +276,19 @@ export default function ProductionApp() {
 
   if (meetingMode) {
     return <MeetingMode notes={notes} sheetId={session.sheetId} onUpdated={onNoteUpdated} onClose={() => setMeetingMode(false)} />
+  }
+
+  // Show closed screen if production is manually closed OR show dates have passed
+  const isClosed = production?.config?.productionClosed === 'true' ||
+    (production?.config?.showDates && isAfterShowDates(production.config.showDates))
+  if (isClosed && production) {
+    return <ProductionClosed
+      production={production}
+      session={session}
+      notes={notes}
+      sheetId={session.sheetId}
+      onReopen={loadProduction}
+    />
   }
 
   const topBar = (
