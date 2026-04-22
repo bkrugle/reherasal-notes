@@ -218,19 +218,19 @@ export default function ProductionClosed({ production, session, notes, sheetId, 
   const avgA1 = completedRuns.length ? completedRuns.reduce((s, r) => s + r.times.a1, 0) / completedRuns.length : 0
   const avgA2 = completedRuns.length ? completedRuns.reduce((s, r) => s + r.times.a2, 0) / completedRuns.length : 0
 
+  const [reportRecipients, setReportRecipients] = useState(null)
+
   async function sendCloseoutReport() {
     setSendingReport(true)
     try {
-      await api.sendShowReport({
+      const res = await api.call('/sendCloseoutReport', 'POST', {
         sheetId,
-        showDate: showDates[showDates.length - 1],
-        timeline: timelines[showDates[showDates.length - 1]] || {},
+        allTimelines: timelines,
         closingNote: closingMessage,
         productionCode: production?.productionCode,
-        isCloseout: true,
-        allTimelines: timelines,
       })
       setReportSent(true)
+      if (res.recipients) setReportRecipients(res.recipients)
     } catch (e) { console.warn('Closeout report failed:', e) }
     finally { setSendingReport(false) }
   }
@@ -390,7 +390,14 @@ export default function ProductionClosed({ production, session, notes, sheetId, 
         <p style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text3)', marginBottom: 4 }}>📧 Final Show Report</p>
         <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>Send a full-run summary email to the SM and Director.</p>
         {reportSent ? (
-          <p style={{ fontSize: 13, color: 'var(--green-text)', fontWeight: 500 }}>✅ Final report sent!</p>
+          <div>
+            <p style={{ fontSize: 13, color: 'var(--green-text)', fontWeight: 500, marginBottom: 4 }}>✅ Final report sent!</p>
+            {reportRecipients && (
+              <p style={{ fontSize: 12, color: 'var(--text3)', margin: 0 }}>
+                Sent to: {reportRecipients.join(', ')}
+              </p>
+            )}
+          </div>
         ) : (
           <button className="btn btn-primary btn-full" onClick={sendCloseoutReport} disabled={sendingReport}>
             {sendingReport ? 'Sending…' : '📧 Send final show report'}
