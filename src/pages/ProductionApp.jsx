@@ -129,7 +129,9 @@ export default function ProductionApp() {
 
   useEffect(() => {
     if (loadingNotes) return
-    if (session?.name) setShowGreeting(true)
+    if (!session?.name) return
+    const myNotes = getNotesForUser(notes, session)
+    if (myNotes.length > 0) setShowGreeting(true)
   }, [loadingNotes])
 
   useEffect(() => {
