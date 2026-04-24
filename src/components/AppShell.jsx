@@ -10,6 +10,15 @@ const NAV_SECTIONS = [
     { label: 'Notes filter', idx: 3, icon: 'users' },
     { label: 'Calendar', idx: 4, icon: 'calendar' },
   ]},
+  { label: 'Show', items: [
+    { label: 'Show day', idx: 11, icon: 'video', special: true },
+    { label: 'Check-in', idx: 12, icon: 'clock' },
+    { label: 'Mic tracker', idx: 13, icon: 'mic' },
+    { label: 'Pre-show', idx: 14, icon: 'list' },
+    { label: 'Intermission', idx: 15, icon: 'coffee' },
+    { label: 'SM Dashboard', idx: 16, icon: 'film', smOnly: true },
+    { label: 'Auditions', idx: 10, icon: 'star', auditionsOnly: true },
+  ]},
   { label: 'Communications', items: [
     { label: 'Send notes', idx: 9, icon: 'send' },
     { label: 'Report', idx: 8, icon: 'file' },
@@ -18,15 +27,6 @@ const NAV_SECTIONS = [
   { label: 'Analytics', items: [
     { label: 'Trends', idx: 6, icon: 'trending' },
     { label: 'Attendance', idx: 7, icon: 'check-square' },
-  ]},
-  { label: 'Show', items: [
-    { label: 'Show day', idx: 11, icon: 'video', special: true },
-    { label: 'Check-in', idx: 12, icon: 'clock' },
-    { label: 'Mic tracker', idx: 13, icon: 'mic' },
-    { label: 'Pre-show', idx: 14, icon: 'list' },
-    { label: 'Intermission', idx: 15, icon: 'coffee' },
-	{ label: 'SM Dashboard', idx: 16, icon: 'film', smOnly: true },
-    { label: 'Auditions', idx: 10, icon: 'star', auditionsOnly: true },
   ]},
 ]
 

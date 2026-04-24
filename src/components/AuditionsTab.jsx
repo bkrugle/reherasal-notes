@@ -1,5 +1,99 @@
 import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
+import QRCode from 'qrcode'
+
+async function printAuditionSign(title, url, venue) {
+  let qrDataUrl = null
+  try {
+    qrDataUrl = await QRCode.toDataURL(url, { width: 500, margin: 2, color: { dark: '#111111', light: '#ffffff' } })
+  } catch { return }
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${title} — Auditions</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Georgia, serif;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 100vh; padding: 40px;
+      background: white; color: #111;
+      text-align: center;
+    }
+    .eyebrow {
+      font-size: 16px; font-weight: bold; letter-spacing: 3px;
+      text-transform: uppercase; color: #666; margin-bottom: 10px;
+    }
+    .show-title {
+      font-size: 42px; font-weight: bold;
+      line-height: 1.2; margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+    .venue {
+      font-size: 18px; color: #555;
+      margin-bottom: 40px; font-style: italic;
+    }
+    .qr-wrapper {
+      border: 3px solid #111;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 32px;
+      display: inline-block;
+    }
+    .qr-wrapper img { display: block; width: 280px; height: 280px; }
+    .instructions {
+      font-size: 22px; font-weight: bold;
+      margin-bottom: 16px; letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .steps {
+      font-size: 17px; line-height: 2;
+      color: #333; margin-bottom: 32px;
+      list-style: none;
+    }
+    .steps li::before { content: "→ "; font-weight: bold; }
+    .url {
+      font-size: 13px; color: #888;
+      font-family: monospace; margin-top: 24px;
+    }
+    .divider {
+      width: 60px; height: 3px;
+      background: #111; margin: 28px auto;
+      border-radius: 2px;
+    }
+    @media print {
+      body { padding: 20px; }
+      @page { margin: 0.5in; }
+    }
+  </style>
+</head>
+<body>
+  <div class="eyebrow">Auditions</div>
+  <div class="show-title">${title}</div>
+  ${venue ? `<div class="venue">${venue}</div>` : '<div style="margin-bottom:40px"></div>'}
+  <div class="qr-wrapper">
+    <img src="${qrDataUrl}" alt="Audition Form QR Code" />
+  </div>
+  <div class="instructions">Scan to audition</div>
+  <ul class="steps">
+    <li>Open your phone camera</li>
+    <li>Point it at the QR code</li>
+    <li>Fill out the form</li>
+  </ul>
+  <div class="divider"></div>
+  <div class="url">${url}</div>
+</body>
+</html>`
+
+  const win = window.open('', '_blank', 'width=700,height=900')
+  if (!win) return
+  win.document.write(html)
+  win.document.close()
+  setTimeout(() => { win.focus(); win.print() }, 300)
+}
 
 function AuditionerModal({ auditioner, sheetId, createdBy, onClose, onRoleAssigned, onCastAssigned }) {
   const [note, setNote] = useState('')
@@ -171,6 +265,14 @@ export default function AuditionsTab({ sheetId, productionCode, session, product
           <button className="btn btn-sm" onClick={() => navigator.clipboard.writeText(auditionUrl)}
             style={{ fontSize: 12, background: 'var(--blue-text)', color: 'var(--bg)', borderColor: 'transparent', flexShrink: 0 }}>
             Copy
+          </button>
+          <button className="btn btn-sm" onClick={() => printAuditionSign(
+              production?.config?.title || session?.title || 'Auditions',
+              auditionUrl,
+              production?.config?.venue || ''
+            )}
+            style={{ fontSize: 12, flexShrink: 0 }}>
+            🖨️ Print sign
           </button>
         </div>
       </div>
