@@ -1051,7 +1051,16 @@ export default function SetupPage() {
                 setLookingUpScenes(true); setError('')
                 try {
                   const data = await api.lookupShowScenes(config.title)
-                  return { acts: data.acts || [], scenes_struct: data.scenes_struct || [] }
+                  // Accept either response shape:
+                  //   - new shape: { acts, scenes_struct, scenes (flat strings) }
+                  //   - older shape: { acts, scenes (objects) }
+                  let structScenes = []
+                  if (Array.isArray(data.scenes_struct) && data.scenes_struct.length) {
+                    structScenes = data.scenes_struct
+                  } else if (Array.isArray(data.scenes) && data.scenes.length && typeof data.scenes[0] === 'object') {
+                    structScenes = data.scenes
+                  }
+                  return { acts: data.acts || [], scenes_struct: structScenes }
                 } catch (e) {
                   setError('Lookup failed: ' + e.message)
                   return null
