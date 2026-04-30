@@ -1,6 +1,7 @@
 'use strict'
 
 const { sheetsClient, getRows, CORS, ok, err } = require('./_sheets')
+const { migrateConfig } = require('./_actsScenes')
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
@@ -20,11 +21,23 @@ exports.handler = async (event) => {
       catch { config[key] = val || '' }
     })
 
-    // NOTE: auto-migration of legacy {scenes: string[]} → {acts, scenes:[{id,...}]}
-    // will happen here in a future commit, once the frontend has been updated
-    // to consume the new shape. For now we return whatever's in Sheets so the
-    // existing UI (LogTab, NoteCard, hashtags lib, sceneDetect lib, etc.)
-    // continues to work unchanged.
+    // ---- Auto-migrate legacy acts/scenes shape (back-compatible) ---------
+    // Run the migrator in memory to derive the new structured shape, but
+    // ALSO return the flat-string array as `scenes` so existing consumers
+    // (LogTab, NoteCard, ReviewTab, hashtags, sceneDetect, etc.) keep
+    // working unchanged. The new structured shape is exposed alongside:
+    //   config.acts          = [{id, name, order}, ...]
+    //   config.scenes_struct = [{id, name, actId, order}, ...]
+    // The flat `config.scenes` remains a legacy string[] until every
+    // consumer is updated.
+    const migrated = migrateConfig(config)
+    if (Array.isArray(migrated.acts)) {
+      config.acts = migrated.acts
+      const struct = Array.isArray(migrated.scenes) ? migrated.scenes : []
+      config.scenes_struct = struct
+      // Always expose flat names as `scenes` for back-compat
+      config.scenes = struct.map(s => typeof s === 'string' ? s : (s && s.name) || '').filter(Boolean)
+    }
 
     // Read SharedWith tab
     const sharedRows = await getRows(sheets, sheetId, 'SharedWith!A:I')
