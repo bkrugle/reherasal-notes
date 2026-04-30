@@ -80,6 +80,11 @@ export function migrateConfig(config) {
 
   const legacyScenes = config.scenes || []
 
+  // Empty legacy → seed default 2 acts and empty scenes
+  if (legacyScenes.length === 0) {
+    return { ...config, acts: defaultActs(2), scenes: [] }
+  }
+
   // Pass 1: discover act numbers referenced in legacy scene strings
   const actNumbers = new Set()
   legacyScenes.forEach(name => {
@@ -267,4 +272,53 @@ export function resolveActTag(tag, acts = []) {
   // Fall back to nth act by order
   const sorted = [...acts].sort((a, b) => (a.order || 0) - (b.order || 0))
   return sorted[num - 1] || null
+}
+
+// ---------- Compatibility helpers -------------------------------------------
+// During the rollout, the same code may receive `scenes` as either the legacy
+// flat-string array or the new array of objects. These helpers normalise.
+
+/**
+ * Return scenes as a flat array of strings, regardless of input shape.
+ * Accepts ["Act 1", ...] OR [{name: "Act 1", ...}, ...].
+ */
+export function sceneNames(scenes) {
+  if (!Array.isArray(scenes)) return []
+  return scenes.map(s => (typeof s === 'string' ? s : (s && s.name) || '')).filter(Boolean)
+}
+
+/**
+ * True if `scenes` is in the new structured shape ({id, name, ...} objects).
+ */
+export function isStructuredScenes(scenes) {
+  return Array.isArray(scenes) && scenes.length > 0 && typeof scenes[0] === 'object'
+}
+
+/**
+ * Find a scene by name (case-insensitive). Works on both shapes; returns
+ * the scene object on the new shape, or just the matching string on legacy.
+ */
+export function findSceneByName(scenes, name) {
+  if (!Array.isArray(scenes) || !name) return null
+  const target = String(name).trim().toLowerCase()
+  for (const s of scenes) {
+    const sName = typeof s === 'string' ? s : (s && s.name)
+    if (sName && sName.trim().toLowerCase() === target) return s
+  }
+  return null
+}
+
+/**
+ * Convenience: ensure a config object has the new {acts, scenes} structure.
+ * Idempotent — safe to call on already-migrated configs.
+ * Use this in components that need to consume the structured data even when
+ * the backend hasn't migrated yet.
+ */
+export function ensureMigrated(config) {
+  if (!config) return config
+  if (isLegacyConfig(config)) return migrateConfig(config)
+  if (!Array.isArray(config.acts)) {
+    return { ...config, acts: defaultActs(2) }
+  }
+  return config
 }
