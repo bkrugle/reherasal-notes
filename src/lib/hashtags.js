@@ -57,6 +57,16 @@ function normalize(str) {
   return str.toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
+// Coerce a scenes argument that may be either:
+//   - legacy: ["Act 1", "Opening Number", ...]
+//   - structured: [{id, name, actId, order}, ...]
+// into a flat string array. Defensive — these libs receive raw config data
+// and must tolerate both shapes during the rollout.
+function toSceneNames(scenes) {
+  if (!Array.isArray(scenes)) return []
+  return scenes.map(s => (typeof s === 'string' ? s : (s && s.name) || '')).filter(Boolean)
+}
+
 // Find best match from a list using normalized comparison
 function fuzzyMatch(tag, list) {
   const norm = normalize(tag)
@@ -76,10 +86,11 @@ function fuzzyMatch(tag, list) {
  * Parse hashtags from note text and return extracted fields + cleaned text
  * @param {string} text - raw note text with hashtags
  * @param {string[]} characters - cast/character list from production
- * @param {string[]} scenes - scene list from production
+ * @param {string[]|object[]} scenes - scene list (legacy strings or structured objects)
  * @returns {{ cleanText, category, priority, cast, scene, tags }}
  */
 export function parseHashtags(text, characters = [], scenes = []) {
+  const sceneList = toSceneNames(scenes)   // <- defensive normalization
   const tags = []
   let categories = []
   let priority = null
@@ -128,7 +139,7 @@ export function parseHashtags(text, characters = [], scenes = []) {
 
     // Check scenes
     if (!scene) {
-      const sceneMatch = fuzzyMatch(raw, scenes)
+      const sceneMatch = fuzzyMatch(raw, sceneList)
       if (sceneMatch) { scene = sceneMatch; continue }
     }
   }
@@ -149,7 +160,7 @@ export function parseHashtags(text, characters = [], scenes = []) {
       CATEGORY_TAGS[lower] ||
       PRIORITY_TAGS[lower] ||
       fuzzyMatch(raw, characters) ||
-      fuzzyMatch(raw, scenes)
+      fuzzyMatch(raw, sceneList)
     ) {
       recognizedTags.add(match[0])
     }
@@ -176,10 +187,12 @@ export function parseHashtags(text, characters = [], scenes = []) {
  * Get hashtag suggestions as user types
  * @param {string} text - current text
  * @param {string[]} characters
- * @param {string[]} scenes
+ * @param {string[]|object[]} scenes - scene list (legacy strings or structured objects)
  * @returns {string[]} suggestions
  */
 export function getHashtagSuggestions(text, characters = [], scenes = []) {
+  const sceneList = toSceneNames(scenes)   // <- defensive normalization
+
   // Find the current incomplete hashtag or @mention being typed
   const match = text.match(/[#@]([a-zA-Z0-9_]*)$/)
   if (!match) return []
@@ -210,7 +223,7 @@ export function getHashtagSuggestions(text, characters = [], scenes = []) {
     })
 
     // Scene suggestions
-    scenes.filter(s => normalize(s).includes(partial)).slice(0, 3).forEach(s => {
+    sceneList.filter(s => normalize(s).includes(partial)).slice(0, 3).forEach(s => {
       suggestions.push('#' + normalize(s))
     })
   }

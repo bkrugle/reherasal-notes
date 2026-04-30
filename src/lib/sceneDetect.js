@@ -5,6 +5,15 @@ function normalize(str) {
   return str.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim()
 }
 
+// Coerce a scenes argument that may be either:
+//   - legacy: ["Act 1", "Opening Number", ...]
+//   - structured: [{id, name, actId, order}, ...]
+// into a flat string array.
+function toSceneNames(scenes) {
+  if (!Array.isArray(scenes)) return []
+  return scenes.map(s => (typeof s === 'string' ? s : (s && s.name) || '')).filter(Boolean)
+}
+
 // Patterns that suggest specific scenes
 const SCENE_PATTERNS = [
   // Act + scene number patterns
@@ -25,10 +34,11 @@ const SCENE_PATTERNS = [
  * Detect scenes from event title and description
  * @param {string} title - event title
  * @param {string} description - event description
- * @param {string[]} scenes - known scenes from production config
+ * @param {string[]|object[]} scenes - known scenes (legacy strings or structured objects)
  * @returns {{ detectedScenes: string[], suggestedScene: string|null, confidence: 'high'|'medium'|'low' }}
  */
 export function detectScenesFromEvent(title, description, scenes = []) {
+  const sceneList = toSceneNames(scenes)   // <- defensive normalization
   const fullText = `${title} ${description}`
   const normFull = normalize(fullText)
   const detectedScenes = []
@@ -36,7 +46,7 @@ export function detectScenesFromEvent(title, description, scenes = []) {
   let confidence = 'low'
 
   // 1. Direct match against known scenes (highest confidence)
-  for (const scene of scenes) {
+  for (const scene of sceneList) {
     const normScene = normalize(scene)
     if (normFull.includes(normScene)) {
       detectedScenes.push(scene)
@@ -52,7 +62,7 @@ export function detectScenesFromEvent(title, description, scenes = []) {
         const built = pattern.build(match)
         if (built) {
           // Try to find matching scene in known list
-          const found = scenes.find(s => normalize(s).includes(normalize(built)))
+          const found = sceneList.find(s => normalize(s).includes(normalize(built)))
           suggestedScene = found || built
           confidence = found ? 'high' : 'medium'
           if (!detectedScenes.includes(suggestedScene)) detectedScenes.push(suggestedScene)
@@ -63,9 +73,9 @@ export function detectScenesFromEvent(title, description, scenes = []) {
   }
 
   // 3. Fuzzy keyword matching (low confidence)
-  if (!suggestedScene && scenes.length) {
+  if (!suggestedScene && sceneList.length) {
     const words = normFull.split(/\s+/)
-    for (const scene of scenes) {
+    for (const scene of sceneList) {
       const sceneWords = normalize(scene).split(/\s+/)
       const matches = sceneWords.filter(w => w.length > 3 && words.includes(w))
       if (matches.length >= 2) {
