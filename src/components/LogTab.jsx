@@ -221,7 +221,7 @@ export default function LogTab({ sheetId, scenes, scenesStruct = [], acts = [], 
             <div className="field">
               <label>
                 {acts.length > 0 ? 'Act / Scene' : 'Scene'}
-                {parsedTags.some(t => scenes.some(s => s.toLowerCase().includes(t.slice(1).toLowerCase()))) && <span style={{ color: 'var(--blue-text)', fontSize: 11 }}> ● auto</span>}
+                {(form.actId || form.sceneId || parsedTags.some(t => scenes.some(s => s.toLowerCase().includes(t.slice(1).toLowerCase())))) && <span style={{ color: 'var(--blue-text)', fontSize: 11 }}> ● auto</span>}
               </label>
               {acts.length > 0 && (
                 <select value={form.actId || ''} onChange={e => {
