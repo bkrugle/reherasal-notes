@@ -108,9 +108,17 @@ export default function CreatePage() {
     if (!form.title) return
     setLookingUpCast(true)
     setCastLookupResult(null)
+    setError('')
     try {
       const data = await api.lookupShowCast(form.title)
-      if (data.characters?.length > 0) setCastLookupResult(data)
+      if (data.characters?.length > 0) {
+        setCastLookupResult(data)
+        if (data.confident === false) {
+          setError("⚠ Auto-populate isn't fully confident about this show's cast — review carefully, the AI may be guessing.")
+        } else {
+          setError("✨ Auto-populated! Double-check the names — AI knowledge can be incomplete.")
+        }
+      }
     } catch (e) { console.warn('Cast lookup failed:', e.message) }
     finally { setLookingUpCast(false) }
   }
@@ -119,9 +127,17 @@ export default function CreatePage() {
     if (!form.title) return
     setLookingUpScenes(true)
     setSceneLookupResult(null)
+    setError('')
     try {
       const data = await api.lookupShowScenes(form.title)
-      if (data.scenes?.length > 0) setSceneLookupResult(data)
+      if (data.scenes?.length > 0) {
+        setSceneLookupResult(data)
+        if (data.confident === false) {
+          setError("⚠ Auto-populate isn't fully confident about this show's scenes — review carefully, the AI may be guessing.")
+        } else {
+          setError("✨ Auto-populated! Double-check the scenes — AI knowledge can be incomplete.")
+        }
+      }
     } catch (e) { console.warn('Scene lookup failed:', e.message) }
     finally { setLookingUpScenes(false) }
   }

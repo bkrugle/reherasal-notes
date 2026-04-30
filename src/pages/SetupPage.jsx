@@ -796,6 +796,11 @@ export default function SetupPage() {
       const data = await api.lookupShowCast(config.title)
       if (data.characters && data.characters.length > 0) {
         setLookupResult(data)
+        if (data.confident === false) {
+          setError("⚠ Auto-populate isn't fully confident about this show's cast — review carefully, the AI may be guessing.")
+        } else {
+          setError("✨ Auto-populated! Double-check the names — AI knowledge can be incomplete. Edit or remove anything that doesn't match your script.")
+        }
       } else {
         setError(`No characters found for "${config.title}". You can still add them manually below.`)
       }
