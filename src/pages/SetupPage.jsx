@@ -1061,7 +1061,9 @@ export default function SetupPage() {
                     structScenes = data.scenes
                   }
                   if (data.confident === false) {
-                    setError("⚠ Auto-populate isn't fully confident about this show's structure — review carefully and edit anything that looks wrong.")
+                    setError("⚠ Auto-populate isn't fully confident about this show — review carefully, the AI may be guessing.")
+                  } else if (structScenes.length > 0) {
+                    setError("✨ Auto-populated! Double-check the scenes — AI knowledge can be incomplete. Edit or remove anything that doesn't match your script.")
                   }
                   return { acts: data.acts || [], scenes_struct: structScenes }
                 } catch (e) {
