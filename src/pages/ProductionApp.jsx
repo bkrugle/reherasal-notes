@@ -254,6 +254,8 @@ export default function ProductionApp() {
   }
 
   const scenes = production?.config?.scenes || []
+  const acts = production?.config?.acts || []
+  const scenesStruct = production?.config?.scenes_struct || []
   const rawCharacters = production?.config?.characters || []
   const characters = normalizeCast(rawCharacters)
   const characterNames = castNameList(characters)
@@ -267,7 +269,7 @@ export default function ProductionApp() {
   const openNotes = notes.filter(n => !n.resolved)
   const filteredNotes = getNotesForUser(notes, session)
   const reviewNotes = getVisibleNotesForUser(notes, session)
-  const tabProps = { notes, sheetId: session.sheetId, scenes, characters, staff, onNoteUpdated, onNoteDeleted }
+  const tabProps = { notes, sheetId: session.sheetId, scenes, scenesStruct, acts, characters, staff, onNoteUpdated, onNoteDeleted }
 
   const smRoles = ['Stage Manager', 'Asst. SM', 'Assistant SM', 'Director', 'Asst. Director', 'Assistant Director']
   const canSeeSMDashboard = smRoles.includes(session?.staffRole) || session?.role === 'admin'
@@ -356,7 +358,7 @@ export default function ProductionApp() {
           {error && <p style={{ fontSize: 13, color: 'var(--red-text)', background: 'var(--red-bg)', padding: '8px 12px', borderRadius: 'var(--radius)', marginBottom: '1rem' }}>{error}</p>}
           {showSceneTimer && <SceneTimer scenes={scenes} />}
           {activeTab === 0 && <Dashboard notes={notes} production={production} session={session} calendarEvents={calendarEvents} onNavigate={setTab} onLogForDate={onLogForDate} openNotes={openNotes} />}
-          {activeTab === 1 && <LogTab sheetId={session.sheetId} scenes={scenes} characters={[...characterNames, ...staff]} swDisplay={swDisplay} swRunning={swRunning} createdBy={session.name || session.role} onNoteAdded={onNoteAdded} onNoteUpdated={onNoteUpdated} attachFolderId={attachFolderId} />}
+          {activeTab === 1 && <LogTab sheetId={session.sheetId} scenes={scenes} scenesStruct={scenesStruct} acts={acts} characters={[...characterNames, ...staff]} swDisplay={swDisplay} swRunning={swRunning} createdBy={session.name || session.role} onNoteAdded={onNoteAdded} onNoteUpdated={onNoteUpdated} attachFolderId={attachFolderId} />}
           {activeTab === 2 && <ReviewTab {...tabProps} notes={reviewNotes} production={production} loading={loadingNotes} onRefresh={loadNotes} session={session} />}
           {activeTab === 3 && <ByCastTab {...tabProps} loading={loadingNotes} />}
           {activeTab === 4 && <CalendarTab calendarId={calendarId} scenes={scenes} notes={notes} onLogForDate={onLogForDate} />}

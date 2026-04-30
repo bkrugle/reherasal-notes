@@ -14,7 +14,7 @@ function syncNote(sheetId, id, changes) {
   api.updateNote(sheetId, id, changes).catch(e => console.warn('Sync failed:', e.message))
 }
 
-export default function NoteCard({ note, sheetId, scenes, characters, onUpdated, onDeleted, session }) {
+export default function NoteCard({ note, sheetId, scenes, scenesStruct = [], acts = [], characters, onUpdated, onDeleted, session }) {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({ ...note })
   const [localNote, setLocalNote] = useState(note)
@@ -23,7 +23,7 @@ export default function NoteCard({ note, sheetId, scenes, characters, onUpdated,
 
   function saveEdit() {
     const charNames = castNameList(characters)
-    const parsed = parseHashtags(form.text, charNames, scenes)
+    const parsed = parseHashtags(form.text, charNames, scenesStruct.length ? scenesStruct : scenes, acts)
 
     const finalForm = {
       ...form,
@@ -34,6 +34,8 @@ export default function NoteCard({ note, sheetId, scenes, characters, onUpdated,
         ? parsed.cast.split(',').map(s => s.trim()).filter(Boolean)
         : (form.castList || []),
       scene: parsed.scene || form.scene,
+      sceneId: parsed.sceneId || form.sceneId || '',
+      actId: parsed.actId || form.actId || '',
     }
 
     const updated = { ...localNote, ...finalForm }
@@ -43,6 +45,8 @@ export default function NoteCard({ note, sheetId, scenes, characters, onUpdated,
     syncNote(sheetId, note.id, {
       text: finalForm.text,
       scene: finalForm.scene,
+      sceneId: finalForm.sceneId,
+      actId: finalForm.actId,
       category: finalForm.category,
       priority: finalForm.priority,
       cast: finalForm.cast,
@@ -89,11 +93,42 @@ export default function NoteCard({ note, sheetId, scenes, characters, onUpdated,
       <div className="card" style={{ border: '0.5px solid var(--border2)' }}>
         <div className="grid3" style={{ marginBottom: 8 }}>
           <div className="field">
-            <label>Scene</label>
-            <select value={form.scene} onChange={e => set('scene', e.target.value)}>
-              <option value="">— none —</option>
-              {scenes.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <label>{acts.length > 0 ? 'Act / Scene' : 'Scene'}</label>
+            {acts.length > 0 && (
+              <select value={form.actId || ''} onChange={e => {
+                const newActId = e.target.value
+                set('actId', newActId)
+                if (form.sceneId && scenesStruct.length) {
+                  const cur = scenesStruct.find(s => s.id === form.sceneId)
+                  if (cur && cur.actId !== newActId) { set('sceneId', ''); set('scene', '') }
+                }
+              }} style={{ marginBottom: 6 }}>
+                <option value="">— any act —</option>
+                {[...acts].sort((a,b) => (a.order||0)-(b.order||0)).map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            )}
+            {scenesStruct.length > 0 ? (
+              <select value={form.sceneId || ''} onChange={e => {
+                const id = e.target.value
+                set('sceneId', id)
+                const obj = scenesStruct.find(s => s.id === id)
+                set('scene', obj ? obj.name : '')
+                if (obj && obj.actId) set('actId', obj.actId)
+              }}>
+                <option value="">— none —</option>
+                {scenesStruct
+                  .filter(s => !form.actId || s.actId === form.actId || (!s.actId && !form.actId))
+                  .sort((a,b) => (a.order||0)-(b.order||0))
+                  .map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            ) : (
+              <select value={form.scene} onChange={e => set('scene', e.target.value)}>
+                <option value="">— none —</option>
+                {scenes.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            )}
           </div>
           <div className="field">
             <label>Category</label>
@@ -156,6 +191,11 @@ export default function NoteCard({ note, sheetId, scenes, characters, onUpdated,
           {localNote.privateNote && (
             <span style={{ fontSize: 11, fontWeight: 500, padding: '1px 7px', borderRadius: 20, background: 'var(--purple-bg)', color: 'var(--purple-text)' }}>private</span>
           )}
+          {(() => {
+            const noteAct = localNote.actId ? acts.find(a => a.id === localNote.actId) : null
+            if (noteAct) return <span className="badge badge-scene" style={{ opacity: 0.85 }}>{noteAct.name}</span>
+            return null
+          })()}
           {localNote.scene && <span className="badge badge-scene">{localNote.scene}</span>}
           <span className={`badge badge-${localNote.category}`}>{localNote.category}</span>
           {localNote.cast && <span className="badge badge-char">{localNote.cast}</span>}

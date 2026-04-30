@@ -57,9 +57,10 @@ ul{margin:0;padding-left:1.25rem}li{margin:5px 0;font-size:14px}
   a.click()
 }
 
-export default function ReviewTab({ notes, sheetId, scenes, characters, loading, onRefresh, onNoteUpdated, onNoteDeleted, session, production }) {
+export default function ReviewTab({ notes, sheetId, scenes, scenesStruct = [], acts = [], characters, loading, onRefresh, onNoteUpdated, onNoteDeleted, session, production }) {
   const [catFilter, setCatFilter] = useState('all')
   const [sessionFilter, setSessionFilter] = useState('all')
+  const [actFilter, setActFilter] = useState('all')   // 'all' | <actId> | 'none' (no act)
   const isClosed = production?.config?.productionClosed === 'true'
   const [showResolved, setShowResolved] = useState(isClosed)
 
@@ -80,6 +81,11 @@ export default function ReviewTab({ notes, sheetId, scenes, characters, loading,
   const filtered = sortedScoped.filter(n => {
     // Always hide resolved unless showResolved is on
     if (n.resolved && !showResolved) return false
+    // Act filter
+    if (actFilter !== 'all') {
+      if (actFilter === 'none' && n.actId) return false
+      if (actFilter !== 'none' && n.actId !== actFilter) return false
+    }
     if (catFilter === 'open') return !n.resolved
     if (catFilter === 'pinned') return n.pinned === true && !n.resolved
     if (catFilter === 'private') return n.privateNote === true
@@ -119,6 +125,20 @@ export default function ReviewTab({ notes, sheetId, scenes, characters, loading,
         <div className="stat"><div className="stat-n">{resolved}</div><div className="stat-l">resolved</div></div>
       </div>
 
+      {/* Act filter — only when acts are configured */}
+      {acts.length > 0 && (
+        <div className="filter-bar">
+          <span className="filter-label">Act:</span>
+          <button className={`filter-pill ${actFilter === 'all' ? 'active' : ''}`} onClick={() => setActFilter('all')}>All</button>
+          {[...acts].sort((a,b) => (a.order||0)-(b.order||0)).map(a => (
+            <button key={a.id} className={`filter-pill ${actFilter === a.id ? 'active' : ''}`} onClick={() => setActFilter(a.id)}>
+              {a.name}
+            </button>
+          ))}
+          <button className={`filter-pill ${actFilter === 'none' ? 'active' : ''}`} onClick={() => setActFilter('none')}>Untagged</button>
+        </div>
+      )}
+
       {/* Category filter */}
       <div className="filter-bar">
         <span className="filter-label">Filter:</span>
@@ -149,6 +169,8 @@ export default function ReviewTab({ notes, sheetId, scenes, characters, loading,
                 note={n}
                 sheetId={sheetId}
                 scenes={scenes}
+                scenesStruct={scenesStruct}
+                acts={acts}
                 characters={characters}
                 onUpdated={onNoteUpdated}
                 session={session}

@@ -36,10 +36,10 @@ function useVoiceInput(onResult) {
   return { listening, supported, start, stop }
 }
 
-export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunning, createdBy, onNoteAdded, onNoteUpdated, attachFolderId }) {
+export default function LogTab({ sheetId, scenes, scenesStruct = [], acts = [], characters, swDisplay, swRunning, createdBy, onNoteAdded, onNoteUpdated, attachFolderId }) {
   const today = new Date().toLocaleDateString('en-CA')
   const [form, setForm] = useState({
-    date: today, scene: '', category: 'general', priority: 'med',
+    date: today, scene: '', sceneId: '', actId: '', category: 'general', priority: 'med',
     cast: '', castList: [], cue: '', text: '', carriedOver: false, privateNote: false
   })
   const [flash, setFlash] = useState(false)
@@ -72,15 +72,17 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
 
   function handleTextChange(text) {
     set('text', text)
-    // Live hashtag parsing — update fields as user types
-    const parsed = parseHashtags(text, characters, scenes)
+    // Live hashtag parsing — update fields as user types.
+    // Pass scenesStruct (objects) when available so #scenetag also resolves sceneId/actId.
+    const parsed = parseHashtags(text, characters, scenesStruct.length ? scenesStruct : scenes, acts)
     setParsedTags(parsed.tags)
     if (parsed.category) set('category', parsed.category)
     if (parsed.priority) set('priority', parsed.priority)
     if (parsed.cast) { set("cast", parsed.cast); set("castList", parsed.cast.split(",").map(s => s.trim()).filter(Boolean)) }
     if (parsed.scene) set('scene', parsed.scene)
-    // Suggestions for current incomplete tag
-    setSuggestions(getHashtagSuggestions(text, characters, scenes))
+    if (parsed.sceneId) set('sceneId', parsed.sceneId)
+    if (parsed.actId) set('actId', parsed.actId)
+    setSuggestions(getHashtagSuggestions(text, characters, scenesStruct.length ? scenesStruct : scenes, acts))
   }
 
   function applySuggestion(suggestion) {
@@ -130,7 +132,7 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
     if (!form.text.trim()) return
 
     // Final parse to clean hashtags from saved text
-    const parsed = parseHashtags(form.text, characters, scenes)
+    const parsed = parseHashtags(form.text, characters, scenesStruct.length ? scenesStruct : scenes, acts)
     const finalText = parsed.cleanText || form.text
 
     const swTime = swRunning ? `@ ${swDisplay}` : ''
@@ -144,6 +146,8 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
       cast: parsed.cast || form.cast,
       castList: parsed.cast ? parsed.cast.split(',').map(s => s.trim()).filter(Boolean) : form.castList,
       scene: parsed.scene || form.scene,
+      sceneId: parsed.sceneId || form.sceneId || '',
+      actId: parsed.actId || form.actId || '',
     }
     const fullNote = {
       ...finalForm, swTime, createdBy, id: tempId,
@@ -152,7 +156,7 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
       time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
     onNoteAdded(fullNote)
-    setForm(f => ({ ...f, text: '', cast: '', castList: [], cue: '', carriedOver: false, privateNote: false, scene: '', category: 'general', priority: 'med' }))
+    setForm(f => ({ ...f, text: '', cast: '', castList: [], cue: '', carriedOver: false, privateNote: false, scene: '', sceneId: '', actId: '', category: 'general', priority: 'med' }))
     setPhoto(null)
     setParsedTags([])
     setSuggestions([])
@@ -215,11 +219,47 @@ export default function LogTab({ sheetId, scenes, characters, swDisplay, swRunni
           {/* Category / priority / scene — auto-filled by hashtags */}
           <div className="grid3" style={{ marginBottom: '0.75rem' }}>
             <div className="field">
-              <label>Scene {parsedTags.some(t => scenes.some(s => s.toLowerCase().includes(t.slice(1).toLowerCase()))) && <span style={{ color: 'var(--blue-text)', fontSize: 11 }}>● auto</span>}</label>
-              <select value={form.scene} onChange={e => set('scene', e.target.value)}>
-                <option value="">— none —</option>
-                {scenes.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <label>
+                {acts.length > 0 ? 'Act / Scene' : 'Scene'}
+                {parsedTags.some(t => scenes.some(s => s.toLowerCase().includes(t.slice(1).toLowerCase()))) && <span style={{ color: 'var(--blue-text)', fontSize: 11 }}> ● auto</span>}
+              </label>
+              {acts.length > 0 && (
+                <select value={form.actId || ''} onChange={e => {
+                  const newActId = e.target.value
+                  set('actId', newActId)
+                  // If current scene doesn't belong to this act, clear it
+                  if (form.sceneId && scenesStruct.length) {
+                    const cur = scenesStruct.find(s => s.id === form.sceneId)
+                    if (cur && cur.actId !== newActId) { set('sceneId', ''); set('scene', '') }
+                  }
+                }} style={{ marginBottom: 6 }}>
+                  <option value="">— any act —</option>
+                  {[...acts].sort((a,b) => (a.order||0)-(b.order||0)).map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              )}
+              {scenesStruct.length > 0 ? (
+                <select value={form.sceneId || ''} onChange={e => {
+                  const id = e.target.value
+                  set('sceneId', id)
+                  const obj = scenesStruct.find(s => s.id === id)
+                  set('scene', obj ? obj.name : '')
+                  // Auto-fill act from scene
+                  if (obj && obj.actId) set('actId', obj.actId)
+                }}>
+                  <option value="">— none —</option>
+                  {scenesStruct
+                    .filter(s => !form.actId || s.actId === form.actId || (!s.actId && !form.actId))
+                    .sort((a,b) => (a.order||0)-(b.order||0))
+                    .map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              ) : (
+                <select value={form.scene} onChange={e => set('scene', e.target.value)}>
+                  <option value="">— none —</option>
+                  {scenes.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              )}
             </div>
             <div className="field">
               <label>Category {parsedTags.length > 0 && form.category !== 'general' && <span style={{ color: 'var(--blue-text)', fontSize: 11 }}>● auto</span>}</label>

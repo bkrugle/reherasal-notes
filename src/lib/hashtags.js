@@ -60,14 +60,20 @@ function normalize(str) {
 // Coerce a scenes argument that may be either:
 //   - legacy: ["Act 1", "Opening Number", ...]
 //   - structured: [{id, name, actId, order}, ...]
-// into a flat string array. Defensive — these libs receive raw config data
-// and must tolerate both shapes during the rollout.
-function toSceneNames(scenes) {
-  if (!Array.isArray(scenes)) return []
-  return scenes.map(s => (typeof s === 'string' ? s : (s && s.name) || '')).filter(Boolean)
+// into a flat string array AND a parallel structured array (when available).
+function normalizeScenes(scenes) {
+  if (!Array.isArray(scenes)) return { names: [], structured: null }
+  if (scenes.length === 0) return { names: [], structured: [] }
+  if (typeof scenes[0] === 'string') {
+    return { names: scenes, structured: null }
+  }
+  return {
+    names: scenes.map(s => (s && s.name) || '').filter(Boolean),
+    structured: scenes
+  }
 }
 
-// Find best match from a list using normalized comparison
+// Find best match from a string list using normalized comparison
 function fuzzyMatch(tag, list) {
   const norm = normalize(tag)
   // Exact match first
@@ -82,20 +88,52 @@ function fuzzyMatch(tag, list) {
   return null
 }
 
+// Resolve an act-style tag like "a1", "act1", "act2" against an acts array.
+// Returns the matching act object or null.
+function resolveActFromTag(tag, acts) {
+  if (!Array.isArray(acts) || acts.length === 0) return null
+  const lower = String(tag).toLowerCase()
+  // Pattern: a1 / a2 / act1 / act2
+  const m = lower.match(/^a(?:ct)?(\d+)$/)
+  if (m) {
+    const num = parseInt(m[1], 10)
+    // Match by name "Act N" first
+    const byName = acts.find(a => new RegExp(`act\\s*${num}\\b`, 'i').test(a.name))
+    if (byName) return byName
+    // Fall back to nth act by order
+    const sorted = [...acts].sort((a, b) => (a.order || 0) - (b.order || 0))
+    return sorted[num - 1] || null
+  }
+  // Also allow custom act-name matches: #prologue → act named "Prologue"
+  // Use fuzzy match on act names for short non-numeric tags
+  const sorted = [...acts].sort((a, b) => (a.order || 0) - (b.order || 0))
+  const byFuzzy = sorted.find(a => normalize(a.name) === normalize(tag))
+  if (byFuzzy) return byFuzzy
+  // Don't match on partial — too risky for false positives on category tags
+  return null
+}
+
 /**
- * Parse hashtags from note text and return extracted fields + cleaned text
+ * Parse hashtags from note text and return extracted fields + cleaned text.
+ *
  * @param {string} text - raw note text with hashtags
  * @param {string[]} characters - cast/character list from production
  * @param {string[]|object[]} scenes - scene list (legacy strings or structured objects)
- * @returns {{ cleanText, category, priority, cast, scene, tags }}
+ * @param {object[]} [acts] - acts list ([{id, name, order}]) — enables #a1 quick-tags
+ * @returns {{ cleanText, category, priority, cast, scene, sceneId, actId, tags }}
  */
-export function parseHashtags(text, characters = [], scenes = []) {
-  const sceneList = toSceneNames(scenes)   // <- defensive normalization
+export function parseHashtags(text, characters = [], scenes = [], acts = []) {
+  const sceneInfo = normalizeScenes(scenes)
+  const sceneNames = sceneInfo.names
+  const sceneObjs = sceneInfo.structured
+
   const tags = []
   let categories = []
   let priority = null
   let castList = []
-  let scene = null
+  let scene = null      // matched scene NAME (legacy field — string)
+  let sceneId = null    // matched scene ID (new — only set if structured scenes available)
+  let actId = null      // matched act ID
 
   // Extract all #tags and @mentions from text
   const tagPattern = /[#@]([a-zA-Z0-9_]+)/g
@@ -116,19 +154,28 @@ export function parseHashtags(text, characters = [], scenes = []) {
 
     // Check category — accumulate multiple
     if (CATEGORY_TAGS[lower]) {
-  		const cat = CATEGORY_TAGS[lower]
-  		if (!categories.includes(cat)) categories.push(cat)
-  		// Also store department-specific tags in castList for note routing
-  		if (DEPARTMENT_TAGS[lower] && !castList.includes(DEPARTMENT_TAGS[lower])) {
-    		castList.push(DEPARTMENT_TAGS[lower])
-		}
-	  continue
-	}
+      const cat = CATEGORY_TAGS[lower]
+      if (!categories.includes(cat)) categories.push(cat)
+      // Also store department-specific tags in castList for note routing
+      if (DEPARTMENT_TAGS[lower] && !castList.includes(DEPARTMENT_TAGS[lower])) {
+        castList.push(DEPARTMENT_TAGS[lower])
+      }
+      continue
+    }
 
     // Check priority
     if (PRIORITY_TAGS[lower]) {
       priority = PRIORITY_TAGS[lower]
       continue
+    }
+
+    // Check act tags (NEW: #a1, #a2, #act1, etc.)
+    if (!actId) {
+      const actMatch = resolveActFromTag(raw, acts)
+      if (actMatch) {
+        actId = actMatch.id
+        continue
+      }
     }
 
     // Check cast members — accumulate multiple
@@ -139,8 +186,21 @@ export function parseHashtags(text, characters = [], scenes = []) {
 
     // Check scenes
     if (!scene) {
-      const sceneMatch = fuzzyMatch(raw, sceneList)
-      if (sceneMatch) { scene = sceneMatch; continue }
+      const sceneMatch = fuzzyMatch(raw, sceneNames)
+      if (sceneMatch) {
+        scene = sceneMatch
+        // If we have structured scenes, also resolve to sceneId + inferred actId
+        if (sceneObjs) {
+          const sceneObj = sceneObjs.find(s => s.name === sceneMatch)
+          if (sceneObj) {
+            sceneId = sceneObj.id
+            // Scene's own actId wins over a separately-tagged act
+            // (consistency: a note tagged to a specific scene should belong to that scene's act)
+            if (sceneObj.actId) actId = sceneObj.actId
+          }
+        }
+        continue
+      }
     }
   }
 
@@ -159,8 +219,9 @@ export function parseHashtags(text, characters = [], scenes = []) {
     } else if (
       CATEGORY_TAGS[lower] ||
       PRIORITY_TAGS[lower] ||
+      resolveActFromTag(raw, acts) ||
       fuzzyMatch(raw, characters) ||
-      fuzzyMatch(raw, sceneList)
+      fuzzyMatch(raw, sceneNames)
     ) {
       recognizedTags.add(match[0])
     }
@@ -179,6 +240,8 @@ export function parseHashtags(text, characters = [], scenes = []) {
     priority,
     cast: castList.length > 0 ? castList.join(', ') : null,
     scene,
+    sceneId,
+    actId,
     tags: [...recognizedTags]
   }
 }
@@ -187,11 +250,13 @@ export function parseHashtags(text, characters = [], scenes = []) {
  * Get hashtag suggestions as user types
  * @param {string} text - current text
  * @param {string[]} characters
- * @param {string[]|object[]} scenes - scene list (legacy strings or structured objects)
+ * @param {string[]|object[]} scenes
+ * @param {object[]} [acts] - acts list — enables #a1 / #a2 suggestions
  * @returns {string[]} suggestions
  */
-export function getHashtagSuggestions(text, characters = [], scenes = []) {
-  const sceneList = toSceneNames(scenes)   // <- defensive normalization
+export function getHashtagSuggestions(text, characters = [], scenes = [], acts = []) {
+  const sceneInfo = normalizeScenes(scenes)
+  const sceneNames = sceneInfo.names
 
   // Find the current incomplete hashtag or @mention being typed
   const match = text.match(/[#@]([a-zA-Z0-9_]*)$/)
@@ -210,6 +275,17 @@ export function getHashtagSuggestions(text, characters = [], scenes = []) {
       .slice(0, 6)
       .forEach(c => suggestions.push('@' + c.replace(/\s+/g, '')))
   } else {
+    // Act suggestions (NEW): when user types "a" or "ac" or "act"
+    if (Array.isArray(acts) && acts.length > 0) {
+      const sortedActs = [...acts].sort((a, b) => (a.order || 0) - (b.order || 0))
+      sortedActs.forEach((a, i) => {
+        const tag = `#a${i + 1}`
+        if (tag.slice(1).startsWith(partial) || `act${i + 1}`.startsWith(partial)) {
+          suggestions.push(tag)
+        }
+      })
+    }
+
     // Category suggestions
     const catKeys = [...new Set(Object.keys(CATEGORY_TAGS))]
     catKeys.filter(k => k.startsWith(partial)).forEach(k => suggestions.push('#' + k))
@@ -223,7 +299,7 @@ export function getHashtagSuggestions(text, characters = [], scenes = []) {
     })
 
     // Scene suggestions
-    sceneList.filter(s => normalize(s).includes(partial)).slice(0, 3).forEach(s => {
+    sceneNames.filter(s => normalize(s).includes(partial)).slice(0, 3).forEach(s => {
       suggestions.push('#' + normalize(s))
     })
   }

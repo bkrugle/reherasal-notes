@@ -14,7 +14,7 @@ const CATEGORIES = [
   { value: 'orchestra', label: 'Orchestra' },
 ]
 
-export default function ByCastTab({ notes, sheetId, scenes, characters, loading, onNoteUpdated, onNoteDeleted }) {
+export default function ByCastTab({ notes, sheetId, scenes, scenesStruct = [], acts = [], characters, loading, onNoteUpdated, onNoteDeleted }) {
   const [filterMode, setFilterMode] = useState('cast') // cast | department
   const [selectedCast, setSelectedCast] = useState([])
   const [selectedDepts, setSelectedDepts] = useState([])
@@ -173,7 +173,7 @@ export default function ByCastTab({ notes, sheetId, scenes, characters, loading,
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {ns.map(n => (
-                  <NoteCard key={n.id} note={n} sheetId={sheetId} scenes={scenes}
+                  <NoteCard key={n.id} note={n} sheetId={sheetId} scenes={scenes} scenesStruct={scenesStruct} acts={acts}
                     characters={characters} onUpdated={onNoteUpdated} onDeleted={onNoteDeleted} />
                 ))}
               </div>
