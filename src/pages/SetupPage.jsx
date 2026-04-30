@@ -4,6 +4,7 @@ import { castNameList, normalizeCast } from '../lib/castUtils'
 import { useNavigate } from 'react-router-dom'
 import { useSession } from '../lib/session'
 import AppShell from '../components/AppShell'
+import ActsScenesManager from '../components/ActsScenesManager'
 import CastManager from '../components/CastManager'
 import { api } from '../lib/api'
 import { applyAccentColor } from './ProductionApp'
@@ -531,7 +532,7 @@ function TeamTab({ config, setC, sharedWith, setSharedWith, newMember, setNewMem
           Team members ({sharedWith.length + 1})
         </p>
 
-{/* Director row � expandable for ntfy topic */}
+{/* Director row � expandable for ntfy topic */}
         {directorName && (
           <div style={{ border: '0.5px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: 8, overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--bg)' }}>
@@ -725,7 +726,7 @@ export default function SetupPage() {
 
   const [config, setConfig] = useState({
     title: '', directorName: '', directorEmail: '', directorNtfyTopic: '', directorPhone: '',
-	showDates: '', venue: '', calendarId: '', useAuditions: 'false', auditionQuestions: [], scenes: [], characters: [], staff: [], curtainTimes: {}, notificationContacts: [], accentColor: '', accentBg: ''
+	showDates: '', venue: '', calendarId: '', useAuditions: 'false', auditionQuestions: [], scenes: [], scenes_struct: [], acts: [], characters: [], staff: [], curtainTimes: {}, notificationContacts: [], accentColor: '', accentBg: ''
   })
   const [sharedWith, setSharedWith] = useState([])
   const [newMember, setNewMember] = useState({ name: '', email: '', pin: '', role: 'member' })
@@ -755,6 +756,8 @@ export default function SetupPage() {
         accentBg: data.config.accentBg || '',
         auditionQuestions: Array.isArray(data.config.auditionQuestions) ? data.config.auditionQuestions : [],
         scenes: Array.isArray(data.config.scenes) ? data.config.scenes : [],
+        scenes_struct: Array.isArray(data.config.scenes_struct) ? data.config.scenes_struct : [],
+        acts: Array.isArray(data.config.acts) ? data.config.acts : [],
         characters: normalizeCast(Array.isArray(data.config.characters) ? data.config.characters : []),
         staff: Array.isArray(data.config.staff) ? data.config.staff : [],
         notificationContacts: Array.isArray(data.config.notificationContacts) ? data.config.notificationContacts : []
@@ -942,7 +945,7 @@ export default function SetupPage() {
               </div>
             </div>
             <div className="field" style={{ marginBottom: '1rem' }}>
-              <label>Your ntfy push topic <span style={{ fontWeight: 400, color: 'var(--text3)', fontSize: 11 }}>� receive show day alerts on your device</span></label>
+              <label>Your ntfy push topic <span style={{ fontWeight: 400, color: 'var(--text3)', fontSize: 11 }}>� receive show day alerts on your device</span></label>
               <input type="text" value={config.directorNtfyTopic || ''} onChange={e => setC('directorNtfyTopic', e.target.value)} placeholder={config.ntfyTopic || 'your-ntfy-topic'} />
             </div>
             <div className="grid2" style={{ marginBottom: '1rem' }}>
@@ -1032,39 +1035,56 @@ export default function SetupPage() {
 
         {activeTab === 'scenes' && (
           <div className="card">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: '1rem' }}>
-              <p className="muted" style={{ margin: 0 }}>These appear in the scene dropdown when logging notes.</p>
-              <button className="btn btn-sm" onClick={lookupScenes} disabled={lookingUpScenes || !config.title}
-                style={{ background: 'var(--blue-bg)', color: 'var(--blue-text)', borderColor: 'transparent', fontWeight: 500, flexShrink: 0 }}>
-                {lookingUpScenes ? '✨ Looking up…' : '✨ Auto-populate from show'}
-              </button>
-            </div>
-            {sceneLookupResult && (
-              <div style={{ background: 'var(--blue-bg)', border: '0.5px solid var(--blue-text)', borderRadius: 'var(--radius)', padding: '1rem', marginBottom: '1rem' }}>
-                <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--blue-text)', marginBottom: 8 }}>
-                  ✨ Found {sceneLookupResult.scenes.length} scenes for <em>{sceneLookupResult.showTitle}</em>
-                </p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-                  {sceneLookupResult.scenes.map(name => {
-                    const added = config.scenes.includes(name)
-                    return (
-                      <button key={name} type="button"
-                        onClick={() => { if (added) setC('scenes', config.scenes.filter(s => s !== name)); else setC('scenes', [...config.scenes, name]) }}
-                        style={{ fontSize: 12, padding: '4px 10px', borderRadius: 20, cursor: 'pointer', border: '0.5px solid var(--blue-text)', background: added ? 'var(--blue-text)' : 'transparent', color: added ? 'var(--bg)' : 'var(--blue-text)' }}>
-                        {added ? '✓ ' : ''}{name}
-                      </button>
-                    )
-                  })}
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn btn-sm" onClick={() => setC('scenes', [...new Set([...config.scenes, ...sceneLookupResult.scenes])])}>Add all</button>
-                  <button className="btn btn-sm" onClick={() => setSceneLookupResult(null)}>Dismiss</button>
-                </div>
-              </div>
-            )}
-            <DraggableTagInput label="Scenes / acts" values={config.scenes} onChange={v => setC('scenes', v)} placeholder="e.g. Act 1 Scene 2" />
-            <button className="btn btn-primary mt2" onClick={save} disabled={saving}>
-              {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save scenes'}
+            <p className="muted" style={{ marginBottom: '1rem' }}>
+              Group scenes under acts. These appear in the scene dropdown when logging notes,
+              and acts power the <code style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12 }}>#a1</code>/<code style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12 }}>#a2</code> quick-tags.
+            </p>
+
+            <ActsScenesManager
+              acts={config.acts}
+              scenes={config.scenes_struct}
+              legacyScenes={config.scenes}
+              showTitle={config.title}
+              lookupBusy={lookingUpScenes}
+              onLookup={async () => {
+                if (!config.title) { setError('Enter a production title first'); return null }
+                setLookingUpScenes(true); setError('')
+                try {
+                  const data = await api.lookupShowScenes(config.title)
+                  return { acts: data.acts || [], scenes_struct: data.scenes_struct || [] }
+                } catch (e) {
+                  setError('Lookup failed: ' + e.message)
+                  return null
+                } finally { setLookingUpScenes(false) }
+              }}
+              onChange={({ acts, scenes }) => {
+                setConfig(c => ({
+                  ...c,
+                  acts,
+                  scenes_struct: scenes,
+                  scenes: scenes.map(s => s.name)
+                }))
+              }}
+            />
+
+            <button className="btn btn-primary mt2" style={{ marginTop: '1rem' }}
+              onClick={async () => {
+                setSaving(true); setError('')
+                try {
+                  const payload = {
+                    ...config,
+                    scenes: config.scenes_struct
+                  }
+                  delete payload.scenes_struct
+                  await api.updateProduction({ sheetId: session.sheetId, config: payload })
+                  setSaved(true); setTimeout(() => setSaved(false), 2500)
+                  loadData()
+                } catch (e) {
+                  setError('Failed to save: ' + e.message)
+                } finally { setSaving(false) }
+              }}
+              disabled={saving}>
+              {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save acts & scenes'}
             </button>
           </div>
         )}
