@@ -1,6 +1,7 @@
 'use strict'
 
 const { sheetsClient, getRows, CORS, ok, err } = require('./_sheets')
+const { migrateConfig } = require('./_actsScenes')
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
@@ -19,6 +20,15 @@ exports.handler = async (event) => {
       try { config[key] = JSON.parse(val) }
       catch { config[key] = val || '' }
     })
+
+    // ---- Auto-migrate legacy acts/scenes shape ---------------------------
+    // If config still has flat-string scenes (the legacy shape), translate
+    // it to the new {acts, scenes} structure on the fly. The translation is
+    // *not* written back here — it'll persist the next time the user saves
+    // production settings. This makes rollout invisible: old data continues
+    // to work; new shape becomes canonical as soon as anything is touched.
+    const migrated = migrateConfig(config)
+    Object.assign(config, migrated)
 
     // Read SharedWith tab
     const sharedRows = await getRows(sheets, sheetId, 'SharedWith!A:I')

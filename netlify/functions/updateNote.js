@@ -14,8 +14,10 @@ exports.handler = async (event) => {
 
   try {
     const sheets = await sheetsClient()
-    // Read full row A:S to preserve all columns including pinnedBy
-    const rows = await getRows(sheets, sheetId, 'Notes!A:S')
+    // Read full row A:U (21 cols) — accommodates new actId/sceneId columns.
+    // On legacy sheets (A:S), the extra cells just come back undefined; we
+    // pad below to the full new width before writing.
+    const rows = await getRows(sheets, sheetId, 'Notes!A:U')
     if (rows.length < 2) return err('Note not found', 404)
 
     const [header, ...data] = rows
@@ -26,8 +28,20 @@ exports.handler = async (event) => {
     if (rowIndex === -1) return err('Note not found', 404)
 
     const row = [...data[rowIndex]]
-    // Pad row to full width (A:S = 19 columns)
-    while (row.length < 19) row.push('')
+    // Pad row to full new width (A:U = 21 columns)
+    while (row.length < 21) row.push('')
+
+    // Helper for fields that may not yet have a header column (legacy sheet).
+    // If the column exists, write to it. If not, write to the conventional
+    // position (T=19, U=20) so when the header is upgraded later it lines up.
+    function setField(name, value, conventionalIndex) {
+      const i = idx[name]
+      if (i !== undefined && i >= 0) {
+        row[i] = value
+      } else if (conventionalIndex !== undefined) {
+        row[conventionalIndex] = value
+      }
+    }
 
     if (changes.text !== undefined) row[idx.text] = changes.text
     if (changes.scene !== undefined) row[idx.scene] = changes.scene
@@ -43,12 +57,17 @@ exports.handler = async (event) => {
     if (changes.carriedOver !== undefined) row[idx.carriedOver] = String(changes.carriedOver)
     if (changes.attachmentUrl !== undefined) row[idx.attachmentUrl] = changes.attachmentUrl
     if (changes.castList !== undefined) row[idx.castList] = Array.isArray(changes.castList) ? changes.castList.join(', ') : changes.castList
+
+    // NEW: actId / sceneId — null/undefined writes empty string
+    if (changes.actId !== undefined) setField('actId', changes.actId || '', 19)     // T
+    if (changes.sceneId !== undefined) setField('sceneId', changes.sceneId || '', 20) // U
+
     row[idx.updatedAt] = new Date().toISOString()
 
     const sheetRowIndex = rowIndex + 2
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId,
-      range: `Notes!A${sheetRowIndex}:S${sheetRowIndex}`,
+      range: `Notes!A${sheetRowIndex}:U${sheetRowIndex}`,
       valueInputOption: 'RAW',
       requestBody: { values: [row] }
     })

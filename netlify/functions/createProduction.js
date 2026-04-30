@@ -4,6 +4,7 @@ const {
   sheetsClient, driveClient, getRows, appendRows,
   hashPin, makeProductionCode, REGISTRY_SHEET_ID, CORS, ok, err
 } = require('./_sheets')
+const { defaultActs, migrateConfig } = require('./_actsScenes')
 
 const SHARED_DRIVE_ID = '0AHO7QedLJaIHUk9PVA'
 
@@ -14,7 +15,10 @@ exports.handler = async (event) => {
   let body
   try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
 
-  const { title, pin, adminPin, directorName, directorEmail, showDates, scenes, characters, staff, useAuditions } = body
+  const {
+    title, pin, adminPin, directorName, directorEmail, showDates,
+    scenes, acts, actCount, characters, staff, useAuditions
+  } = body
   if (!title || !pin) return err('Title and PIN are required')
   if (pin.length < 4) return err('PIN must be at least 4 characters')
 
@@ -76,10 +80,10 @@ exports.handler = async (event) => {
     }
     await sheets.spreadsheets.batchUpdate({ spreadsheetId: productionSheetId, requestBody: { requests: addSheets } })
 
-    // 6. Notes header
+    // 6. Notes header — A:U (21 cols, includes actId + sceneId)
     await sheets.spreadsheets.values.update({
-      spreadsheetId: productionSheetId, range: 'Notes!A1:R1', valueInputOption: 'RAW',
-      requestBody: { values: [['id','date','scene','category','priority','cast','cue','swTime','text','resolved','createdAt','updatedAt','createdBy','deleted','carriedOver','attachmentUrl','pinned','privateNote']] }
+      spreadsheetId: productionSheetId, range: 'Notes!A1:U1', valueInputOption: 'RAW',
+      requestBody: { values: [['id','date','scene','category','priority','cast','cue','swTime','text','resolved','createdAt','updatedAt','createdBy','deleted','carriedOver','attachmentUrl','pinned','privateNote','pinnedBy','actId','sceneId']] }
     })
 
     // 7. Auditioners header
@@ -95,6 +99,27 @@ exports.handler = async (event) => {
     }
 
     // 8. Config tab
+    // Build the new acts/scenes structure. Three input shapes are handled:
+    //   (a) caller passed { acts: [...], scenes: [{id, name, actId, ...}] } — use as-is
+    //   (b) caller passed legacy { scenes: ["Act 1, Scene 2", ...] } — migrate
+    //   (c) caller passed nothing — start with N default acts (actCount or 2)
+    //       and an empty scenes array
+    let finalActs, finalScenes
+    if (Array.isArray(acts) && acts.length && Array.isArray(scenes) && (scenes.length === 0 || typeof scenes[0] === 'object')) {
+      // Shape (a)
+      finalActs = acts
+      finalScenes = scenes
+    } else if (Array.isArray(scenes) && scenes.length && typeof scenes[0] === 'string') {
+      // Shape (b) — legacy flat strings, run through migrator
+      const migrated = migrateConfig({ scenes })
+      finalActs = migrated.acts
+      finalScenes = migrated.scenes
+    } else {
+      // Shape (c) — fresh start
+      finalActs = defaultActs(actCount || 2)
+      finalScenes = []
+    }
+
     const configData = [
       ['title', title],
       ['directorName', directorName || ''],
@@ -102,7 +127,8 @@ exports.handler = async (event) => {
       ['showDates', showDates || ''],
       ['venue', ''],
       ['calendarId', ''],
-      ['scenes', JSON.stringify(scenes || [])],
+      ['acts', JSON.stringify(finalActs)],
+      ['scenes', JSON.stringify(finalScenes)],
       ['characters', JSON.stringify(characters || [])],
       ['staff', JSON.stringify(staff || [])],
       ['rootFolderId', rootFolderId],

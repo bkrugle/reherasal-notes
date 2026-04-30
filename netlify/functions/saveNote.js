@@ -17,12 +17,15 @@ exports.handler = async (event) => {
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
     const now = new Date().toISOString()
 
-    await appendRows(sheets, sheetId, 'Notes!A:S', [[
+    // Notes sheet width is now A:U (21 columns) — added actId (T) and sceneId (U).
+    // Legacy sheets without these columns: append still works because
+    // appendRows detects the actual sheet width and pads.
+    await appendRows(sheets, sheetId, 'Notes!A:U', [[
       id,                                    // A: id
       note.date || now.slice(0, 10),         // B: date
-      note.scene || '',                      // C: scene
+      note.scene || '',                      // C: scene (display label, kept for back-compat)
       note.category || 'general',            // D: category
-      note.priority || 'med',               // E: priority
+      note.priority || 'med',                // E: priority
       note.cast || '',                       // F: cast
       note.cue || '',                        // G: cue
       note.swTime || '',                     // H: swTime
@@ -36,7 +39,9 @@ exports.handler = async (event) => {
       note.attachmentUrl || '',              // P: attachmentUrl
       note.pinned ? 'true' : 'false',        // Q: pinned
       note.privateNote ? 'true' : 'false',   // R: privateNote
-      note.pinnedBy || ''                    // S: pinnedBy
+      note.pinnedBy || '',                   // S: pinnedBy
+      note.actId || '',                      // T: actId   (NEW)
+      note.sceneId || ''                     // U: sceneId (NEW)
     ]])
 
     return ok({ id, createdAt: now })

@@ -10,34 +10,45 @@ exports.handler = async (event) => {
 
   try {
     const sheets = await sheetsClient()
-    const rows = await getRows(sheets, sheetId, 'Notes!A:S')
+    // Read full width A:U (21 cols) — accommodates new actId/sceneId columns.
+    // Legacy sheets that only have A:S (19 cols) still work; the extra
+    // columns simply come back as undefined and we map them to null.
+    const rows = await getRows(sheets, sheetId, 'Notes!A:U')
     if (rows.length < 2) return ok({ notes: [] })
 
     const [header, ...data] = rows
     const idx = {}
     header.forEach((col, i) => { idx[col] = i })
 
+    // Helper to safely get a column value when the column may not exist
+    function col(row, name) {
+      const i = idx[name]
+      return (i === undefined || i < 0) ? '' : (row[i] || '')
+    }
+
     const notes = data
       .filter(r => r[idx.deleted] !== 'true' && r.some(Boolean))
       .map(r => ({
-        id: r[idx.id] || '',
-        date: r[idx.date] || '',
-        scene: r[idx.scene] || '',
-        category: r[idx.category] || '',
-        priority: r[idx.priority] || 'med',
-        cast: r[idx.cast] || '',
-        cue: r[idx.cue] || '',
-        swTime: r[idx.swTime] || '',
-        text: r[idx.text] || '',
-        resolved: r[idx.resolved] === 'true',
-        createdAt: r[idx.createdAt] || '',
-        updatedAt: r[idx.updatedAt] || '',
-        createdBy: r[idx.createdBy] || '',
-        carriedOver: r[idx.carriedOver] || 'false',
-        attachmentUrl: r[idx.attachmentUrl] || '',
-        pinned: r[idx.pinned] === 'true',
-        privateNote: r[idx.privateNote] === 'true',
-        pinnedBy: r[idx.pinnedBy] || ''
+        id: col(r, 'id'),
+        date: col(r, 'date'),
+        scene: col(r, 'scene'),                 // legacy display field — kept for back-compat
+        sceneId: col(r, 'sceneId') || null,     // NEW: stable scene reference
+        actId: col(r, 'actId') || null,         // NEW: stable act reference
+        category: col(r, 'category'),
+        priority: col(r, 'priority') || 'med',
+        cast: col(r, 'cast'),
+        cue: col(r, 'cue'),
+        swTime: col(r, 'swTime'),
+        text: col(r, 'text'),
+        resolved: col(r, 'resolved') === 'true',
+        createdAt: col(r, 'createdAt'),
+        updatedAt: col(r, 'updatedAt'),
+        createdBy: col(r, 'createdBy'),
+        carriedOver: col(r, 'carriedOver') || 'false',
+        attachmentUrl: col(r, 'attachmentUrl'),
+        pinned: col(r, 'pinned') === 'true',
+        privateNote: col(r, 'privateNote') === 'true',
+        pinnedBy: col(r, 'pinnedBy')
       }))
       .reverse()
 
