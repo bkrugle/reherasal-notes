@@ -756,3 +756,27 @@ textarea { resize: vertical; line-height: 1.5; }
     grid-template-columns: 1fr 1fr !important;
   }
 }
+
+/* ---- Sidebar / main visual seam fix ----
+   Ensures the sidebar sits cleanly above any rounded content corners,
+   and the topbar fills its full width edge-to-edge with no gap.
+*/
+.desktop-layout .app-sidebar {
+  z-index: 2;
+  position: sticky;
+}
+
+.desktop-layout .app-main {
+  position: relative;
+  z-index: 1;
+  background: var(--bg3);
+}
+
+.desktop-layout .app-main-topbar {
+  border-radius: 0;
+}
+
+/* Prevent any child wrapper from creating a rounded notch at top-left */
+.desktop-layout .app-main > * {
+  border-top-left-radius: 0;
+}
