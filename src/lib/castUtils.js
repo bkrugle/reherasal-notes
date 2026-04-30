@@ -145,3 +145,33 @@ export function getNotesForUser(notes, session) {
   if (isFullAccess) return notes.filter(n => !n.resolved)
   return notes.filter(n => noteMatchesUser(n, name, staffRole))
 }
+
+// Like getNotesForUser, but does NOT hide resolved notes.
+// Use this when the consumer wants to decide for itself.
+export function getVisibleNotesForUser(notes, session) {
+  if (!notes || !session) return notes || []
+  const { name, staffRole, role } = session
+  const isFullAccess = FULL_ACCESS_ROLES.includes(staffRole) || role === 'admin' || role === 'member'
+  if (isFullAccess) return notes
+  return notes.filter(n => {
+    if (!n) return false
+    const text = (n.text || '').toLowerCase()
+    const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+    const firstName = (name || '').split(' ')[0]
+    const normName = norm(name), normFirst = norm(firstName), normRole = norm(staffRole)
+    const mentionPattern = /@([a-zA-Z0-9_]+)/g
+    let m
+    while ((m = mentionPattern.exec(text)) !== null) {
+      const tag = norm(m[1])
+      if (normName && (tag === normName || tag === normFirst || normName.startsWith(tag) || normFirst.startsWith(tag))) return true
+    }
+    if (staffRole) {
+      const hashPattern = /#([a-zA-Z0-9_]+)/g
+      while ((m = hashPattern.exec(text)) !== null) {
+        const tag = norm(m[1])
+        if (tag === normRole || normRole.startsWith(tag) || tag.startsWith(normRole.slice(0, 4))) return true
+      }
+    }
+    return false
+  })
+}

@@ -18,7 +18,7 @@ import PreShowChecklist from '../components/PreShowChecklist'
 import IntermissionDashboard from '../components/IntermissionDashboard'
 import ReportTab from '../components/ReportTab'
 import SceneTimer from '../components/SceneTimer'
-import { castNameList, normalizeCast, getNotesForUser } from "../lib/castUtils"
+import { castNameList, normalizeCast, getNotesForUser, getVisibleNotesForUser } from "../lib/castUtils"
 import { getTimelineRemote } from "../lib/showTimeline"
 import CalendarTab from '../components/CalendarTab'
 import DocumentsTab from '../components/DocumentsTab'
@@ -266,6 +266,7 @@ export default function ProductionApp() {
   const title = session?.title || production?.config?.title || 'Production'
   const openNotes = notes.filter(n => !n.resolved)
   const filteredNotes = getNotesForUser(notes, session)
+  const reviewNotes = getVisibleNotesForUser(notes, session)
   const tabProps = { notes, sheetId: session.sheetId, scenes, characters, staff, onNoteUpdated, onNoteDeleted }
 
   const smRoles = ['Stage Manager', 'Asst. SM', 'Assistant SM', 'Director', 'Asst. Director', 'Assistant Director']
@@ -356,7 +357,7 @@ export default function ProductionApp() {
           {showSceneTimer && <SceneTimer scenes={scenes} />}
           {activeTab === 0 && <Dashboard notes={notes} production={production} session={session} calendarEvents={calendarEvents} onNavigate={setTab} onLogForDate={onLogForDate} openNotes={openNotes} />}
           {activeTab === 1 && <LogTab sheetId={session.sheetId} scenes={scenes} characters={[...characterNames, ...staff]} swDisplay={swDisplay} swRunning={swRunning} createdBy={session.name || session.role} onNoteAdded={onNoteAdded} onNoteUpdated={onNoteUpdated} attachFolderId={attachFolderId} />}
-          {activeTab === 2 && <ReviewTab {...tabProps} notes={filteredNotes} loading={loadingNotes} onRefresh={loadNotes} session={session} />}
+          {activeTab === 2 && <ReviewTab {...tabProps} notes={reviewNotes} production={production} loading={loadingNotes} onRefresh={loadNotes} session={session} />}
           {activeTab === 3 && <ByCastTab {...tabProps} loading={loadingNotes} />}
           {activeTab === 4 && <CalendarTab calendarId={calendarId} scenes={scenes} notes={notes} onLogForDate={onLogForDate} />}
           {activeTab === 5 && <div><DocumentsTab docsFolderId={docsFolderId} attachFolderId={attachFolderId} isAdmin={session.role === 'admin'} /><div style={{marginTop:'1rem'}}><CastDirectory sheetId={session.sheetId} production={production} session={session} /></div></div>}

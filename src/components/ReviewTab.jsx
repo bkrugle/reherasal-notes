@@ -57,10 +57,11 @@ ul{margin:0;padding-left:1.25rem}li{margin:5px 0;font-size:14px}
   a.click()
 }
 
-export default function ReviewTab({ notes, sheetId, scenes, characters, loading, onRefresh, onNoteUpdated, onNoteDeleted, session }) {
+export default function ReviewTab({ notes, sheetId, scenes, characters, loading, onRefresh, onNoteUpdated, onNoteDeleted, session, production }) {
   const [catFilter, setCatFilter] = useState('all')
   const [sessionFilter, setSessionFilter] = useState('all')
-  const [showResolved, setShowResolved] = useState(false)
+  const isClosed = production?.config?.productionClosed === 'true'
+  const [showResolved, setShowResolved] = useState(isClosed)
 
   const sessions = [...new Set(notes.map(n => n.date))].sort().reverse()
 
