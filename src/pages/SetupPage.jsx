@@ -1060,6 +1060,9 @@ export default function SetupPage() {
                   } else if (Array.isArray(data.scenes) && data.scenes.length && typeof data.scenes[0] === 'object') {
                     structScenes = data.scenes
                   }
+                  if (data.confident === false) {
+                    setError("⚠ Auto-populate isn't fully confident about this show's structure — review carefully and edit anything that looks wrong.")
+                  }
                   return { acts: data.acts || [], scenes_struct: structScenes }
                 } catch (e) {
                   setError('Lookup failed: ' + e.message)

@@ -16,34 +16,47 @@ exports.handler = async (event) => {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) return err('ANTHROPIC_API_KEY not configured', 500)
 
-  // Structured prompt: ask Claude to return acts grouped with their scenes,
-  // plus an "extras" list for things that don't belong to a specific act
-  // (Bows, Full Run, Pit Rehearsal, etc.)
-  const prompt = `For the musical or play "${showTitle}", list the acts and scenes as a director would use them for rehearsal notes.
+  // Anti-hallucination prompt:
+  //  - Heavy emphasis on accuracy over completeness
+  //  - Explicit instruction to refuse when uncertain instead of guessing
+  //  - Examples of common failure modes (mixing shows, using show title as scene)
+  //  - Sets `confident: false` flag if uncertain so caller can warn user
+  const prompt = `You are helping organize a director's rehearsal notes for a stage production. The show is: "${showTitle}".
 
-Return ONLY valid JSON with this exact structure, nothing else. No explanation, no markdown, no backticks:
+Your job: list the SONGS, SCENES, and ACTS of this specific show — and ONLY this show. Accuracy matters far more than completeness. It is much better to return 5 verified items than 20 with hallucinations.
+
+Return ONLY valid JSON, nothing else (no markdown, no backticks, no commentary):
 {
+  "confident": true,
   "acts": [
-    { "name": "Act 1", "scenes": ["Scene 1", "Scene 2", "Opening Number"] },
-    { "name": "Act 2", "scenes": ["Scene 1", "Finale"] }
+    { "name": "Act 1", "scenes": ["Song A", "Song B"] },
+    { "name": "Act 2", "scenes": ["Song C"] }
   ],
-  "extras": ["Full Run", "Bows", "Pit Rehearsal"]
+  "extras": ["Bows", "Full Run"]
 }
 
-Rules:
-- Use the format directors actually use for scene names (e.g. "Scene 1", "Opening Number", "Defying Gravity")
-- "extras" is for entries that aren't tied to a specific act — generic things like "Full Run", "Bows", "Pit Rehearsal", "Sitzprobe"
-- Include 1-2 acts unless the show genuinely has more (most musicals are 2 acts; most plays are 1-3)
-- Keep total entries practical — 15-25 max across everything
-- Songs/musical numbers go inside whichever act they appear in
+CRITICAL RULES:
+1. ONLY include songs/scenes you are CERTAIN belong to "${showTitle}". If you're unsure about a song, OMIT it.
+2. NEVER invent scene names. NEVER mix in songs from other shows (this is a common error — be vigilant).
+3. The show title itself is NOT a scene. Don't include "${showTitle}" as a scene name.
+4. If you do not have confident knowledge of this show's structure, set "confident": false and return mostly empty arrays:
+   { "confident": false, "acts": [{"name":"Act 1","scenes":[]},{"name":"Act 2","scenes":[]}], "extras": ["Bows","Full Run"] }
+5. Use the EXACT song titles as they appear in the score/script. Don't paraphrase.
+6. Place songs in the act where they actually appear (Act 1 vs Act 2). If unsure of placement, set "confident": false.
+7. "extras" is for production-process items that aren't part of the show itself: "Bows", "Curtain Call", "Full Run", "Pit Rehearsal", "Sitzprobe", "Tech Run". Do NOT put songs here.
+8. Most musicals have 2 acts. Most plays have 1-3 acts. Use what's accurate for this show.
+9. Quality over quantity. A confident 8-item list beats a hallucinated 20-item one.
 
-If you don't recognize "${showTitle}" as a specific show, return:
-{ "acts": [{ "name": "Act 1", "scenes": [] }, { "name": "Act 2", "scenes": [] }], "extras": ["Full Run", "Bows", "Pit Rehearsal"] }`
+Common mistakes to avoid:
+- Mixing songs from "${showTitle}" with songs from other similarly-themed shows
+- Including the show title as a scene
+- Inventing plausible-sounding song names
+- Splitting compound numbers ("Pandemonium / Reprise") that aren't actually two scenes`
 
   try {
     const requestBody = JSON.stringify({
       model: 'claude-sonnet-4-6',
-      max_tokens: 1500,  // Bumped from 500 — structured output needs more headroom
+      max_tokens: 1500,
       messages: [{ role: 'user', content: prompt }]
     })
 
@@ -71,11 +84,6 @@ If you don't recognize "${showTitle}" as a specific show, return:
 
     const text = parsed.content?.[0]?.text || '{}'
 
-    // Try to parse the structured response. Be forgiving:
-    //   1. Strip any backticks/code fences
-    //   2. Try direct JSON.parse
-    //   3. Fall back to extracting the first {...} object
-    //   4. As a last resort, try the legacy flat array shape and convert
     let structured = null
     const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/, '').trim()
     try {
@@ -83,24 +91,15 @@ If you don't recognize "${showTitle}" as a specific show, return:
     } catch {
       const objMatch = cleaned.match(/\{[\s\S]*\}/)
       if (objMatch) { try { structured = JSON.parse(objMatch[0]) } catch {} }
-      if (!structured) {
-        const arrMatch = cleaned.match(/\[[\s\S]*\]/)
-        if (arrMatch) {
-          try {
-            const flat = JSON.parse(arrMatch[0])
-            if (Array.isArray(flat)) structured = legacyArrayToStructured(flat)
-          } catch {}
-        }
-      }
     }
 
-    // Sanity check the structure
     if (!structured || !Array.isArray(structured.acts)) {
-      structured = { acts: [{ name: 'Act 1', scenes: [] }, { name: 'Act 2', scenes: [] }], extras: ['Full Run', 'Bows', 'Pit Rehearsal'] }
+      structured = { confident: false, acts: [{ name: 'Act 1', scenes: [] }, { name: 'Act 2', scenes: [] }], extras: ['Full Run', 'Bows'] }
     }
 
-    // Normalize → assign stable IDs and order. This is the canonical shape
-    // that gets stored in Config and used everywhere downstream.
+    const isConfident = structured.confident !== false  // default true if unspecified
+
+    // Normalize → assign stable IDs and order.
     const acts = []
     const scenes = []
     let actOrder = 0
@@ -114,11 +113,13 @@ If you don't recognize "${showTitle}" as a specific show, return:
       acScenes.forEach((s) => {
         const name = (typeof s === 'string') ? s : (s && s.name)
         if (!name) return
-        scenes.push({ id: newSceneId(), name: String(name).trim(), actId, order: ++sceneOrder })
+        const trimmed = String(name).trim()
+        // Skip the show title accidentally being included as a scene
+        if (trimmed.toLowerCase() === String(showTitle).toLowerCase()) return
+        scenes.push({ id: newSceneId(), name: trimmed, actId, order: ++sceneOrder })
       })
     })
 
-    // Extras go in as unassigned scenes (actId: null)
     const extras = Array.isArray(structured.extras) ? structured.extras : []
     extras.forEach((s) => {
       const name = (typeof s === 'string') ? s : (s && s.name)
@@ -126,44 +127,17 @@ If you don't recognize "${showTitle}" as a specific show, return:
       scenes.push({ id: newSceneId(), name: String(name).trim(), actId: null, order: ++sceneOrder })
     })
 
-    // Backward-compat flat array — for any UI piece not yet updated
     const flat = scenes.map(s => s.name)
 
-    return ok({ acts, scenes, scenes_flat: flat, showTitle })
+    return ok({
+      scenes: flat,
+      scenes_struct: scenes,
+      acts,
+      confident: isConfident,
+      showTitle
+    })
   } catch (e) {
     console.error('lookupShowScenes error:', e.message)
     return err(e.message, 500)
   }
-}
-
-// Convert a legacy flat array (["Act 1", "Act 1, Scene 2", ...]) into the
-// structured shape Claude is now expected to return. Used as a fallback when
-// the model returns the old format.
-function legacyArrayToStructured(arr) {
-  const ACT_REGEX = /^act\s*(\d+)$/i
-  const ACT_SCENE_REGEX = /^act\s*(\d+)\s*[,\-:]\s*(.+)$/i
-  const acts = []
-  const extras = []
-  arr.forEach(name => {
-    const s = String(name).trim()
-    if (!s) return
-    let m = s.match(ACT_SCENE_REGEX)
-    if (m) {
-      const num = parseInt(m[1], 10)
-      let act = acts.find(a => a._num === num)
-      if (!act) { act = { name: `Act ${num}`, scenes: [], _num: num }; acts.push(act) }
-      act.scenes.push(m[2])
-      return
-    }
-    m = s.match(ACT_REGEX)
-    if (m) {
-      const num = parseInt(m[1], 10)
-      let act = acts.find(a => a._num === num)
-      if (!act) { act = { name: `Act ${num}`, scenes: [], _num: num }; acts.push(act) }
-      return
-    }
-    extras.push(s)
-  })
-  acts.sort((a, b) => a._num - b._num).forEach(a => delete a._num)
-  return { acts, extras }
 }
