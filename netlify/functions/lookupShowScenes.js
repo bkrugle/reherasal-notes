@@ -55,7 +55,7 @@ Common mistakes to avoid:
 
   try {
     const requestBody = JSON.stringify({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-opus-4-7',
       max_tokens: 1500,
       messages: [{ role: 'user', content: prompt }]
     })
