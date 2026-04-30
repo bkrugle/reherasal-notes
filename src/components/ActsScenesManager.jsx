@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import {
-  newActId, newSceneId, defaultActs,
-  ensureMigrated, isLegacyConfig,
+  defaultActs,
+  ensureMigrated,
   groupScenesByAct,
   addAct as libAddAct,
   renameAct as libRenameAct,
@@ -14,19 +14,17 @@ import {
 } from '../lib/actsScenes'
 
 /**
- * ActsScenesManager
- *
- * Replaces the old flat scenes input with a structured Acts → Scenes manager.
+ * ActsScenesManager — drag-and-drop manager for acts & scenes.
  *
  * Props:
- *   acts        — array of {id, name, order}
- *   scenes      — array of {id, name, actId|null, order}  (the new structured shape)
- *   legacyScenes— OPTIONAL flat string array. If provided AND `scenes` is empty,
- *                 we migrate from legacy on the fly so the user sees their
- *                 existing flat scenes already grouped.
- *   onChange    — called with { acts, scenes } whenever anything changes
- *   onLookup    — optional () => Promise<{acts, scenes_struct}> for ✨ Auto-populate
- *   busy        — disable controls while parent is saving
+ *   acts        — [{id, name, order}]
+ *   scenes      — [{id, name, actId|null, order}]
+ *   legacyScenes— optional fallback flat string array (used only when both
+ *                 acts and scenes are empty AND we have a legacy list to seed from)
+ *   onChange    — ({acts, scenes}) => void  — fires on every mutation
+ *   onLookup    — optional async () => {acts, scenes_struct}
+ *   lookupBusy  — disable lookup button while parent is fetching
+ *   showTitle   — for the lookup button label
  */
 export default function ActsScenesManager({
   acts: actsProp = [],
@@ -37,44 +35,53 @@ export default function ActsScenesManager({
   lookupBusy = false,
   showTitle = ''
 }) {
-  // Bootstrap: if the parent gave us no acts/structured scenes but DOES have a
-  // legacy flat array, migrate it once so the user can edit immediately.
-  const initial = (() => {
-    if (Array.isArray(actsProp) && actsProp.length > 0) {
-      return { acts: actsProp, scenes: scenesProp || [] }
+  // Decide what data to show right now.
+  // We do NOT auto-fire onChange during render — that was the source of the
+  // last bug (resetting scenes to [] during a re-render). Instead, the user
+  // gets a "Get started" button if there's truly nothing yet.
+  const { acts, scenes, isEmpty } = useMemo(() => {
+    const haveActs = Array.isArray(actsProp) && actsProp.length > 0
+    const haveScenes = Array.isArray(scenesProp) && scenesProp.length > 0
+    if (haveActs || haveScenes) {
+      return { acts: actsProp, scenes: scenesProp || [], isEmpty: false }
     }
-    if (Array.isArray(legacyScenes) && legacyScenes.length > 0) {
-      const migrated = ensureMigrated({ scenes: legacyScenes })
-      return { acts: migrated.acts, scenes: migrated.scenes }
-    }
-    return { acts: defaultActs(2), scenes: [] }
-  })()
+    return { acts: [], scenes: [], isEmpty: true }
+  }, [actsProp, scenesProp])
 
-  // We don't store local state — we always reflect parent state. But we DO
-  // maintain UI-only state (collapsed acts, "add scene" dialog target, etc).
-  const acts   = actsProp.length ? actsProp : initial.acts
-  const scenes = (scenesProp.length || actsProp.length) ? scenesProp : initial.scenes
-
-  // If we had to bootstrap defaults, push them back to the parent immediately
-  // so subsequent renders agree on the data. Use a ref to fire only once.
-  const bootstrappedRef = useRef(false)
-  if (!bootstrappedRef.current && (!actsProp.length || (legacyScenes?.length && !scenesProp.length))) {
-    bootstrappedRef.current = true
-    if (onChange) onChange({ acts: initial.acts, scenes: initial.scenes })
-  }
-
+  // UI-only state
   const [collapsed, setCollapsed] = useState({})
   const [editingActId, setEditingActId] = useState(null)
   const [editingActName, setEditingActName] = useState('')
   const [editingSceneId, setEditingSceneId] = useState(null)
   const [editingSceneName, setEditingSceneName] = useState('')
-  const [newSceneInput, setNewSceneInput] = useState({})  // { [actId|'__none']: 'partial text' }
+  const [newSceneInput, setNewSceneInput] = useState({})
   const [newActName, setNewActName] = useState('')
   const [showLegend, setShowLegend] = useState(false)
-  const [moveMenuFor, setMoveMenuFor] = useState(null)   // sceneId showing move-to menu
+  const [moveMenuFor, setMoveMenuFor] = useState(null)
+
+  // Drag state
+  const dragSceneRef = useRef(null)
+  const dragActRef   = useRef(null)
+  const [dragOverAct, setDragOverAct] = useState(null)
+  const [dragOverScene, setDragOverScene] = useState(null)
 
   function commit(nextActs, nextScenes) {
     onChange && onChange({ acts: nextActs, scenes: nextScenes })
+  }
+
+  // ---- "get started" handlers --------------------------------------------
+
+  function bootstrapFromLegacy() {
+    if (Array.isArray(legacyScenes) && legacyScenes.length > 0) {
+      const migrated = ensureMigrated({ scenes: legacyScenes })
+      commit(migrated.acts, migrated.scenes)
+    } else {
+      commit(defaultActs(2), [])
+    }
+  }
+
+  function bootstrapFresh(count) {
+    commit(defaultActs(count), [])
   }
 
   // ---- act actions --------------------------------------------------------
@@ -93,18 +100,16 @@ export default function ActsScenesManager({
     if (editingActId && editingActName.trim()) {
       commit(libRenameAct(acts, editingActId, editingActName.trim()), scenes)
     }
-    setEditingActId(null)
-    setEditingActName('')
+    setEditingActId(null); setEditingActName('')
   }
   function cancelEditAct() {
-    setEditingActId(null)
-    setEditingActName('')
+    setEditingActId(null); setEditingActName('')
   }
 
   function handleRemoveAct(act) {
     const orphans = scenes.filter(s => s.actId === act.id)
     const msg = orphans.length
-      ? `Remove "${act.name}"? ${orphans.length} scene${orphans.length === 1 ? '' : 's'} (${orphans.slice(0,3).map(s => s.name).join(', ')}${orphans.length > 3 ? '…' : ''}) will be moved to "Unassigned".`
+      ? `Remove "${act.name}"? ${orphans.length} scene${orphans.length === 1 ? '' : 's'} will move to "Unassigned".`
       : `Remove "${act.name}"?`
     if (!confirm(msg)) return
     const result = libRemoveAct(acts, scenes, act.id)
@@ -127,7 +132,6 @@ export default function ActsScenesManager({
     const key = actId || '__none'
     const text = (newSceneInput[key] || '').trim()
     if (!text) return
-    // Allow comma-separated bulk add
     const items = text.split(',').map(s => s.trim()).filter(Boolean)
     let next = scenes
     items.forEach(name => { next = libAddScene(next, name, actId) })
@@ -143,12 +147,10 @@ export default function ActsScenesManager({
     if (editingSceneId && editingSceneName.trim()) {
       commit(acts, libRenameScene(scenes, editingSceneId, editingSceneName.trim()))
     }
-    setEditingSceneId(null)
-    setEditingSceneName('')
+    setEditingSceneId(null); setEditingSceneName('')
   }
   function cancelEditScene() {
-    setEditingSceneId(null)
-    setEditingSceneName('')
+    setEditingSceneId(null); setEditingSceneName('')
   }
 
   function handleRemoveScene(scene) {
@@ -159,6 +161,111 @@ export default function ActsScenesManager({
   function handleMoveSceneToAct(sceneId, targetActId) {
     commit(acts, libMoveSceneToAct(scenes, sceneId, targetActId))
     setMoveMenuFor(null)
+  }
+
+  // ---- drag and drop ------------------------------------------------------
+
+  function onSceneDragStart(e, scene) {
+    dragSceneRef.current = { sceneId: scene.id }
+    e.dataTransfer.effectAllowed = 'move'
+    try { e.dataTransfer.setData('text/plain', scene.id) } catch {}
+  }
+  function onSceneDragEnd() {
+    dragSceneRef.current = null
+    setDragOverAct(null)
+    setDragOverScene(null)
+  }
+  function onActDragOver(e, actId) {
+    if (dragSceneRef.current || dragActRef.current) {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+    }
+    if (dragSceneRef.current) setDragOverAct(actId === undefined || actId === null ? '__none' : actId)
+  }
+  function onActDragLeave(e) {
+    if (e.currentTarget.contains(e.relatedTarget)) return
+    setDragOverAct(null)
+  }
+  function onActDrop(e, targetActId) {
+    e.preventDefault()
+    const dragScene = dragSceneRef.current
+    if (dragScene) {
+      const scene = scenes.find(s => s.id === dragScene.sceneId)
+      if (!scene) return onSceneDragEnd()
+      const normTarget = targetActId === undefined ? null : targetActId
+      if (scene.actId === normTarget && dragOverScene && dragOverScene.actId === normTarget) {
+        reorderSceneTo(scene.id, dragOverScene.sceneId, dragOverScene.before)
+      } else {
+        commit(acts, libMoveSceneToAct(scenes, scene.id, normTarget))
+      }
+    }
+    onSceneDragEnd()
+  }
+
+  function reorderSceneTo(movingSceneId, targetSceneId, before) {
+    const moving = scenes.find(s => s.id === movingSceneId)
+    const target = scenes.find(s => s.id === targetSceneId)
+    if (!moving || !target || moving.id === target.id) return
+    if (moving.actId !== target.actId) {
+      commit(acts, libMoveSceneToAct(scenes, movingSceneId, target.actId))
+      return
+    }
+    const inSameAct = scenes
+      .filter(s => s.actId === moving.actId)
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+    const idsWithoutMoving = inSameAct.map(s => s.id).filter(id => id !== movingSceneId)
+    const targetIdx = idsWithoutMoving.indexOf(targetSceneId)
+    if (targetIdx === -1) return
+    const insertAt = before ? targetIdx : targetIdx + 1
+    idsWithoutMoving.splice(insertAt, 0, movingSceneId)
+    const orderById = new Map(idsWithoutMoving.map((id, i) => [id, i + 1]))
+    const next = scenes.map(s => {
+      if (s.actId !== moving.actId) return s
+      return { ...s, order: orderById.get(s.id) ?? s.order }
+    })
+    commit(acts, next)
+  }
+
+  function onSceneDragOver(e, scene) {
+    if (!dragSceneRef.current) return
+    const draggingId = dragSceneRef.current.sceneId
+    if (draggingId === scene.id) return
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'move'
+    const rect = e.currentTarget.getBoundingClientRect()
+    const before = (e.clientY - rect.top) < (rect.height / 2)
+    setDragOverScene({ sceneId: scene.id, actId: scene.actId, before })
+    setDragOverAct(scene.actId === null ? '__none' : scene.actId)
+  }
+
+  function onActHandleDragStart(e, act) {
+    dragActRef.current = { actId: act.id }
+    e.dataTransfer.effectAllowed = 'move'
+    try { e.dataTransfer.setData('text/plain', act.id) } catch {}
+  }
+  function onActHandleDragEnd() {
+    dragActRef.current = null
+    setDragOverAct(null)
+  }
+  function onActSectionDragOver(e, act) {
+    if (!dragActRef.current) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverAct(act.id)
+  }
+  function onActSectionDrop(e, targetAct) {
+    if (!dragActRef.current) return
+    e.preventDefault()
+    const movingId = dragActRef.current.actId
+    if (movingId === targetAct.id) return onActHandleDragEnd()
+    const sorted = [...acts].sort((a, b) => (a.order || 0) - (b.order || 0))
+    const ids = sorted.map(a => a.id).filter(id => id !== movingId)
+    const targetIdx = ids.indexOf(targetAct.id)
+    if (targetIdx === -1) return onActHandleDragEnd()
+    ids.splice(targetIdx, 0, movingId)
+    commit(libReorderActs(acts, ids), scenes)
+    onActHandleDragEnd()
   }
 
   // ---- lookup -------------------------------------------------------------
@@ -175,12 +282,46 @@ export default function ActsScenesManager({
 
   // ---- render -------------------------------------------------------------
 
+  if (isEmpty) {
+    const hasLegacy = Array.isArray(legacyScenes) && legacyScenes.length > 0
+    return (
+      <div style={{ background: 'var(--bg2)', border: '0.5px dashed var(--border2)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', textAlign: 'center' }}>
+        <p style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 12 }}>
+          {hasLegacy
+            ? `You have ${legacyScenes.length} scenes from before — import and organize them into acts?`
+            : 'No acts or scenes yet. Get started:'}
+        </p>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+          {hasLegacy && (
+            <button type="button" className="btn btn-primary" onClick={bootstrapFromLegacy}>
+              Import {legacyScenes.length} existing scene{legacyScenes.length === 1 ? '' : 's'}
+            </button>
+          )}
+          <button type="button" className="btn" onClick={() => bootstrapFresh(1)}>
+            Start with 1 act
+          </button>
+          <button type="button" className="btn" onClick={() => bootstrapFresh(2)}>
+            Start with 2 acts
+          </button>
+          <button type="button" className="btn" onClick={() => bootstrapFresh(3)}>
+            Start with 3 acts
+          </button>
+          {onLookup && showTitle && (
+            <button type="button" className="btn" onClick={doLookup} disabled={lookupBusy}
+              style={{ background: 'var(--blue-bg)', color: 'var(--blue-text)', borderColor: 'transparent', fontWeight: 500 }}>
+              {lookupBusy ? '✨ Looking up…' : `✨ Auto-populate from "${showTitle}"`}
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   const sortedActs = [...acts].sort((a, b) => (a.order || 0) - (b.order || 0))
   const groups = groupScenesByAct(acts, scenes)
 
   return (
     <div>
-      {/* Header / actions row */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
         <div style={{ fontSize: 12, color: 'var(--text3)' }}>
           {acts.length} act{acts.length === 1 ? '' : 's'} · {scenes.length} scene{scenes.length === 1 ? '' : 's'}
@@ -199,11 +340,10 @@ export default function ActsScenesManager({
         </div>
       </div>
 
-      {/* Legend */}
       {showLegend && (
         <div style={{ background: 'var(--purple-bg)', border: '0.5px solid var(--purple-text)', borderRadius: 'var(--radius)', padding: '10px 12px', marginBottom: 12 }}>
           <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--purple-text)', marginBottom: 6 }}>
-            Quick-tag shortcuts (use in note text)
+            Quick-tag shortcuts (use in note text — coming soon)
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, fontSize: 11, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
             {sortedActs.slice(0, 6).map((a, i) => (
@@ -211,17 +351,13 @@ export default function ActsScenesManager({
                 #a{i + 1} → {a.name}
               </span>
             ))}
-            {sortedActs.length === 0 && (
-              <span style={{ color: 'var(--purple-text)', opacity: 0.7 }}>Add an act to enable shortcuts</span>
-            )}
           </div>
           <p style={{ fontSize: 11, color: 'var(--purple-text)', opacity: 0.8, marginTop: 6 }}>
-            Type <code style={{ fontFamily: 'inherit' }}>#a1</code> in any note to tag it to {sortedActs[0]?.name || 'the first act'}.
+            Drag the ⋮⋮ handle on any scene or act to move/reorder.
           </p>
         </div>
       )}
 
-      {/* Acts */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {groups.map(({ act, scenes: actScenes }) => {
           const isUnassigned = !act
@@ -231,21 +367,41 @@ export default function ActsScenesManager({
           const isFirst = actIndex === 0
           const isLast = actIndex === sortedActs.length - 1
           const inputKey = act?.id || '__none'
+          const dropZoneKey = act?.id ?? '__none'
+          const isDropTarget = dragOverAct === dropZoneKey && dragSceneRef.current
 
           return (
-            <div key={collapseKey} style={{
-              background: isUnassigned ? 'var(--bg2)' : 'var(--bg)',
-              border: `0.5px solid ${isUnassigned ? 'var(--border)' : 'var(--border2)'}`,
-              borderRadius: 'var(--radius-lg)',
-              overflow: 'hidden'
-            }}>
-              {/* Act header */}
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '10px 12px',
-                background: isUnassigned ? 'transparent' : 'var(--bg2)',
-                borderBottom: isCollapsed ? 'none' : `0.5px solid var(--border)`
+            <div key={collapseKey}
+              onDragOver={(e) => onActDragOver(e, act?.id)}
+              onDragLeave={onActDragLeave}
+              onDrop={(e) => onActDrop(e, act?.id)}
+              style={{
+                background: isUnassigned ? 'var(--bg2)' : 'var(--bg)',
+                border: `${isDropTarget ? '1.5px solid var(--blue-text)' : '0.5px solid'} ${isUnassigned ? 'var(--border)' : 'var(--border2)'}`,
+                borderRadius: 'var(--radius-lg)',
+                overflow: 'hidden',
+                transition: 'border-color 80ms'
               }}>
+              <div
+                onDragOver={act ? (e) => onActSectionDragOver(e, act) : undefined}
+                onDrop={act ? (e) => onActSectionDrop(e, act) : undefined}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '10px 12px',
+                  background: isUnassigned ? 'transparent' : 'var(--bg2)',
+                  borderBottom: isCollapsed ? 'none' : `0.5px solid var(--border)`
+                }}>
+                {act && (
+                  <span
+                    draggable
+                    onDragStart={(e) => onActHandleDragStart(e, act)}
+                    onDragEnd={onActHandleDragEnd}
+                    title="Drag to reorder"
+                    style={{ cursor: 'grab', color: 'var(--text3)', fontSize: 14, padding: '0 4px', userSelect: 'none', lineHeight: 1 }}>
+                    ⋮⋮
+                  </span>
+                )}
+
                 <button type="button"
                   onClick={() => setCollapsed(c => ({ ...c, [collapseKey]: !c[collapseKey] }))}
                   style={{ background: 'none', border: 'none', color: 'var(--text2)', fontSize: 11, padding: '2px 4px', cursor: 'pointer', lineHeight: 1 }}>
@@ -278,7 +434,6 @@ export default function ActsScenesManager({
                   </span>
                 )}
 
-                {/* Act controls */}
                 {act && editingActId !== act.id && (
                   <div style={{ display: 'flex', gap: 2 }}>
                     <button type="button" title="Move up" onClick={() => handleMoveAct(act, 'up')} disabled={isFirst}
@@ -293,34 +448,43 @@ export default function ActsScenesManager({
                 )}
               </div>
 
-              {/* Act body — scenes list */}
               {!isCollapsed && (
                 <div style={{ padding: '8px 12px 12px' }}>
                   {actScenes.length === 0 && !isUnassigned && (
                     <p style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic', margin: '4px 0 8px' }}>
-                      No scenes yet — add one below.
+                      No scenes yet — add one below or drag from another act.
                     </p>
                   )}
 
-                  {actScenes.map(scene => (
-                    <SceneRow key={scene.id}
-                      scene={scene}
-                      acts={sortedActs}
-                      currentActId={act?.id || null}
-                      isEditing={editingSceneId === scene.id}
-                      editingName={editingSceneName}
-                      setEditingName={setEditingSceneName}
-                      moveMenuOpen={moveMenuFor === scene.id}
-                      onStartEdit={() => startEditScene(scene)}
-                      onSaveEdit={saveEditScene}
-                      onCancelEdit={cancelEditScene}
-                      onRemove={() => handleRemoveScene(scene)}
-                      onOpenMoveMenu={() => setMoveMenuFor(moveMenuFor === scene.id ? null : scene.id)}
-                      onMoveTo={(targetActId) => handleMoveSceneToAct(scene.id, targetActId)}
-                    />
-                  ))}
+                  {actScenes.map(scene => {
+                    const showDropLineBefore = dragOverScene && dragOverScene.sceneId === scene.id && dragOverScene.before
+                    const showDropLineAfter  = dragOverScene && dragOverScene.sceneId === scene.id && !dragOverScene.before
+                    return (
+                      <div key={scene.id}>
+                        {showDropLineBefore && <DropLine />}
+                        <SceneRow
+                          scene={scene}
+                          acts={sortedActs}
+                          currentActId={act?.id || null}
+                          isEditing={editingSceneId === scene.id}
+                          editingName={editingSceneName}
+                          setEditingName={setEditingSceneName}
+                          moveMenuOpen={moveMenuFor === scene.id}
+                          onStartEdit={() => startEditScene(scene)}
+                          onSaveEdit={saveEditScene}
+                          onCancelEdit={cancelEditScene}
+                          onRemove={() => handleRemoveScene(scene)}
+                          onOpenMoveMenu={() => setMoveMenuFor(moveMenuFor === scene.id ? null : scene.id)}
+                          onMoveTo={(targetActId) => handleMoveSceneToAct(scene.id, targetActId)}
+                          onDragStart={(e) => onSceneDragStart(e, scene)}
+                          onDragEnd={onSceneDragEnd}
+                          onDragOver={(e) => onSceneDragOver(e, scene)}
+                        />
+                        {showDropLineAfter && <DropLine />}
+                      </div>
+                    )
+                  })}
 
-                  {/* Add scene input */}
                   <div style={{ display: 'flex', gap: 6, marginTop: actScenes.length ? 8 : 0 }}>
                     <input type="text"
                       value={newSceneInput[inputKey] || ''}
@@ -339,7 +503,6 @@ export default function ActsScenesManager({
         })}
       </div>
 
-      {/* Add act row */}
       <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--bg2)', borderRadius: 'var(--radius-lg)', border: '0.5px dashed var(--border2)' }}>
         <div style={{ display: 'flex', gap: 6 }}>
           <input type="text"
@@ -352,34 +515,56 @@ export default function ActsScenesManager({
           <button type="button" className="btn btn-sm" onClick={handleAddAct} style={{ fontSize: 12 }}>+ Add act</button>
         </div>
         <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
-          Tip: act names can be anything — "Prologue", "Part One", "The Gathering" — not just numbered acts.
+          Tip: drag the ⋮⋮ handle on a scene to move it to another act, or to reorder within an act.
         </p>
       </div>
     </div>
   )
 }
 
-// ---------- SceneRow ---------------------------------------------------------
+function DropLine() {
+  return (
+    <div style={{
+      height: 2, background: 'var(--blue-text)', borderRadius: 1,
+      margin: '2px 0', opacity: 0.8
+    }} />
+  )
+}
 
 function SceneRow({
   scene, acts, currentActId,
   isEditing, editingName, setEditingName,
   moveMenuOpen,
   onStartEdit, onSaveEdit, onCancelEdit, onRemove,
-  onOpenMoveMenu, onMoveTo
+  onOpenMoveMenu, onMoveTo,
+  onDragStart, onDragEnd, onDragOver
 }) {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 8,
-      padding: '6px 8px',
-      background: 'var(--bg)',
-      border: '0.5px solid var(--border)',
-      borderRadius: 'var(--radius)',
-      marginBottom: 4,
-      position: 'relative'
-    }}>
-      <span style={{ color: 'var(--text3)', fontSize: 11, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
-        ·
+    <div
+      onDragOver={onDragOver}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        padding: '6px 8px',
+        background: 'var(--bg)',
+        border: '0.5px solid var(--border)',
+        borderRadius: 'var(--radius)',
+        marginBottom: 4,
+        position: 'relative'
+      }}>
+      <span
+        draggable={!isEditing}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        title="Drag to move/reorder"
+        style={{
+          cursor: isEditing ? 'default' : 'grab',
+          color: 'var(--text3)',
+          fontSize: 12,
+          padding: '0 4px',
+          userSelect: 'none',
+          lineHeight: 1
+        }}>
+        ⋮⋮
       </span>
 
       {isEditing ? (
@@ -431,8 +616,7 @@ function SceneRow({
                 padding: '5px 8px', fontSize: 12,
                 background: a.id === currentActId ? 'var(--bg3)' : 'transparent',
                 color: a.id === currentActId ? 'var(--text3)' : 'var(--text)',
-                border: 'none',
-                borderRadius: 'var(--radius)',
+                border: 'none', borderRadius: 'var(--radius)',
                 cursor: a.id === currentActId ? 'default' : 'pointer'
               }}>
               {a.id === currentActId ? '✓ ' : ''}{a.name}
