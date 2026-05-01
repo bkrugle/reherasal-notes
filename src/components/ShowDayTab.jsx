@@ -85,6 +85,8 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   const [manualForm, setManualForm] = useState(buildManualForm(totalActs))
   const timelinePollRef = useRef(null)
   const savingTimelineRef = useRef(false)
+  const saveGenerationRef = useRef(0)
+  const lastSavedAtRef = useRef(0)
 
   const isSM = session?.staffRole === 'Stage Manager'
   const isController = isSM && (!lockedBy || lockedBy === session?.name)
@@ -110,14 +112,15 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   async function updateTimeline(changes) {
     if (savingTimelineRef.current) return
     savingTimelineRef.current = true
+    saveGenerationRef.current++
     try {
       const next = { ...timeline, ...changes }
       if (!next.lockedBy && isSM) next.lockedBy = session.name
-      // Always remember totalActs at time of writing
       next.totalActs = next.totalActs || totalActs
       setTimeline(next)
       setLockedBy(next.lockedBy || null)
       await saveTimelineRemote(sheetId, showDate, next)
+      lastSavedAtRef.current = Date.now()
     } finally {
       savingTimelineRef.current = false
     }
@@ -133,39 +136,63 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
 
   // Phase-transition handlers — wrap the lib helpers and persist
   async function handleStartNextAct() {
-    const next = startNextAct(timeline)
-    if (!next.lockedBy && isSM) next.lockedBy = session.name
-    next.totalActs = next.totalActs || totalActs
-    setTimeline(next)
-    setLockedBy(next.lockedBy || null)
-    await saveTimelineRemote(sheetId, showDate, next)
+    if (savingTimelineRef.current) return
+    savingTimelineRef.current = true
+    saveGenerationRef.current++
+    try {
+      const next = startNextAct(timeline)
+      if (!next.lockedBy && isSM) next.lockedBy = session.name
+      next.totalActs = next.totalActs || totalActs
+      setTimeline(next)
+      setLockedBy(next.lockedBy || null)
+      await saveTimelineRemote(sheetId, showDate, next)
+      lastSavedAtRef.current = Date.now()
+    } finally { savingTimelineRef.current = false }
   }
 
   async function handleEndCurrentAct() {
-    const next = endCurrentAct(timeline)
-    if (!next.lockedBy && isSM) next.lockedBy = session.name
-    next.totalActs = next.totalActs || totalActs
-    setTimeline(next)
-    setLockedBy(next.lockedBy || null)
-    await saveTimelineRemote(sheetId, showDate, next)
+    if (savingTimelineRef.current) return
+    savingTimelineRef.current = true
+    saveGenerationRef.current++
+    try {
+      const next = endCurrentAct(timeline)
+      if (!next.lockedBy && isSM) next.lockedBy = session.name
+      next.totalActs = next.totalActs || totalActs
+      setTimeline(next)
+      setLockedBy(next.lockedBy || null)
+      await saveTimelineRemote(sheetId, showDate, next)
+      lastSavedAtRef.current = Date.now()
+    } finally { savingTimelineRef.current = false }
   }
 
   async function handleEndIntermission() {
-    const next = endIntermissionStartNextAct(timeline)
-    if (!next.lockedBy && isSM) next.lockedBy = session.name
-    next.totalActs = next.totalActs || totalActs
-    setTimeline(next)
-    setLockedBy(next.lockedBy || null)
-    await saveTimelineRemote(sheetId, showDate, next)
+    if (savingTimelineRef.current) return
+    savingTimelineRef.current = true
+    saveGenerationRef.current++
+    try {
+      const next = endIntermissionStartNextAct(timeline)
+      if (!next.lockedBy && isSM) next.lockedBy = session.name
+      next.totalActs = next.totalActs || totalActs
+      setTimeline(next)
+      setLockedBy(next.lockedBy || null)
+      await saveTimelineRemote(sheetId, showDate, next)
+      lastSavedAtRef.current = Date.now()
+    } finally { savingTimelineRef.current = false }
   }
 
   async function handleToggleHold() {
-    const next = isOnHold(timeline) ? endHold(timeline) : startHold(timeline)
-    if (!next.lockedBy && isSM) next.lockedBy = session.name
-    next.totalActs = next.totalActs || totalActs
-    setTimeline(next)
-    setLockedBy(next.lockedBy || null)
-    await saveTimelineRemote(sheetId, showDate, next)
+    if (savingTimelineRef.current) return
+    savingTimelineRef.current = true
+    saveGenerationRef.current++
+    try {
+      const next = isOnHold(timeline) ? endHold(timeline) : startHold(timeline)
+      if (!next.lockedBy && isSM) next.lockedBy = session.name
+      next.totalActs = next.totalActs || totalActs
+      setTimeline(next)
+      setLockedBy(next.lockedBy || null)
+      await saveTimelineRemote(sheetId, showDate, next)
+      lastSavedAtRef.current = Date.now()
+    } finally { savingTimelineRef.current = false }
   }
 
   async function applyManualEntry() {
@@ -212,14 +239,19 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   useEffect(() => {
     async function pollTimeline() {
       if (savingTimelineRef.current) return
+      // If we just saved within the last 5 seconds, skip — give our write time
+      // to propagate so the poll doesn't overwrite with stale data.
+      if (Date.now() - lastSavedAtRef.current < 5000) return
+      const generationAtFetchStart = saveGenerationRef.current
       const { timeline: remote, lockedBy: lb } = await getTimelineRemote(sheetId, showDate)
-      // If a save started while we were waiting for the response, discard.
+      // Discard if a save happened OR completed while we were waiting
       if (savingTimelineRef.current) return
+      if (saveGenerationRef.current !== generationAtFetchStart) return
+      if (Date.now() - lastSavedAtRef.current < 3000) return
       if (remote) {
         const migrated = migrateTimeline(remote)
         setTimeline(migrated)
         setLockedBy(lb || null)
-        // getTimelineRemote already persists the migrated shape — no double-write
       }
     }
     pollTimeline()
