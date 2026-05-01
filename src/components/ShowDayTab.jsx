@@ -38,6 +38,25 @@ function fmtCountdown(totalSec) {
   return `${m}:${String(s).padStart(2,'0')}`
 }
 
+// Compare two timeline objects for meaningful equality. Returns true if a poll's
+// result matches our current state and we should skip the setState (which would
+// cause unnecessary re-renders and DOM destruction).
+function timelineEquals(a, b) {
+  if (a === b) return true
+  if (!a || !b) return false
+  if (a.phase !== b.phase) return false
+  if (a.currentActIndex !== b.currentActIndex) return false
+  if (a.totalActs !== b.totalActs) return false
+  if (a.holdStart !== b.holdStart) return false
+  if (a.totalHoldMs !== b.totalHoldMs) return false
+  if (a.lockedBy !== b.lockedBy) return false
+  if ((a.actStarts || []).join(',') !== (b.actStarts || []).join(',')) return false
+  if ((a.actEnds || []).join(',') !== (b.actEnds || []).join(',')) return false
+  if ((a.intermissionStarts || []).join(',') !== (b.intermissionStarts || []).join(',')) return false
+  if ((a.intermissionEnds || []).join(',') !== (b.intermissionEnds || []).join(',')) return false
+  return true
+}
+
 function parseTimeToISO(timeStr, dateStr) {
   if (!timeStr || !dateStr) return null
   try {
@@ -245,13 +264,17 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
       if (savingTimelineRef.current) return
       const generationAtFetchStart = saveGenerationRef.current
       const { timeline: remote, lockedBy: lb } = await getTimelineRemote(sheetId, showDate)
-      // Discard if a save happened or completed while we were waiting
       if (savingTimelineRef.current) return
       if (saveGenerationRef.current !== generationAtFetchStart) return
       if (remote) {
         const migrated = migrateTimeline(remote)
-        setTimeline(migrated)
-        setLockedBy(lb || null)
+        // Only update state if something actually changed — avoids forcing
+        // re-renders that destroy the timer DOM subtree.
+        setTimeline(prev => {
+          if (timelineEquals(prev, migrated)) return prev
+          return migrated
+        })
+        setLockedBy(prev => prev === (lb || null) ? prev : (lb || null))
       }
     }
     pollTimeline()
