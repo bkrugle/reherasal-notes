@@ -1,7 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { api } from '../lib/api'
 import CustomAlertPanel from './CustomAlertPanel'
-import { getTimeline, saveTimeline, saveTimelineRemote, getTimelineRemote, defaultTimeline, fmtElapsed, elapsedMs } from '../lib/showTimeline'
+import {
+  getTimeline, saveTimeline, saveTimelineRemote, getTimelineRemote,
+  defaultTimeline, migrateTimeline,
+  startNextAct, endCurrentAct, endIntermissionStartNextAct,
+  startHold, endHold, isOnHold, getHeldMs, getRunningElapsedMs,
+  fmtElapsed, elapsedMs, fmtMsLong,
+  getActMs, getIntermissionMs, getCurrentSegmentStart,
+  getTotalActsMs, getTotalIntermissionMs, getTotalShowMs,
+  isLastAct, actShortName
+} from '../lib/showTimeline'
 
 const POLL_INTERVAL = 20000
 const TIMELINE_POLL_INTERVAL = 15000
@@ -46,6 +55,11 @@ function parseTimeToISO(timeStr, dateStr) {
 }
 
 export default function ShowDayTab({ sheetId, productionCode, production, session, showDayMode, onGoToCheckin }) {
+  // Acts configured for this production — drives the timeline state machine.
+  // If acts is empty, default to 2 (matches old behavior).
+  const productionActs = production?.config?.acts || []
+  const totalActs = Math.max(1, productionActs.length || 2)
+
   const [now, setNow] = useState(new Date())
   const [showDate, setShowDate] = useState(() => new Date().toLocaleDateString('en-CA'))
   const [status, setStatus] = useState(null)
@@ -62,17 +76,36 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   })()
   const [curtainTime, setCurtainTime] = useState(curtainTimes[showDate] || '')
 
-  const [timeline, setTimeline] = useState(defaultTimeline)
+  const [timeline, setTimeline] = useState(() => defaultTimeline(totalActs))
   const [lockedBy, setLockedBy] = useState(null)
   const [manualEntry, setManualEntry] = useState(false)
   const [historyVersion, setHistoryVersion] = useState(0)
   const [allTimelines, setAllTimelines] = useState({})
-  const [manualForm, setManualForm] = useState({ act1Start: '', act1End: '', intermissionStart: '', intermissionEnd: '', act2Start: '', act2End: '' })
+  // Manual form has dynamic fields based on totalActs
+  const [manualForm, setManualForm] = useState(buildManualForm(totalActs))
   const timelinePollRef = useRef(null)
   const savingTimelineRef = useRef(false)
 
   const isSM = session?.staffRole === 'Stage Manager'
   const isController = isSM && (!lockedBy || lockedBy === session?.name)
+
+  function buildManualForm(n) {
+    const f = {}
+    for (let i = 0; i < n; i++) {
+      f[`act${i}Start`] = ''
+      f[`act${i}End`] = ''
+      if (i < n - 1) {
+        f[`int${i}Start`] = ''
+        f[`int${i}End`] = ''
+      }
+    }
+    return f
+  }
+
+  // If totalActs changes (e.g. director edits acts mid-session), rebuild manual form
+  useEffect(() => {
+    setManualForm(buildManualForm(totalActs))
+  }, [totalActs])
 
   async function updateTimeline(changes) {
     if (savingTimelineRef.current) return
@@ -80,6 +113,8 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
     try {
       const next = { ...timeline, ...changes }
       if (!next.lockedBy && isSM) next.lockedBy = session.name
+      // Always remember totalActs at time of writing
+      next.totalActs = next.totalActs || totalActs
       setTimeline(next)
       setLockedBy(next.lockedBy || null)
       await saveTimelineRemote(sheetId, showDate, next)
@@ -90,22 +125,84 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
 
   async function resetTimeline() {
     if (!confirm('Reset the show timeline? This clears act timers for today.')) return
-    const fresh = defaultTimeline()
+    const fresh = defaultTimeline(totalActs)
     setTimeline(fresh)
     setLockedBy(null)
     await saveTimelineRemote(sheetId, showDate, fresh)
   }
 
+  // Phase-transition handlers — wrap the lib helpers and persist
+  async function handleStartNextAct() {
+    const next = startNextAct(timeline)
+    if (!next.lockedBy && isSM) next.lockedBy = session.name
+    next.totalActs = next.totalActs || totalActs
+    setTimeline(next)
+    setLockedBy(next.lockedBy || null)
+    await saveTimelineRemote(sheetId, showDate, next)
+  }
+
+  async function handleEndCurrentAct() {
+    const next = endCurrentAct(timeline)
+    if (!next.lockedBy && isSM) next.lockedBy = session.name
+    next.totalActs = next.totalActs || totalActs
+    setTimeline(next)
+    setLockedBy(next.lockedBy || null)
+    await saveTimelineRemote(sheetId, showDate, next)
+  }
+
+  async function handleEndIntermission() {
+    const next = endIntermissionStartNextAct(timeline)
+    if (!next.lockedBy && isSM) next.lockedBy = session.name
+    next.totalActs = next.totalActs || totalActs
+    setTimeline(next)
+    setLockedBy(next.lockedBy || null)
+    await saveTimelineRemote(sheetId, showDate, next)
+  }
+
+  async function handleToggleHold() {
+    const next = isOnHold(timeline) ? endHold(timeline) : startHold(timeline)
+    if (!next.lockedBy && isSM) next.lockedBy = session.name
+    next.totalActs = next.totalActs || totalActs
+    setTimeline(next)
+    setLockedBy(next.lockedBy || null)
+    await saveTimelineRemote(sheetId, showDate, next)
+  }
+
   async function applyManualEntry() {
     const mf = manualForm
-    const act1Start = parseTimeToISO(mf.act1Start, showDate)
-    const act1End = parseTimeToISO(mf.act1End, showDate)
-    const intermissionStart = parseTimeToISO(mf.intermissionStart, showDate)
-    const intermissionEnd = parseTimeToISO(mf.intermissionEnd, showDate)
-    const act2Start = parseTimeToISO(mf.act2Start, showDate)
-    const act2End = parseTimeToISO(mf.act2End, showDate)
-    const phase = act2End ? 'done' : act2Start ? 'act2' : intermissionEnd ? 'act2' : intermissionStart ? 'intermission' : act1Start ? 'act1' : 'preshow'
-    const next = { ...timeline, phase, act1Start, act1End: act1End || intermissionStart, intermissionStart, intermissionEnd: intermissionEnd || act2Start, act2Start, act2End }
+    const actStarts = []
+    const actEnds = []
+    const intermissionStarts = []
+    const intermissionEnds = []
+    for (let i = 0; i < totalActs; i++) {
+      const s = parseTimeToISO(mf[`act${i}Start`], showDate)
+      const e = parseTimeToISO(mf[`act${i}End`], showDate)
+      if (s) actStarts.push(s); else if (i === 0) {} else break
+      if (e) actEnds.push(e)
+      if (i < totalActs - 1) {
+        const is = parseTimeToISO(mf[`int${i}Start`], showDate) || e || null
+        const ie = parseTimeToISO(mf[`int${i}End`], showDate)
+        if (is) intermissionStarts.push(is)
+        if (ie) intermissionEnds.push(ie)
+      }
+    }
+    // Determine phase from how many acts/intermissions are filled in
+    let phase = 'preshow'
+    let currentActIndex = -1
+    if (actEnds.length === totalActs && actStarts.length === totalActs) {
+      phase = 'done'; currentActIndex = totalActs - 1
+    } else if (actStarts.length > actEnds.length) {
+      phase = 'running'; currentActIndex = actStarts.length - 1
+    } else if (intermissionStarts.length > intermissionEnds.length && intermissionStarts.length > 0) {
+      phase = 'intermission'; currentActIndex = intermissionStarts.length - 1
+    } else if (actStarts.length > 0) {
+      phase = 'running'; currentActIndex = actStarts.length - 1
+    }
+    const next = {
+      ...timeline,
+      phase, totalActs, currentActIndex,
+      actStarts, actEnds, intermissionStarts, intermissionEnds
+    }
     setTimeline(next)
     setLockedBy(next.lockedBy || null)
     await saveTimelineRemote(sheetId, showDate, next)
@@ -114,10 +211,10 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
 
   useEffect(() => {
     async function pollTimeline() {
-      if (savingTimelineRef.current) return // don't overwrite while saving
+      if (savingTimelineRef.current) return
       const { timeline: remote, lockedBy: lb } = await getTimelineRemote(sheetId, showDate)
       if (remote) {
-        setTimeline(remote)
+        setTimeline(migrateTimeline(remote))
         setLockedBy(lb || null)
         saveTimeline(sheetId, showDate, remote)
       }
@@ -127,14 +224,13 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
     return () => clearInterval(timelinePollRef.current)
   }, [sheetId, showDate])
 
-  // Pre-fetch all show date timelines so Run History displays correctly
   useEffect(() => {
     const dates = Object.keys(curtainTimes).filter(d => d !== showDate)
     Promise.all(dates.map(async date => {
       const { timeline: remote } = await getTimelineRemote(sheetId, date)
       if (remote) {
         saveTimeline(sheetId, date, remote)
-        return [date, remote]
+        return [date, migrateTimeline(remote)]
       }
       return [date, getTimeline(sheetId, date)]
     })).then(results => {
@@ -171,7 +267,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
     alertRefs.current = {}
     const curtain = todayAt(curtainTime, showDate)
     if (!curtain) return
-    [{ minutes: 60 }, { minutes: 30 }, { minutes: 15 }].forEach(({ minutes }) => {
+    ;[{ minutes: 60 }, { minutes: 30 }, { minutes: 15 }].forEach(({ minutes }) => {
       const alertAt = new Date(curtain.getTime() - minutes * 60000)
       const msUntil = alertAt - new Date()
       if (msUntil <= 0) return
@@ -223,67 +319,101 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   const curtainPast = secsLeft !== null && secsLeft < 0
   const overCurtainSecs = curtainPast ? Math.abs(secsLeft) : 0
 
-  const intermissionMs = elapsedMs(timeline.intermissionStart)
+  // Current intermission stats (only meaningful when phase === 'intermission')
+  const currentIntIdx = timeline.intermissionStarts.length - 1
+  const intermissionMs = currentIntIdx >= 0 ? elapsedMs(timeline.intermissionStarts[currentIntIdx]) : 0
   const intermissionOver = timeline.phase === 'intermission' && intermissionMs > INTERMISSION_STANDARD
 
-  function RunHistory({ currentDate, version }) {
+  // ---- RunHistory ---------------------------------------------------------
+
+  function RunHistory({ currentDate }) {
     const showDates = Object.keys(curtainTimes).sort()
     if (showDates.length < 2) return null
 
-    function msForDate(date) {
-      // Use allTimelines state for other dates, live timeline for current date
+    function statsForDate(date) {
       const t = date === showDate ? timeline : (allTimelines[date] || getTimeline(sheetId, date))
       if (t.phase !== 'done') return null
-      const a1 = t.act1Start && t.act1End ? new Date(t.act1End) - new Date(t.act1Start) : 0
-      const int = t.intermissionStart && t.intermissionEnd ? new Date(t.intermissionEnd) - new Date(t.intermissionStart) : 0
-      const a2 = t.act2Start && t.act2End ? new Date(t.act2End) - new Date(t.act2Start) : 0
-      return { a1, int, a2, total: a1 + int + a2 }
+      const actMs = (t.actStarts || []).map((_, i) => getActMs(t, i))
+      const intMs = (t.intermissionStarts || []).map((_, i) => getIntermissionMs(t, i))
+      const totalActs = actMs.reduce((a, b) => a + b, 0)
+      const totalInt = intMs.reduce((a, b) => a + b, 0)
+      return { actMs, intMs, totalActs, totalInt, total: totalActs + totalInt }
     }
 
-    function fmtMs2(ms) {
-      if (!ms) return '—'
-      const totalSec = Math.floor(ms / 1000)
-      const h = Math.floor(totalSec / 3600)
-      const m = Math.floor((totalSec % 3600) / 60)
-      const s = totalSec % 60
-      if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
-      return `${m}:${String(s).padStart(2,'0')}`
-    }
+    // Determine the union of column count for the table — use the max acts
+    // across any historical row, or the current production's totalActs.
+    const allActCounts = showDates.map(d => {
+      const t = d === showDate ? timeline : (allTimelines[d] || getTimeline(sheetId, d))
+      return t.actStarts?.length || 0
+    })
+    const maxActs = Math.max(totalActs, ...allActCounts, 1)
 
-    const rows = showDates.map((date) => {
-      const times = msForDate(date)
+    const rows = showDates.map(date => {
+      const stats = statsForDate(date)
       const isCurrent = date === currentDate
       const label = new Date(date + 'T12:00:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
-      return { date, times, isCurrent, label }
+      return { date, stats, isCurrent, label }
     })
 
-    if (!rows.some(r => r.times || r.isCurrent)) return null
+    if (!rows.some(r => r.stats || r.isCurrent)) return null
+
+    // Build column template: Show | Act 1 | Int 1 | Act 2 | Int 2 | ... | Total
+    const cols = ['Show']
+    for (let i = 0; i < maxActs; i++) {
+      cols.push(`A${i + 1}`)
+      if (i < maxActs - 1) cols.push(`I${i + 1}`)
+    }
+    cols.push('Total')
+
+    const gridTemplate = `1fr ${cols.slice(1).map(() => 'auto').join(' ')}`
 
     return (
       <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '12px 14px', marginTop: 12 }}>
         <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Run history</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: '4px 10px', alignItems: 'center' }}>
-          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Show</div>
-          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'right' }}>Act 1</div>
-          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'right' }}>Int.</div>
-          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'right' }}>Act 2</div>
-          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textAlign: 'right' }}>Total</div>
-          {rows.map(row => (
-            <React.Fragment key={row.date}>
-              <div style={{ fontSize: 11, color: row.isCurrent ? '#a78bfa' : row.times ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)', fontWeight: row.isCurrent ? 700 : 400, display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: gridTemplate, gap: '4px 10px', alignItems: 'center' }}>
+          {cols.map((c, i) => (
+            <div key={i} style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: i === 0 ? 'left' : 'right' }}>
+              {c === 'Show' ? c : c.replace('A', 'Act ').replace('I', 'Int.')}
+            </div>
+          ))}
+          {rows.map(row => {
+            const cells = []
+            cells.push(
+              <div key="label" style={{ fontSize: 11, color: row.isCurrent ? '#a78bfa' : row.stats ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)', fontWeight: row.isCurrent ? 700 : 400, display: 'flex', alignItems: 'center', gap: 4 }}>
                 {row.isCurrent && <span style={{ fontSize: 8, background: '#a78bfa', color: '#0f2340', borderRadius: 3, padding: '1px 4px', fontWeight: 800 }}>NOW</span>}
                 {row.label}
               </div>
-              <div style={{ fontSize: 12, fontWeight: row.isCurrent ? 700 : 400, color: row.times ? (row.isCurrent ? '#a78bfa' : 'rgba(255,255,255,0.7)') : 'rgba(255,255,255,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{row.times ? fmtMs2(row.times.a1) : '—'}</div>
-              <div style={{ fontSize: 12, fontWeight: row.isCurrent ? 700 : 400, color: row.times ? (row.times.int > 15*60*1000 ? '#fca5a5' : (row.isCurrent ? '#a78bfa' : 'rgba(255,255,255,0.7)')) : 'rgba(255,255,255,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{row.times ? fmtMs2(row.times.int) : '—'}</div>
-              <div style={{ fontSize: 12, fontWeight: row.isCurrent ? 700 : 400, color: row.times ? (row.isCurrent ? '#a78bfa' : 'rgba(255,255,255,0.7)') : 'rgba(255,255,255,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{row.times ? fmtMs2(row.times.a2) : '—'}</div>
-              <div style={{ fontSize: 12, fontWeight: row.isCurrent ? 800 : 400, color: row.times ? (row.isCurrent ? '#fff' : 'rgba(255,255,255,0.7)') : 'rgba(255,255,255,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{row.times ? fmtMs2(row.times.total) : '—'}</div>
-            </React.Fragment>
-          ))}
+            )
+            for (let i = 0; i < maxActs; i++) {
+              const ms = row.stats?.actMs?.[i] || 0
+              cells.push(
+                <div key={`a${i}`} style={{ fontSize: 12, fontWeight: row.isCurrent ? 700 : 400, color: ms ? (row.isCurrent ? '#a78bfa' : 'rgba(255,255,255,0.7)') : 'rgba(255,255,255,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                  {ms ? fmtMsLong(ms) : '—'}
+                </div>
+              )
+              if (i < maxActs - 1) {
+                const intMs = row.stats?.intMs?.[i] || 0
+                const intWarn = intMs > 15 * 60 * 1000
+                cells.push(
+                  <div key={`i${i}`} style={{ fontSize: 12, fontWeight: row.isCurrent ? 700 : 400, color: intMs ? (intWarn ? '#fca5a5' : (row.isCurrent ? '#a78bfa' : 'rgba(255,255,255,0.7)')) : 'rgba(255,255,255,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                    {intMs ? fmtMsLong(intMs) : '—'}
+                  </div>
+                )
+              }
+            }
+            cells.push(
+              <div key="total" style={{ fontSize: 12, fontWeight: row.isCurrent ? 800 : 400, color: row.stats ? (row.isCurrent ? '#fff' : 'rgba(255,255,255,0.7)') : 'rgba(255,255,255,0.2)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                {row.stats ? fmtMsLong(row.stats.total) : '—'}
+              </div>
+            )
+            return <React.Fragment key={row.date}>{cells}</React.Fragment>
+          })}
         </div>
       </div>
     )
   }
+
+  // ---- TimelineHeader -----------------------------------------------------
 
   function TimelineHeader() {
     const phase = timeline.phase
@@ -291,8 +421,20 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
       <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', textAlign: 'center', marginTop: 8 }}>🔒 Clock controlled by {lockedBy}</p>
     ) : null
 
+    // Reusable controller-or-spectator panel
+    function ActionPanel({ children }) {
+      if (isController) return children
+      return (
+        <div style={{ padding: '10px', textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.4)', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: 'var(--radius)' }}>
+          {lockedBy ? `🔒 Controlled by ${lockedBy}` : '👁 Stage Manager controls the clock'}
+        </div>
+      )
+    }
+
     if (phase === 'preshow') {
       const overdue = curtainPast
+      // Button label: "Start Show" for 1-act, "Start Act 1" otherwise
+      const startLabel = totalActs === 1 ? '▶ Start Show' : `▶ Start ${actShortName(0, productionActs)}`
       return (
         <div style={{ background: overdue ? 'var(--red-text)' : '#0f2340', borderRadius: 'var(--radius-lg)', padding: '16px 20px', marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -308,204 +450,267 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
             ) : overdue ? (
               <div>
                 <div style={{ fontSize: 56, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>+{fmtCountdown(overCurtainSecs)}</div>
-                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 6 }}>over scheduled curtain — start Act 1 when ready</p>
+                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 6 }}>over scheduled curtain — {totalActs === 1 ? 'start show' : 'start Act 1'} when ready</p>
               </div>
             ) : (
               <div style={{ fontSize: 56, fontWeight: 900, color: secsLeft < 600 ? '#fbbf24' : '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{fmtCountdown(secsLeft)}</div>
             )}
           </div>
-          {isController ? (
-            <button onClick={() => updateTimeline({ phase: 'act1', act1Start: new Date().toISOString() })}
+          <ActionPanel>
+            <button onClick={handleStartNextAct}
               style={{ width: '100%', marginTop: 12, background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
-              ▶ Start Act 1
+              {startLabel}
             </button>
-          ) : (
-            <div style={{ marginTop: 12, padding: '10px', textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.4)', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: 'var(--radius)' }}>
-              {lockedBy ? `🔒 Controlled by ${lockedBy}` : '👁 Stage Manager controls the clock'}
-            </div>
-          )}
+          </ActionPanel>
           {lockBanner}
-          <RunHistory currentDate={showDate} version={historyVersion} />
+          <RunHistory currentDate={showDate} />
         </div>
       )
     }
 
-    if (phase === 'act1') {
+    if (phase === 'running') {
+      const actIdx = timeline.currentActIndex
+      const actName = actShortName(actIdx, productionActs)
+      const actStart = timeline.actStarts[actIdx]
+      const last = isLastAct(timeline)
+      // Button: "End Show" if last act, else "Start Intermission"
+      const endLabel = last
+        ? '🎉 End Show'
+        : `⏸ Start Intermission${totalActs > 2 ? ` ${actIdx + 1}` : ''}`
+      const endColor = last
+        ? 'rgba(255,255,255,0.15)'
+        : '#fbbf24'
+      const endTextColor = last ? '#fff' : '#0f0f0f'
+      const endBorder = last ? '1.5px solid rgba(255,255,255,0.3)' : 'none'
+
       return (
         <div style={{ background: '#0f2340', borderRadius: 'var(--radius-lg)', padding: '16px 20px', marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <div>
               <p style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)', margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>Now Playing</p>
-              <p style={{ fontSize: 28, fontWeight: 900, color: '#fff', margin: '2px 0 0', letterSpacing: '-0.5px', lineHeight: 1 }}>Act One</p>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Started {new Date(timeline.act1Start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
+              <p style={{ fontSize: 28, fontWeight: 900, color: '#fff', margin: '2px 0 0', letterSpacing: '-0.5px', lineHeight: 1 }}>{actName}</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Started {new Date(actStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
             </div>
             <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>{now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</div>
           </div>
-          <div style={{ fontSize: 44, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', textAlign: 'center', lineHeight: 1, marginBottom: 12 }}>{fmtElapsed(timeline.act1Start)}</div>
-          {isController ? (
-            <button onClick={() => { const n = new Date().toISOString(); updateTimeline({ phase: 'intermission', act1End: n, intermissionStart: n }) }}
-              style={{ width: '100%', background: '#fbbf24', border: 'none', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#0f0f0f', cursor: 'pointer' }}>
-              ⏸ Start Intermission
-            </button>
-          ) : (
-            <div style={{ padding: '10px', textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.4)', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: 'var(--radius)' }}>
-              {lockedBy ? `🔒 Controlled by ${lockedBy}` : '👁 Stage Manager controls the clock'}
+          {(() => {
+            const onHold = isOnHold(timeline)
+            const liveMs = getRunningElapsedMs(timeline, now.getTime())
+            const heldMs = timeline.totalHoldMs || 0
+            const liveHeldMs = getHeldMs(timeline, now.getTime())
+            return (
+              <>
+                <div style={{ fontSize: 44, fontWeight: 900, color: onHold ? '#fbbf24' : '#fff', fontVariantNumeric: 'tabular-nums', textAlign: 'center', lineHeight: 1, marginBottom: 4 }}>
+                  {fmtMsLong(liveMs)}
+                </div>
+                {onHold ? (
+                  <p style={{ fontSize: 12, color: '#fbbf24', textAlign: 'center', margin: '0 0 8px', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>
+                    ⏸ HELD · {fmtMsLong(liveHeldMs)} this hold
+                  </p>
+                ) : heldMs > 0 ? (
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textAlign: 'center', margin: '0 0 8px' }}>
+                    {fmtMsLong(heldMs)} held this act
+                  </p>
+                ) : (
+                  <div style={{ height: 8, marginBottom: 8 }} />
+                )}
+              </>
+            )
+          })()}
+          <ActionPanel>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+              <button onClick={handleToggleHold}
+                style={{ background: isOnHold(timeline) ? '#059669' : 'rgba(251, 191, 36, 0.2)', border: `1px solid ${isOnHold(timeline) ? 'transparent' : 'rgba(251, 191, 36, 0.5)'}`, borderRadius: 'var(--radius)', padding: '12px', fontSize: 14, fontWeight: 700, color: isOnHold(timeline) ? '#fff' : '#fbbf24', cursor: 'pointer' }}>
+                {isOnHold(timeline) ? '▶ Resume' : '⏸ Hold'}
+              </button>
+              <button onClick={handleEndCurrentAct} disabled={isOnHold(timeline)}
+                style={{ background: endColor, border: endBorder, borderRadius: 'var(--radius)', padding: '12px', fontSize: 14, fontWeight: 700, color: endTextColor, cursor: isOnHold(timeline) ? 'not-allowed' : 'pointer', opacity: isOnHold(timeline) ? 0.4 : 1 }}>
+                {endLabel}
+              </button>
             </div>
-          )}
+          </ActionPanel>
           {lockBanner}
-          <RunHistory currentDate={showDate} version={historyVersion} />
+          <RunHistory currentDate={showDate} />
         </div>
       )
     }
 
     if (phase === 'intermission') {
+      const intIdx = currentIntIdx  // index of the running intermission
+      const intStart = timeline.intermissionStarts[intIdx]
+      const nextActIdx = intIdx + 1  // intermission N runs between act N and act N+1
+      const nextActName = actShortName(nextActIdx, productionActs)
+      const intLabel = totalActs > 2 ? `Intermission ${intIdx + 1}` : 'Intermission'
       return (
         <div style={{ background: intermissionOver ? 'var(--red-text)' : '#1e1b4b', borderRadius: 'var(--radius-lg)', padding: '16px 20px', marginBottom: 14, transition: 'background 0.5s' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <div>
-              <p style={{ fontSize: 13, fontWeight: 700, color: intermissionOver ? '#fff' : 'rgba(255,255,255,0.6)', margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>{intermissionOver ? '⏰ INTERMISSION OVER TIME' : 'Intermission'}</p>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: 0 }}>Started {new Date(timeline.intermissionStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: intermissionOver ? '#fff' : 'rgba(255,255,255,0.6)', margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>{intermissionOver ? `⏰ ${intLabel.toUpperCase()} OVER TIME` : intLabel}</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', margin: 0 }}>Started {new Date(intStart).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
             </div>
             <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>{now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</div>
           </div>
-          <div style={{ textAlign: 'center', marginBottom: 8 }}>
-            {intermissionOver ? (
-              <div>
-                <div style={{ fontSize: 52, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>+{fmtElapsed(new Date(timeline.intermissionStart).getTime() + INTERMISSION_STANDARD)}</div>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>over 15 minutes</p>
+          {(() => {
+            const onHold = isOnHold(timeline)
+            const liveMs = getRunningElapsedMs(timeline, now.getTime())
+            const heldMs = timeline.totalHoldMs || 0
+            const liveHeldMs = getHeldMs(timeline, now.getTime())
+            return (
+              <div style={{ textAlign: 'center', marginBottom: 8 }}>
+                {intermissionOver ? (
+                  <div>
+                    <div style={{ fontSize: 52, fontWeight: 900, color: onHold ? '#fbbf24' : '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                      +{fmtMsLong(Math.max(0, liveMs - INTERMISSION_STANDARD))}
+                    </div>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 4 }}>over 15 minutes</p>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ fontSize: 52, fontWeight: 900, color: onHold ? '#fbbf24' : '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                      {fmtMsLong(liveMs)}
+                    </div>
+                    <div style={{ height: 5, background: 'rgba(255,255,255,0.2)', borderRadius: 3, margin: '8px 0 0', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', borderRadius: 3, width: `${Math.min(100, (liveMs / INTERMISSION_STANDARD) * 100)}%`, background: liveMs > INTERMISSION_STANDARD * 0.8 ? '#fbbf24' : '#a78bfa', transition: 'width 1s linear' }} />
+                    </div>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>of standard 15:00</p>
+                  </div>
+                )}
+                {onHold ? (
+                  <p style={{ fontSize: 12, color: '#fbbf24', textAlign: 'center', margin: '6px 0 0', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>
+                    ⏸ HELD · {fmtMsLong(liveHeldMs)} this hold
+                  </p>
+                ) : heldMs > 0 ? (
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textAlign: 'center', margin: '4px 0 0' }}>
+                    {fmtMsLong(heldMs)} held during this intermission
+                  </p>
+                ) : null}
               </div>
-            ) : (
-              <div>
-                <div style={{ fontSize: 52, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{fmtElapsed(timeline.intermissionStart)}</div>
-                <div style={{ height: 5, background: 'rgba(255,255,255,0.2)', borderRadius: 3, margin: '8px 0 0', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', borderRadius: 3, width: `${Math.min(100, (intermissionMs / INTERMISSION_STANDARD) * 100)}%`, background: intermissionMs > INTERMISSION_STANDARD * 0.8 ? '#fbbf24' : '#a78bfa', transition: 'width 1s linear' }} />
-                </div>
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>of standard 15:00</p>
-              </div>
-            )}
-          </div>
-          {isController ? (
-            <button onClick={() => { const n = new Date().toISOString(); updateTimeline({ phase: 'act2', intermissionEnd: n, act2Start: n }) }}
-              style={{ width: '100%', background: '#059669', border: 'none', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
-              ▶ Call Act 2 — House Open
-            </button>
-          ) : (
-            <div style={{ padding: '10px', textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.4)', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: 'var(--radius)' }}>
-              {lockedBy ? `🔒 Controlled by ${lockedBy}` : '👁 Stage Manager controls the clock'}
+            )
+          })()}
+          <ActionPanel>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+              <button onClick={handleToggleHold}
+                style={{ background: isOnHold(timeline) ? '#059669' : 'rgba(251, 191, 36, 0.2)', border: `1px solid ${isOnHold(timeline) ? 'transparent' : 'rgba(251, 191, 36, 0.5)'}`, borderRadius: 'var(--radius)', padding: '12px', fontSize: 14, fontWeight: 700, color: isOnHold(timeline) ? '#fff' : '#fbbf24', cursor: 'pointer' }}>
+                {isOnHold(timeline) ? '▶ Resume' : '⏸ Hold'}
+              </button>
+              <button onClick={handleEndIntermission} disabled={isOnHold(timeline)}
+                style={{ background: '#059669', border: 'none', borderRadius: 'var(--radius)', padding: '12px', fontSize: 14, fontWeight: 700, color: '#fff', cursor: isOnHold(timeline) ? 'not-allowed' : 'pointer', opacity: isOnHold(timeline) ? 0.4 : 1 }}>
+                ▶ Call {nextActName}
+              </button>
             </div>
-          )}
+          </ActionPanel>
           {lockBanner}
-          <RunHistory currentDate={showDate} version={historyVersion} />
-        </div>
-      )
-    }
-
-    if (phase === 'act2') {
-      return (
-        <div style={{ background: '#14532d', borderRadius: 'var(--radius-lg)', padding: '16px 20px', marginBottom: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <div>
-              <p style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)', margin: 0, textTransform: 'uppercase', letterSpacing: 1 }}>Now Playing</p>
-              <p style={{ fontSize: 28, fontWeight: 900, color: '#fff', margin: '2px 0 0', letterSpacing: '-0.5px', lineHeight: 1 }}>Act Two</p>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Intermission ran {fmtElapsed(timeline.intermissionStart)} · Act 2 called {new Date(timeline.act2Start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</p>
-            </div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', fontVariantNumeric: 'tabular-nums' }}>{now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</div>
-          </div>
-          <div style={{ fontSize: 44, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', textAlign: 'center', lineHeight: 1, marginBottom: 12 }}>{fmtElapsed(timeline.act2Start)}</div>
-          {isController ? (
-            <button onClick={() => { const n = new Date().toISOString(); updateTimeline({ phase: 'done', act2End: n, showEnd: n }) }}
-              style={{ width: '100%', background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: 'var(--radius)', padding: '12px', fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer' }}>
-              🎉 End Show
-            </button>
-          ) : (
-            <div style={{ padding: '10px', textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.4)', border: '1px dashed rgba(255,255,255,0.2)', borderRadius: 'var(--radius)' }}>
-              {lockedBy ? `🔒 Controlled by ${lockedBy}` : '👁 Stage Manager controls the clock'}
-            </div>
-          )}
-          {lockBanner}
-          <RunHistory currentDate={showDate} version={historyVersion} />
+          <RunHistory currentDate={showDate} />
         </div>
       )
     }
 
     // DONE
-    const act1Ms = timeline.act1Start && timeline.act1End ? new Date(timeline.act1End) - new Date(timeline.act1Start) : 0
-    const intermissionMs2 = timeline.intermissionStart && timeline.intermissionEnd ? new Date(timeline.intermissionEnd) - new Date(timeline.intermissionStart) : 0
-    const act2Ms = timeline.act2Start && timeline.act2End ? new Date(timeline.act2End) - new Date(timeline.act2Start) : 0
-    const totalShowMs = act1Ms + act2Ms
-    const totalRunningMs = act1Ms + intermissionMs2 + act2Ms
-
-    function fmtMs(ms) {
-      const totalSec = Math.floor(ms / 1000)
-      const h = Math.floor(totalSec / 3600)
-      const m = Math.floor((totalSec % 3600) / 60)
-      const s = totalSec % 60
-      if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
-      return `${m}:${String(s).padStart(2,'0')}`
-    }
-
+    const totalActsRun = timeline.actStarts.length
     return (
       <div style={{ background: '#0f2340', borderRadius: 'var(--radius-lg)', padding: '18px 20px', marginBottom: 14 }}>
         <div style={{ textAlign: 'center', marginBottom: 16 }}>
           <p style={{ fontSize: 24, margin: 0 }}>🎉</p>
           <p style={{ fontSize: 18, fontWeight: 800, color: '#fff', margin: '4px 0 2px' }}>Show complete!</p>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>{production?.config?.title} · Performance {timeline.perfNum}</p>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>{production?.config?.title}{timeline.perfNum ? ` · Performance ${timeline.perfNum}` : ''}</p>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
-          {[
-            { label: 'Act 1', ms: act1Ms, start: timeline.act1Start, end: timeline.act1End },
-            { label: 'Intermission', ms: intermissionMs2, start: timeline.intermissionStart, end: timeline.intermissionEnd, warn: intermissionMs2 > 15*60*1000 },
-            { label: 'Act 2', ms: act2Ms, start: timeline.act2Start, end: timeline.act2End },
-          ].map(({ label, ms, start, end, warn }) => (
-            <div key={label} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 8px', textAlign: 'center' }}>
-              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</p>
-              <p style={{ fontSize: 20, fontWeight: 800, color: warn ? '#fca5a5' : '#fff', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{start ? fmtMs(ms) : '—'}</p>
-              {start && <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', margin: '3px 0 0' }}>{new Date(start).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})} → {end ? new Date(end).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}) : '?'}</p>}
-            </div>
-          ))}
+
+        {/* Per-act breakdown */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${Math.min(totalActsRun + (totalActsRun - 1), 5)}, 1fr)`,
+          gap: 8,
+          marginBottom: 12
+        }}>
+          {(() => {
+            const cells = []
+            for (let i = 0; i < totalActsRun; i++) {
+              const ms = getActMs(timeline, i)
+              const start = timeline.actStarts[i]
+              const end = timeline.actEnds[i]
+              cells.push(
+                <div key={`a${i}`} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 8px', textAlign: 'center' }}>
+                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 0.5 }}>{actShortName(i, productionActs)}</p>
+                  <p style={{ fontSize: 20, fontWeight: 800, color: '#fff', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{start ? fmtMsLong(ms) : '—'}</p>
+                  {start && <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', margin: '3px 0 0' }}>{new Date(start).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})} → {end ? new Date(end).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}) : '?'}</p>}
+                </div>
+              )
+              if (i < totalActsRun - 1) {
+                const intMs = getIntermissionMs(timeline, i)
+                const intStart = timeline.intermissionStarts[i]
+                const intEnd = timeline.intermissionEnds[i]
+                const warn = intMs > 15 * 60 * 1000
+                const intLabel = totalActsRun > 2 ? `Int. ${i + 1}` : 'Intermission'
+                cells.push(
+                  <div key={`i${i}`} style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 8px', textAlign: 'center' }}>
+                    <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: 0.5 }}>{intLabel}</p>
+                    <p style={{ fontSize: 20, fontWeight: 800, color: warn ? '#fca5a5' : '#fff', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{intStart ? fmtMsLong(intMs) : '—'}</p>
+                    {intStart && <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', margin: '3px 0 0' }}>{new Date(intStart).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})} → {intEnd ? new Date(intEnd).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}) : '?'}</p>}
+                  </div>
+                )
+              }
+            }
+            return cells
+          })()}
         </div>
+
         <div style={{ borderTop: '0.5px solid rgba(255,255,255,0.12)', paddingTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
           <div style={{ textAlign: 'center' }}>
             <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: 0.5 }}>Show time</p>
-            <p style={{ fontSize: 26, fontWeight: 900, color: '#a78bfa', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtMs(totalShowMs)}</p>
-            <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', margin: '2px 0 0' }}>Act 1 + Act 2 only</p>
+            <p style={{ fontSize: 26, fontWeight: 900, color: '#a78bfa', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtMsLong(getTotalActsMs(timeline))}</p>
+            <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', margin: '2px 0 0' }}>acts only</p>
           </div>
           <div style={{ textAlign: 'center' }}>
             <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: 0.5 }}>Total running</p>
-            <p style={{ fontSize: 26, fontWeight: 900, color: '#fff', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtMs(totalRunningMs)}</p>
-            <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', margin: '2px 0 0' }}>including intermission</p>
+            <p style={{ fontSize: 26, fontWeight: 900, color: '#fff', margin: 0, fontVariantNumeric: 'tabular-nums' }}>{fmtMsLong(getTotalShowMs(timeline))}</p>
+            <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', margin: '2px 0 0' }}>{totalActsRun > 1 ? 'including intermission(s)' : 'top to bottom'}</p>
           </div>
         </div>
+        {(timeline.totalHoldMs || 0) > 0 && (
+          <div style={{ textAlign: 'center', padding: '8px 12px', background: 'rgba(251, 191, 36, 0.12)', borderRadius: 8, marginBottom: 10 }}>
+            <p style={{ fontSize: 11, color: '#fbbf24', margin: 0 }}>
+              ⏸ {fmtMsLong(timeline.totalHoldMs)} on hold during this run
+            </p>
+          </div>
+        )}
         {isController && (
           <button onClick={resetTimeline}
             style={{ width: '100%', background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 'var(--radius)', padding: '8px 14px', color: 'rgba(255,255,255,0.6)', fontSize: 12, cursor: 'pointer' }}>
             Reset for next performance
           </button>
         )}
-        <RunHistory currentDate={showDate} version={historyVersion} />
+        <RunHistory currentDate={showDate} />
       </div>
     )
   }
 
+  // ---- Manual entry fields (built dynamically based on totalActs) --------
+
+  const manualFields = (() => {
+    const out = []
+    for (let i = 0; i < totalActs; i++) {
+      out.push({ key: `act${i}Start`, label: `${actShortName(i, productionActs)} Start` })
+      out.push({ key: `act${i}End`, label: `${actShortName(i, productionActs)} End` })
+      if (i < totalActs - 1) {
+        const intLabel = totalActs > 2 ? `Intermission ${i + 1}` : 'Intermission'
+        out.push({ key: `int${i}Start`, label: `${intLabel} Start (if different)` })
+        out.push({ key: `int${i}End`, label: `${intLabel} End` })
+      }
+    }
+    return out
+  })()
+
   return (
     <div>
-      {/* Manual entry modal — inlined to prevent focus loss on re-render */}
       {manualEntry && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div style={{ background: 'var(--bg)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', width: '100%', maxWidth: 400, maxHeight: '90vh', overflowY: 'auto' }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Enter show times manually</h2>
             <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: '1rem' }}>Enter times in any format: 7:32 PM, 19:32, 8:05 PM</p>
-            {[
-              { key: 'act1Start', label: 'Act 1 Start' },
-              { key: 'act1End', label: 'Act 1 End / Intermission Start' },
-              { key: 'intermissionStart', label: 'Intermission Start (if different)' },
-              { key: 'intermissionEnd', label: 'Intermission End / Act 2 Start' },
-              { key: 'act2Start', label: 'Act 2 Start (if different)' },
-              { key: 'act2End', label: 'Act 2 End / Show End' },
-            ].map(f => (
+            {manualFields.map(f => (
               <div key={f.key} className="field" style={{ marginBottom: 10 }}>
                 <label style={{ fontSize: 12 }}>{f.label}</label>
-                <input type="text" placeholder="e.g. 7:32 PM" value={manualForm[f.key]}
+                <input type="text" placeholder="e.g. 7:32 PM" value={manualForm[f.key] || ''}
                   onChange={e => setManualForm(fm => ({ ...fm, [f.key]: e.target.value }))}
                   style={{ fontSize: 13 }} />
               </div>
