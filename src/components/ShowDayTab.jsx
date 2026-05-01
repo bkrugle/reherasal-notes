@@ -144,6 +144,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
       if (!next.lockedBy && isSM) next.lockedBy = session.name
       next.totalActs = next.totalActs || totalActs
       setTimeline(next)
+      setNow(new Date())
       setLockedBy(next.lockedBy || null)
       await saveTimelineRemote(sheetId, showDate, next)
       lastSavedAtRef.current = Date.now()
@@ -159,6 +160,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
       if (!next.lockedBy && isSM) next.lockedBy = session.name
       next.totalActs = next.totalActs || totalActs
       setTimeline(next)
+      setNow(new Date())
       setLockedBy(next.lockedBy || null)
       await saveTimelineRemote(sheetId, showDate, next)
       lastSavedAtRef.current = Date.now()
@@ -174,6 +176,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
       if (!next.lockedBy && isSM) next.lockedBy = session.name
       next.totalActs = next.totalActs || totalActs
       setTimeline(next)
+      setNow(new Date())
       setLockedBy(next.lockedBy || null)
       await saveTimelineRemote(sheetId, showDate, next)
       lastSavedAtRef.current = Date.now()
@@ -189,6 +192,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
       if (!next.lockedBy && isSM) next.lockedBy = session.name
       next.totalActs = next.totalActs || totalActs
       setTimeline(next)
+      setNow(new Date())
       setLockedBy(next.lockedBy || null)
       await saveTimelineRemote(sheetId, showDate, next)
       lastSavedAtRef.current = Date.now()
@@ -239,15 +243,11 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   useEffect(() => {
     async function pollTimeline() {
       if (savingTimelineRef.current) return
-      // If we just saved within the last 5 seconds, skip — give our write time
-      // to propagate so the poll doesn't overwrite with stale data.
-      if (Date.now() - lastSavedAtRef.current < 5000) return
       const generationAtFetchStart = saveGenerationRef.current
       const { timeline: remote, lockedBy: lb } = await getTimelineRemote(sheetId, showDate)
-      // Discard if a save happened OR completed while we were waiting
+      // Discard if a save happened or completed while we were waiting
       if (savingTimelineRef.current) return
       if (saveGenerationRef.current !== generationAtFetchStart) return
-      if (Date.now() - lastSavedAtRef.current < 3000) return
       if (remote) {
         const migrated = migrateTimeline(remote)
         setTimeline(migrated)
