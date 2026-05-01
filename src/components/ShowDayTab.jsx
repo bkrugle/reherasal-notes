@@ -76,7 +76,7 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
   })()
   const [curtainTime, setCurtainTime] = useState(curtainTimes[showDate] || '')
 
-  const [timeline, setTimeline] = useState(() => defaultTimeline(totalActs))
+  const [timeline, setTimeline] = useState(() => migrateTimeline(defaultTimeline(totalActs)))
   const [lockedBy, setLockedBy] = useState(null)
   const [manualEntry, setManualEntry] = useState(false)
   const [historyVersion, setHistoryVersion] = useState(0)
@@ -213,10 +213,13 @@ export default function ShowDayTab({ sheetId, productionCode, production, sessio
     async function pollTimeline() {
       if (savingTimelineRef.current) return
       const { timeline: remote, lockedBy: lb } = await getTimelineRemote(sheetId, showDate)
+      // If a save started while we were waiting for the response, discard.
+      if (savingTimelineRef.current) return
       if (remote) {
-        setTimeline(migrateTimeline(remote))
+        const migrated = migrateTimeline(remote)
+        setTimeline(migrated)
         setLockedBy(lb || null)
-        saveTimeline(sheetId, showDate, remote)
+        // getTimelineRemote already persists the migrated shape — no double-write
       }
     }
     pollTimeline()

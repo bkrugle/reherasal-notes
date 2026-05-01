@@ -28,7 +28,13 @@ const KEY = (sheetId, showDate) => `rn_timeline_${sheetId}_${showDate}`
 export function getTimeline(sheetId, showDate) {
   try {
     const raw = JSON.parse(localStorage.getItem(KEY(sheetId, showDate)) || 'null')
-    return raw ? migrateTimeline(raw) : defaultTimeline()
+    if (!raw) return defaultTimeline()
+    const migrated = migrateTimeline(raw)
+    // If we just migrated old → new, persist so the next read is faster
+    if (!Array.isArray(raw.actStarts)) {
+      try { localStorage.setItem(KEY(sheetId, showDate), JSON.stringify(withLegacyMirror(migrated))) } catch {}
+    }
+    return migrated
   } catch { return defaultTimeline() }
 }
 
@@ -62,7 +68,8 @@ export async function getTimelineRemote(sheetId, showDate) {
     const data = await res.json()
     if (data.timeline) {
       const migrated = migrateTimeline(data.timeline)
-      saveTimeline(sheetId, showDate, migrated)
+      // Persist the MIGRATED shape so subsequent local reads get the new fields
+      saveTimeline(sheetId, showDate, withLegacyMirror(migrated))
       return { timeline: migrated, lockedBy: data.lockedBy || '' }
     }
   } catch (e) {
@@ -192,9 +199,10 @@ function withLegacyMirror(t) {
 // Begin the next act. Used to start act 1 (from preshow), or to start act N+1
 // (from intermission).
 export function startNextAct(t, atIso = new Date().toISOString()) {
-  const next = { ...t }
-  next.actStarts = [...(t.actStarts || []), atIso]
-  next.actEnds = [...(t.actEnds || [])]
+  const base = migrateTimeline(t)
+  const next = { ...base }
+  next.actStarts = [...(base.actStarts || []), atIso]
+  next.actEnds = [...(base.actEnds || [])]
   next.currentActIndex = next.actStarts.length - 1
   next.phase = 'running'
   return withLegacyMirror(next)
@@ -203,9 +211,10 @@ export function startNextAct(t, atIso = new Date().toISOString()) {
 // End the currently-running act. If there are more acts to come, begin
 // intermission. If this was the last act, mark the show done.
 export function endCurrentAct(t, atIso = new Date().toISOString()) {
-  const next = { ...t }
+  const base = migrateTimeline(t)
+  const next = { ...base }
   const idx = next.currentActIndex
-  if (idx < 0) return t  // nothing running
+  if (idx < 0 || idx === undefined || idx === null) return base  // nothing running
   // Pad actEnds so we can write at idx
   const ends = [...(t.actEnds || [])]
   while (ends.length <= idx) ends.push(null)
@@ -225,8 +234,9 @@ export function endCurrentAct(t, atIso = new Date().toISOString()) {
 
 // End the current intermission and begin the next act.
 export function endIntermissionStartNextAct(t, atIso = new Date().toISOString()) {
-  const next = { ...t }
-  const intIdx = next.intermissionStarts.length - 1
+  const base = migrateTimeline(t)
+  const next = { ...base }
+  const intIdx = (next.intermissionStarts || []).length - 1
   if (intIdx >= 0) {
     const ends = [...(t.intermissionEnds || [])]
     while (ends.length <= intIdx) ends.push(null)
@@ -285,18 +295,20 @@ export function isLastAct(t) {
 // Begin a hold. The visible timer pauses; on resume, the held duration is
 // added to totalHoldMs so net elapsed time stays accurate.
 export function startHold(t, atIso = new Date().toISOString()) {
-  if (t.holdStart) return t  // already on hold; no-op
-  return withLegacyMirror({ ...t, holdStart: atIso })
+  const base = migrateTimeline(t)
+  if (base.holdStart) return base  // already on hold; no-op
+  return withLegacyMirror({ ...base, holdStart: atIso })
 }
 
 // End the current hold, adding the held duration to totalHoldMs.
 export function endHold(t, atIso = new Date().toISOString()) {
-  if (!t.holdStart) return t
-  const heldMs = new Date(atIso).getTime() - new Date(t.holdStart).getTime()
+  const base = migrateTimeline(t)
+  if (!base.holdStart) return base
+  const heldMs = new Date(atIso).getTime() - new Date(base.holdStart).getTime()
   return withLegacyMirror({
-    ...t,
+    ...base,
     holdStart: null,
-    totalHoldMs: (t.totalHoldMs || 0) + Math.max(0, heldMs)
+    totalHoldMs: (base.totalHoldMs || 0) + Math.max(0, heldMs)
   })
 }
 
