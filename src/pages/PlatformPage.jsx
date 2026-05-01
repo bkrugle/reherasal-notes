@@ -55,7 +55,7 @@ export default function PlatformPage() {
     setError('')
     try {
       const res = await fetch('/.netlify/functions/platformListProductions', {
-        headers: { 'x-platform-pin': platformPin }
+        headers: { 'x-platform-name': platformName, 'x-platform-pin': platformPin }
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed')
