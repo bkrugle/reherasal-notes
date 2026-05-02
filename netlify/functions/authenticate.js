@@ -4,6 +4,7 @@ const {
   sheetsClient, getRows, hashPin, verifyPin,
   REGISTRY_SHEET_ID, getCorsHeaders, ok, err
 } = require('./_sheets')
+const { validateProductionCode, validatePin } = require('./_validation')
 
 const attempts = new Map()
 function isRateLimited(ip) {
@@ -37,6 +38,7 @@ exports.handler = async (event) => {
 
   const { productionCode, pin, newPin } = body
   if (!productionCode || !pin) return err('Production code and PIN are required', 400, origin)
+  if (!validateProductionCode(productionCode)) return err('Invalid production code format', 400, origin)
 
   try {
     const sheets = await sheetsClient()
@@ -121,7 +123,7 @@ exports.handler = async (event) => {
             }, origin)
           }
 
-          if (newPin.length < 4) return err('PIN must be at least 4 characters', 400, origin)
+          if (!validatePin(newPin)) return err('PIN must be 4-8 digits', 400, origin)
 
           const newPinHash = await hashPin(newPin)
           const sheetRowIndex = rowIndex + 2

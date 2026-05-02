@@ -1,6 +1,7 @@
 'use strict'
 
 const { sheetsClient, getRows, getCorsHeaders, ok, err } = require('./_sheets')
+const { sanitizeInput, validateSheetId } = require('./_validation')
 
 exports.handler = async (event) => {
   const origin = event.headers?.origin || event.headers?.Origin
@@ -14,6 +15,18 @@ exports.handler = async (event) => {
 
   const { sheetId, id, changes } = body
   if (!sheetId || !id || !changes) return err('sheetId, id, and changes required', 400, origin)
+  if (!validateSheetId(sheetId)) return err('Invalid sheetId', 400, origin)
+
+  // Sanitize text fields in changes
+  const safeChanges = { ...changes }
+  if (changes.text !== undefined) safeChanges.text = sanitizeInput(changes.text)
+  if (changes.scene !== undefined) safeChanges.scene = sanitizeInput(changes.scene)
+  if (changes.cast !== undefined) safeChanges.cast = sanitizeInput(changes.cast)
+  if (changes.cue !== undefined) safeChanges.cue = sanitizeInput(changes.cue)
+  if (changes.pinnedBy !== undefined) safeChanges.pinnedBy = sanitizeInput(changes.pinnedBy)
+  if (changes.castList !== undefined && Array.isArray(changes.castList)) {
+    safeChanges.castList = changes.castList.map(c => sanitizeInput(c))
+  }
 
   try {
     const sheets = await sheetsClient()
@@ -46,24 +59,24 @@ exports.handler = async (event) => {
       }
     }
 
-    if (changes.text !== undefined) row[idx.text] = changes.text
-    if (changes.scene !== undefined) row[idx.scene] = changes.scene
-    if (changes.category !== undefined) row[idx.category] = changes.category
-    if (changes.priority !== undefined) row[idx.priority] = changes.priority
-    if (changes.cast !== undefined) row[idx.cast] = changes.cast
-    if (changes.cue !== undefined) row[idx.cue] = changes.cue
-    if (changes.resolved !== undefined) row[idx.resolved] = String(changes.resolved)
-    if (changes.deleted !== undefined) row[idx.deleted] = String(changes.deleted)
-    if (changes.pinned !== undefined) row[idx.pinned] = String(changes.pinned)
-    if (changes.pinnedBy !== undefined) row[idx.pinnedBy] = changes.pinnedBy
-    if (changes.privateNote !== undefined) row[idx.privateNote] = String(changes.privateNote)
-    if (changes.carriedOver !== undefined) row[idx.carriedOver] = String(changes.carriedOver)
-    if (changes.attachmentUrl !== undefined) row[idx.attachmentUrl] = changes.attachmentUrl
-    if (changes.castList !== undefined) row[idx.castList] = Array.isArray(changes.castList) ? changes.castList.join(', ') : changes.castList
+    if (safeChanges.text !== undefined) row[idx.text] = safeChanges.text
+    if (safeChanges.scene !== undefined) row[idx.scene] = safeChanges.scene
+    if (safeChanges.category !== undefined) row[idx.category] = safeChanges.category
+    if (safeChanges.priority !== undefined) row[idx.priority] = safeChanges.priority
+    if (safeChanges.cast !== undefined) row[idx.cast] = safeChanges.cast
+    if (safeChanges.cue !== undefined) row[idx.cue] = safeChanges.cue
+    if (safeChanges.resolved !== undefined) row[idx.resolved] = String(safeChanges.resolved)
+    if (safeChanges.deleted !== undefined) row[idx.deleted] = String(safeChanges.deleted)
+    if (safeChanges.pinned !== undefined) row[idx.pinned] = String(safeChanges.pinned)
+    if (safeChanges.pinnedBy !== undefined) row[idx.pinnedBy] = safeChanges.pinnedBy
+    if (safeChanges.privateNote !== undefined) row[idx.privateNote] = String(safeChanges.privateNote)
+    if (safeChanges.carriedOver !== undefined) row[idx.carriedOver] = String(safeChanges.carriedOver)
+    if (safeChanges.attachmentUrl !== undefined) row[idx.attachmentUrl] = safeChanges.attachmentUrl
+    if (safeChanges.castList !== undefined) row[idx.castList] = Array.isArray(safeChanges.castList) ? safeChanges.castList.join(', ') : safeChanges.castList
 
     // NEW: actId / sceneId — null/undefined writes empty string
-    if (changes.actId !== undefined) setField('actId', changes.actId || '', 19)     // T
-    if (changes.sceneId !== undefined) setField('sceneId', changes.sceneId || '', 20) // U
+    if (safeChanges.actId !== undefined) setField('actId', safeChanges.actId || '', 19)     // T
+    if (safeChanges.sceneId !== undefined) setField('sceneId', safeChanges.sceneId || '', 20) // U
 
     row[idx.updatedAt] = new Date().toISOString()
 

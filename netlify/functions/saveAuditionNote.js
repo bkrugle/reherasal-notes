@@ -1,6 +1,7 @@
 'use strict'
 
 const { sheetsClient, appendRows, getCorsHeaders, ok, err } = require('./_sheets')
+const { sanitizeInput, validateSheetId } = require('./_validation')
 
 exports.handler = async (event) => {
   const origin = event.headers?.origin || event.headers?.Origin
@@ -14,12 +15,17 @@ exports.handler = async (event) => {
 
   const { sheetId, auditionerId, text, createdBy } = body
   if (!sheetId || !auditionerId || !text) return err('sheetId, auditionerId, and text required', 400, origin)
+  if (!validateSheetId(sheetId)) return err('Invalid sheetId', 400, origin)
+
+  // Sanitize text inputs
+  const safeText = sanitizeInput(text)
+  const safeCreatedBy = sanitizeInput(createdBy || '')
 
   try {
     const sheets = await sheetsClient()
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
     const now = new Date().toISOString()
-    await appendRows(sheets, sheetId, 'AuditionNotes!A:F', [[id, auditionerId, text, createdBy || '', now, 'false']])
+    await appendRows(sheets, sheetId, 'AuditionNotes!A:F', [[id, auditionerId, safeText, safeCreatedBy, now, 'false']])
     return ok({ id, createdAt: now }, origin)
   } catch (e) {
     console.error(e)

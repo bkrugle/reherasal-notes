@@ -1,6 +1,7 @@
 'use strict'
 
 const { sheetsClient, driveClient, getRows, appendRows, getCorsHeaders, ok, err } = require('./_sheets')
+const { sanitizeInput, sanitizeObject, validateEmail, validatePhone, validateSheetId } = require('./_validation')
 const { google } = require('googleapis')
 const https = require('https')
 
@@ -98,6 +99,20 @@ exports.handler = async (event) => {
 
   if (!sheetId || !firstName || !lastName) return err('sheetId, firstName, and lastName required', 400, origin)
 
+  // Validate inputs
+  if (!validateSheetId(sheetId)) return err('Invalid sheetId', 400, origin)
+  if (email && !validateEmail(email)) return err('Invalid email format', 400, origin)
+  if (phone && !validatePhone(phone)) return err('Invalid phone format', 400, origin)
+
+  // Sanitize text inputs for safe storage
+  const safeFirstName = sanitizeInput(firstName)
+  const safeLastName = sanitizeInput(lastName)
+  const safeExperience = sanitizeInput(experience || '')
+  const safeConflicts = sanitizeInput(conflicts || '')
+  const safeGrade = sanitizeInput(grade || '')
+  const safeAge = sanitizeInput(age || '')
+  const safeCustomAnswers = customAnswers ? sanitizeObject(customAnswers) : {}
+
   try {
     const sheets = await sheetsClient()
     const drive = await driveClient()
@@ -180,10 +195,10 @@ exports.handler = async (event) => {
 
     const rowData = [
       existingId || id, now,
-      firstName, lastName, email || '', phone || '',
-      grade || '', age || '', experience || '', conflicts || '',
+      safeFirstName, safeLastName, email || '', phone || '',
+      safeGrade, safeAge, safeExperience, safeConflicts,
       headshotUrl, editToken,
-      JSON.stringify({ ...(customAnswers || {}), smsGateway: smsGateway || '' }),
+      JSON.stringify({ ...safeCustomAnswers, smsGateway: smsGateway || '' }),
       '', 'false', 'false'
     ]
 
@@ -200,21 +215,20 @@ exports.handler = async (event) => {
     // Send confirmation email
     if (email && process.env.RESEND_API_KEY) {
       const editUrl = `${appUrl || 'https://rehearsal-notes.netlify.app'}/audition-edit/${editToken}?code=${encodeURIComponent(productionCode || '')}`
-      const answers = customAnswers || {}
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
 <body style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1a1a1a;">
-  <h1 style="font-size:20px;margin-bottom:4px">${productionTitle || 'Audition'} — Confirmation</h1>
+  <h1 style="font-size:20px;margin-bottom:4px">${sanitizeInput(productionTitle || 'Audition')} — Confirmation</h1>
   <p style="color:#666;font-size:14px;margin-bottom:24px">Thank you for auditioning!</p>
-  <p style="font-size:14px;margin-bottom:20px">Hi ${firstName}, here's a summary of the information you submitted:</p>
+  <p style="font-size:14px;margin-bottom:20px">Hi ${safeFirstName}, here's a summary of the information you submitted:</p>
   <div style="background:#f5f4f1;border-radius:12px;padding:16px 20px;margin-bottom:20px">
     <table style="width:100%;font-size:14px;border-collapse:collapse">
-      <tr><td style="padding:4px 0;color:#666;width:40%">Name</td><td style="padding:4px 0;font-weight:500">${firstName} ${lastName}</td></tr>
+      <tr><td style="padding:4px 0;color:#666;width:40%">Name</td><td style="padding:4px 0;font-weight:500">${safeFirstName} ${safeLastName}</td></tr>
       ${email ? `<tr><td style="padding:4px 0;color:#666">Email</td><td style="padding:4px 0">${email}</td></tr>` : ''}
       ${phone ? `<tr><td style="padding:4px 0;color:#666">Phone</td><td style="padding:4px 0">${phone}</td></tr>` : ''}
-      ${grade ? `<tr><td style="padding:4px 0;color:#666">Grade</td><td style="padding:4px 0">${grade}</td></tr>` : ''}
-      ${age ? `<tr><td style="padding:4px 0;color:#666">Age</td><td style="padding:4px 0">${age}</td></tr>` : ''}
-      ${conflicts ? `<tr><td style="padding:4px 0;color:#666">Conflicts</td><td style="padding:4px 0">${conflicts}</td></tr>` : ''}
-      ${Object.entries(answers).map(([q, a]) => `<tr><td style="padding:4px 0;color:#666">${q}</td><td style="padding:4px 0">${a}</td></tr>`).join('')}
+      ${safeGrade ? `<tr><td style="padding:4px 0;color:#666">Grade</td><td style="padding:4px 0">${safeGrade}</td></tr>` : ''}
+      ${safeAge ? `<tr><td style="padding:4px 0;color:#666">Age</td><td style="padding:4px 0">${safeAge}</td></tr>` : ''}
+      ${safeConflicts ? `<tr><td style="padding:4px 0;color:#666">Conflicts</td><td style="padding:4px 0">${safeConflicts}</td></tr>` : ''}
+      ${Object.entries(safeCustomAnswers).map(([q, a]) => `<tr><td style="padding:4px 0;color:#666">${sanitizeInput(q)}</td><td style="padding:4px 0">${sanitizeInput(a)}</td></tr>`).join('')}
     </table>
   </div>
   <p style="font-size:14px;margin-bottom:8px">If any information is incorrect, you can update it here:</p>
@@ -222,7 +236,7 @@ exports.handler = async (event) => {
   <p style="font-size:12px;color:#999;margin-top:24px">Good luck — we'll be in touch!</p>
 </body></html>`
 
-      const text = `${productionTitle || 'Audition'} — Confirmation\n\nHi ${firstName}, thank you for auditioning!\n\nYour information:\nName: ${firstName} ${lastName}\n${email ? 'Email: ' + email + '\n' : ''}${phone ? 'Phone: ' + phone + '\n' : ''}${conflicts ? 'Conflicts: ' + conflicts + '\n' : ''}\nIf anything is incorrect, update it here: ${editUrl}\n\nGood luck!`
+      const text = `${sanitizeInput(productionTitle || 'Audition')} — Confirmation\n\nHi ${safeFirstName}, thank you for auditioning!\n\nYour information:\nName: ${safeFirstName} ${safeLastName}\n${email ? 'Email: ' + email + '\n' : ''}${phone ? 'Phone: ' + phone + '\n' : ''}${safeConflicts ? 'Conflicts: ' + safeConflicts + '\n' : ''}\nIf anything is incorrect, update it here: ${editUrl}\n\nGood luck!`
 
       await resendEmail({ to: email, subject: `${productionTitle || 'Audition'} — Your submission`, html, text, replyTo: directorEmail || undefined }).catch(e => console.warn('Email failed:', e.message))
     }
