@@ -1,13 +1,16 @@
 'use strict'
 
-const { sheetsClient, getRows, REGISTRY_SHEET_ID, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, getRows, REGISTRY_SHEET_ID, getCorsHeaders, ok, err } = require('./_sheets')
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'GET') return err('Method not allowed', 405)
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'GET') return err('Method not allowed', 405, origin)
 
   const { sheetId, showDate } = event.queryStringParameters || {}
-  if (!sheetId || !showDate) return err('sheetId and showDate required')
+  if (!sheetId || !showDate) return err('sheetId and showDate required', 400, origin)
 
   try {
     const sheets = await sheetsClient()
@@ -60,9 +63,9 @@ exports.handler = async (event) => {
       alertMinutes: parseInt(config.checkinAlertMinutes || '30'),
       productionTitle: config.title || '',
       showDate
-    })
+    }, origin)
   } catch (e) {
     console.error(e)
-    return err(e.message, 500)
+    return err(e.message, 500, origin)
   }
 }

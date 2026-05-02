@@ -1,16 +1,19 @@
 'use strict'
 
-const { driveClient, CORS, ok, err } = require('./_sheets')
+const { driveClient, getCorsHeaders, ok, err } = require('./_sheets')
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'POST') return err('Method not allowed', 405, origin)
 
   let body
-  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
+  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON', 400, origin) }
 
   const { folderId, fileName, mimeType, base64Data, category } = body
-  if (!folderId || !fileName || !base64Data) return err('folderId, fileName, and base64Data required')
+  if (!folderId || !fileName || !base64Data) return err('folderId, fileName, and base64Data required', 400, origin)
 
   try {
     const drive = await driveClient()
@@ -76,9 +79,9 @@ exports.handler = async (event) => {
       size: uploadRes.data.size,
       mimeType: uploadRes.data.mimeType,
       category: category || 'general'
-    })
+    }, origin)
   } catch (e) {
     console.error(e)
-    return err('Upload failed: ' + e.message, 500)
+    return err('Upload failed: ' + e.message, 500, origin)
   }
 }

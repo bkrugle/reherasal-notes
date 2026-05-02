@@ -1,6 +1,6 @@
 'use strict'
 
-const { sheetsClient, getRows, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, getRows, getCorsHeaders, ok, err } = require('./_sheets')
 const https = require('https')
 
 function resendEmail({ to, subject, html, text }) {
@@ -61,14 +61,16 @@ function fmtDateShort(dateStr) {
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'POST') return err('Method not allowed', 405, origin)
 
   let body
-  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
+  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON', 400, origin) }
 
   const { sheetId, allTimelines, closingNote, productionCode } = body
-  if (!sheetId) return err('sheetId required')
+  if (!sheetId) return err('sheetId required', 400, origin)
 
   try {
     const sheets = await sheetsClient()
@@ -264,7 +266,7 @@ exports.handler = async (event) => {
     const text = `Final Show Report — ${productionTitle}\n${showDates.length} Performances\n\nRun Times:\n${runRows.map(r => `${r.label}: ${r.times ? `Act 1 ${fmtMs(r.times.a1)} / Int ${fmtMs(r.times.int)} / Act 2 ${fmtMs(r.times.a2)} / Total ${fmtMs(r.times.total)}` : '—'}`).join('\n')}\n\nNotes: ${totalNotes} total, ${resolvedNotes} resolved, ${openNotes.length} open${closingNote ? '\n\nDirector\'s Note: ' + closingNote : ''}`
 
     const recipients = [directorEmail, smEmail].filter(Boolean)
-    if (recipients.length === 0) return err('No email addresses configured for director or SM')
+    if (recipients.length === 0) return err('No email addresses configured for director or SM', 400, origin)
 
     await resendEmail({
       to: recipients,
@@ -273,9 +275,9 @@ exports.handler = async (event) => {
       text
     })
 
-    return ok({ sent: true, recipients, smName, smEmail, directorEmail })
+    return ok({ sent: true, recipients, smName, smEmail, directorEmail }, origin)
   } catch (e) {
     console.error(e)
-    return err('Failed to send closeout report: ' + e.message, 500)
+    return err('Failed to send closeout report: ' + e.message, 500, origin)
   }
 }

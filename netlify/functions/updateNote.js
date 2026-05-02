@@ -1,16 +1,19 @@
 'use strict'
 
-const { sheetsClient, getRows, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, getRows, getCorsHeaders, ok, err } = require('./_sheets')
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'POST') return err('Method not allowed', 405, origin)
 
   let body
-  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
+  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON', 400, origin) }
 
   const { sheetId, id, changes } = body
-  if (!sheetId || !id || !changes) return err('sheetId, id, and changes required')
+  if (!sheetId || !id || !changes) return err('sheetId, id, and changes required', 400, origin)
 
   try {
     const sheets = await sheetsClient()
@@ -18,14 +21,14 @@ exports.handler = async (event) => {
     // On legacy sheets (A:S), the extra cells just come back undefined; we
     // pad below to the full new width before writing.
     const rows = await getRows(sheets, sheetId, 'Notes!A:U')
-    if (rows.length < 2) return err('Note not found', 404)
+    if (rows.length < 2) return err('Note not found', 404, origin)
 
     const [header, ...data] = rows
     const idx = {}
     header.forEach((col, i) => { idx[col] = i })
 
     const rowIndex = data.findIndex(r => r[idx.id] === id)
-    if (rowIndex === -1) return err('Note not found', 404)
+    if (rowIndex === -1) return err('Note not found', 404, origin)
 
     const row = [...data[rowIndex]]
     // Pad row to full new width (A:U = 21 columns)
@@ -72,9 +75,9 @@ exports.handler = async (event) => {
       requestBody: { values: [row] }
     })
 
-    return ok({ success: true, updatedAt: row[idx.updatedAt] })
+    return ok({ success: true, updatedAt: row[idx.updatedAt] }, origin)
   } catch (e) {
     console.error(e)
-    return err('Failed to update note: ' + e.message, 500)
+    return err('Failed to update note: ' + e.message, 500, origin)
   }
 }

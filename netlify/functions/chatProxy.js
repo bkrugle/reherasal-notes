@@ -1,19 +1,22 @@
 'use strict'
 
 const https = require('https')
-const { CORS } = require('./_sheets')
+const { getCorsHeaders } = require('./_sheets')
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'POST') return { statusCode: 405, headers: CORS, body: 'Method not allowed' }
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'POST') return { statusCode: 405, headers: corsHeaders, body: 'Method not allowed' }
 
   let body
   try { body = JSON.parse(event.body) } catch {
-    return { statusCode: 400, headers: CORS, body: 'Invalid JSON' }
+    return { statusCode: 400, headers: corsHeaders, body: 'Invalid JSON' }
   }
 
   const { messages, system } = body
-  if (!messages) return { statusCode: 400, headers: CORS, body: 'messages required' }
+  if (!messages) return { statusCode: 400, headers: corsHeaders, body: 'messages required' }
 
   const payload = JSON.stringify({
     model: 'claude-sonnet-4-20250514',
@@ -39,13 +42,13 @@ exports.handler = async (event) => {
       res.on('end', () => {
         resolve({
           statusCode: res.statusCode,
-          headers: { ...CORS, 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           body: data
         })
       })
     })
     req.on('error', e => {
-      resolve({ statusCode: 500, headers: CORS, body: JSON.stringify({ error: e.message }) })
+      resolve({ statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: e.message }) })
     })
     req.write(payload)
     req.end()
