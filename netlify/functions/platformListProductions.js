@@ -1,6 +1,6 @@
 'use strict'
 
-const { sheetsClient, getRows, hashPin, REGISTRY_SHEET_ID, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, getRows, verifyPin, REGISTRY_SHEET_ID, CORS, ok, err } = require('./_sheets')
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
@@ -11,7 +11,15 @@ exports.handler = async (event) => {
 
   let platformAdmins = []
   try { platformAdmins = JSON.parse(process.env.PLATFORM_ADMINS || '[]') } catch {}
-  const admin = platformAdmins.find(a => a.pin === platformPin || hashPin(a.pin) === hashPin(platformPin))
+
+  // Verify platform admin using bcrypt
+  let admin = null
+  for (const a of platformAdmins) {
+    if (await verifyPin(platformPin, a.pin)) {
+      admin = a
+      break
+    }
+  }
   if (!admin) return err('Invalid platform PIN', 401)
 
   try {
