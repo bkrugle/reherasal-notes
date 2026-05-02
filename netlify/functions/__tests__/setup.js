@@ -19,5 +19,8 @@ process.env.PLATFORM_ADMINS = JSON.stringify([
   { name: 'TestAdmin2', pin: '5678' }
 ])
 
+// CORS configuration for tests
+process.env.ALLOWED_ORIGINS = 'https://myapp.netlify.app,https://example.com'
+
 // Increase timeout for async tests
 jest.setTimeout(10000)

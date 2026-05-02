@@ -1,6 +1,6 @@
 'use strict'
 
-const { sheetsClient, driveClient, getRows, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, driveClient, getRows, getCorsHeaders, ok, err } = require('./_sheets')
 const https = require('https')
 
 // Fetch image from URL and return base64
@@ -24,14 +24,17 @@ async function fetchImageBase64(url) {
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'POST') return err('Method not allowed', 405, origin)
 
   let body
-  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
+  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON', 400, origin) }
 
   const { sheetId, productionTitle, useAuditions } = body
-  if (!sheetId) return err('sheetId required')
+  if (!sheetId) return err('sheetId required', 400, origin)
 
   try {
     const sheets = await sheetsClient()
@@ -83,9 +86,9 @@ exports.handler = async (event) => {
       showDates: config.showDates || '',
       venue: config.venue || '',
       castMembers
-    })
+    }, origin)
   } catch (e) {
     console.error(e)
-    return err('Failed: ' + e.message, 500)
+    return err('Failed: ' + e.message, 500, origin)
   }
 }

@@ -1,6 +1,6 @@
 'use strict'
 
-const { sheetsClient, getRows, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, getRows, getCorsHeaders, ok, err } = require('./_sheets')
 
 // Department tags that should populate the cast field
 const DEPARTMENT_TAGS = {
@@ -43,19 +43,21 @@ function extractDepartmentsFromText(text) {
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'POST') return err('Method not allowed', 405, origin)
 
   let body
-  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
+  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON', 400, origin) }
 
   const { sheetId } = body
-  if (!sheetId) return err('sheetId required')
+  if (!sheetId) return err('sheetId required', 400, origin)
 
   try {
     const sheets = await sheetsClient()
     const rows = await getRows(sheets, sheetId, 'Notes!A:R')
-    if (rows.length < 2) return ok({ updated: 0, message: 'No notes found' })
+    if (rows.length < 2) return ok({ updated: 0, message: 'No notes found' }, origin)
 
     const [header, ...data] = rows
     const idx = {}
@@ -113,9 +115,9 @@ exports.handler = async (event) => {
       success: true,
       updated,
       message: `Updated ${updated} note${updated !== 1 ? 's' : ''} with department tags`
-    })
+    }, origin)
   } catch (e) {
     console.error(e)
-    return err('Migration failed: ' + e.message, 500)
+    return err('Migration failed: ' + e.message, 500, origin)
   }
 }

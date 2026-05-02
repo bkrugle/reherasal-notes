@@ -225,8 +225,10 @@ describe('_sheets.js utilities', () => {
   })
 
   describe('CORS headers', () => {
-    it('should allow all origins', () => {
-      expect(CORS['Access-Control-Allow-Origin']).toBe('*')
+    it('should use first allowed origin (not wildcard)', () => {
+      // CORS no longer uses wildcard '*' - it uses the first allowed origin
+      expect(CORS['Access-Control-Allow-Origin']).not.toBe('*')
+      expect(CORS['Access-Control-Allow-Origin']).toBe('https://myapp.netlify.app')
     })
 
     it('should allow Content-Type header', () => {

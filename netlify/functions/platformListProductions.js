@@ -1,13 +1,16 @@
 'use strict'
 
-const { sheetsClient, getRows, verifyPin, REGISTRY_SHEET_ID, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, getRows, verifyPin, REGISTRY_SHEET_ID, getCorsHeaders, ok, err } = require('./_sheets')
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
 
   // Verify platform admin via header
   const platformPin = event.headers?.['x-platform-pin']
-  if (!platformPin) return err('Platform PIN required', 401)
+  if (!platformPin) return err('Platform PIN required', 401, origin)
 
   let platformAdmins = []
   try { platformAdmins = JSON.parse(process.env.PLATFORM_ADMINS || '[]') } catch {}
@@ -20,12 +23,12 @@ exports.handler = async (event) => {
       break
     }
   }
-  if (!admin) return err('Invalid platform PIN', 401)
+  if (!admin) return err('Invalid platform PIN', 401, origin)
 
   try {
     const sheets = await sheetsClient()
     const rows = await getRows(sheets, REGISTRY_SHEET_ID, 'Registry!A:F')
-    if (rows.length < 2) return ok({ productions: [] })
+    if (rows.length < 2) return ok({ productions: [] }, origin)
 
     const [header, ...data] = rows
     const codeIdx = header.indexOf('productionCode')
@@ -70,9 +73,9 @@ exports.handler = async (event) => {
         })
     )
 
-    return ok({ productions })
+    return ok({ productions }, origin)
   } catch (e) {
     console.error(e)
-    return err('Failed to load productions: ' + e.message, 500)
+    return err('Failed to load productions: ' + e.message, 500, origin)
   }
 }

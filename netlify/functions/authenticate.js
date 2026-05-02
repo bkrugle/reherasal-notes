@@ -2,7 +2,7 @@
 
 const {
   sheetsClient, getRows, hashPin, verifyPin,
-  REGISTRY_SHEET_ID, CORS, ok, err
+  REGISTRY_SHEET_ID, getCorsHeaders, ok, err
 } = require('./_sheets')
 
 const attempts = new Map()
@@ -22,22 +22,26 @@ function isRateLimited(ip) {
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+  // Extract origin for CORS
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'POST') return err('Method not allowed', 405, origin)
 
   const clientIp = event.headers?.['x-forwarded-for']?.split(',')[0] || event.headers?.['client-ip'] || ''
-  if (isRateLimited(clientIp)) return err('Too many attempts. Please wait 15 minutes.', 429)
+  if (isRateLimited(clientIp)) return err('Too many attempts. Please wait 15 minutes.', 429, origin)
 
   let body
-  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
+  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON', 400, origin) }
 
   const { productionCode, pin, newPin } = body
-  if (!productionCode || !pin) return err('Production code and PIN are required')
+  if (!productionCode || !pin) return err('Production code and PIN are required', 400, origin)
 
   try {
     const sheets = await sheetsClient()
     const rows = await getRows(sheets, REGISTRY_SHEET_ID, 'Registry!A:F')
-    if (rows.length < 2) return err('Production not found', 404)
+    if (rows.length < 2) return err('Production not found', 404, origin)
 
     const [header, ...data] = rows
     const codeIdx = header.indexOf('productionCode')
@@ -47,7 +51,7 @@ exports.handler = async (event) => {
     const adminPinIdx = header.indexOf('adminPinHash')
 
     const row = data.find(r => r[codeIdx] === productionCode.toUpperCase())
-    if (!row) return err('Production not found', 404)
+    if (!row) return err('Production not found', 404, origin)
 
     // Verify PIN against stored bcrypt hashes
     const isAdmin = await verifyPin(pin, row[adminPinIdx])
@@ -93,7 +97,7 @@ exports.handler = async (event) => {
             staffRole: staffRoleIdx >= 0 ? (sharedRow[staffRoleIdx] || '') : '',
             ntfyTopic: ntfyIdx >= 0 ? (sharedRow[ntfyIdx] || '') : '',
             phone: phoneIdx >= 0 ? (sharedRow[phoneIdx] || '') : ''
-          })
+          }, origin)
         }
 
         // Try invite code match
@@ -114,10 +118,10 @@ exports.handler = async (event) => {
               email: sharedRow[emailIdx] || '',
               inviteCode: inviteUpper,
               staffRole: staffRoleIdx >= 0 ? (sharedRow[staffRoleIdx] || '') : ''
-            })
+            }, origin)
           }
 
-          if (newPin.length < 4) return err('PIN must be at least 4 characters')
+          if (newPin.length < 4) return err('PIN must be at least 4 characters', 400, origin)
 
           const newPinHash = await hashPin(newPin)
           const sheetRowIndex = rowIndex + 2
@@ -146,11 +150,11 @@ exports.handler = async (event) => {
             staffRole: staffRoleIdx >= 0 ? (sharedRow[staffRoleIdx] || '') : '',
             ntfyTopic: ntfyIdx >= 0 ? (sharedRow[ntfyIdx] || '') : '',
             phone: phoneIdx >= 0 ? (sharedRow[phoneIdx] || '') : ''
-          })
+          }, origin)
         }
       }
 
-      return err('Incorrect PIN or invite code', 401)
+      return err('Incorrect PIN or invite code', 401, origin)
     }
 
     // Admin/member — pull director info from config
@@ -174,9 +178,9 @@ exports.handler = async (event) => {
       name: directorName,
       email: directorEmail,
       staffRole: 'Stage Manager'
-    })
+    }, origin)
   } catch (e) {
     console.error(e)
-    return err('Authentication failed: ' + e.message, 500)
+    return err('Authentication failed: ' + e.message, 500, origin)
   }
 }

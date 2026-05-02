@@ -1,6 +1,6 @@
 'use strict'
 
-const { sheetsClient, getRows, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, getRows, getCorsHeaders, ok, err } = require('./_sheets')
 const { google } = require('googleapis')
 
 async function calendarClient() {
@@ -19,10 +19,13 @@ async function calendarClient() {
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
 
   const { calendarId, weeks } = event.queryStringParameters || {}
-  if (!calendarId) return err('calendarId required')
+  if (!calendarId) return err('calendarId required', 400, origin)
 
   try {
     const calendar = await calendarClient()
@@ -50,9 +53,9 @@ exports.handler = async (event) => {
       htmlLink: e.htmlLink || ''
     }))
 
-    return ok({ events })
+    return ok({ events }, origin)
   } catch (e) {
     console.error(e)
-    return err('Failed to load calendar: ' + e.message, 500)
+    return err('Failed to load calendar: ' + e.message, 500, origin)
   }
 }

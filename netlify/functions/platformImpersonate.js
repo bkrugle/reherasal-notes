@@ -1,16 +1,19 @@
 'use strict'
 
-const { sheetsClient, getRows, verifyPin, REGISTRY_SHEET_ID, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, getRows, verifyPin, REGISTRY_SHEET_ID, getCorsHeaders, ok, err } = require('./_sheets')
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'POST') return err('Method not allowed', 405, origin)
 
   let body
-  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
+  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON', 400, origin) }
 
   const { platformPin, productionCode } = body
-  if (!platformPin || !productionCode) return err('platformPin and productionCode required')
+  if (!platformPin || !productionCode) return err('platformPin and productionCode required', 400, origin)
 
   // Verify platform admin using bcrypt
   let platformAdmins = []
@@ -23,12 +26,12 @@ exports.handler = async (event) => {
       break
     }
   }
-  if (!admin) return err('Invalid platform PIN', 401)
+  if (!admin) return err('Invalid platform PIN', 401, origin)
 
   try {
     const sheets = await sheetsClient()
     const rows = await getRows(sheets, REGISTRY_SHEET_ID, 'Registry!A:F')
-    if (rows.length < 2) return err('Production not found', 404)
+    if (rows.length < 2) return err('Production not found', 404, origin)
 
     const [header, ...data] = rows
     const codeIdx = header.indexOf('productionCode')
@@ -36,7 +39,7 @@ exports.handler = async (event) => {
     const sheetIdx = header.indexOf('sheetId')
 
     const row = data.find(r => r[codeIdx] === productionCode.toUpperCase())
-    if (!row) return err('Production not found', 404)
+    if (!row) return err('Production not found', 404, origin)
 
     const sheetId = row[sheetIdx]
 
@@ -60,9 +63,9 @@ exports.handler = async (event) => {
       staffRole: 'Stage Manager',
       platformAdmin: true,
       platformName: admin.name
-    })
+    }, origin)
   } catch (e) {
     console.error(e)
-    return err('Impersonation failed: ' + e.message, 500)
+    return err('Impersonation failed: ' + e.message, 500, origin)
   }
 }

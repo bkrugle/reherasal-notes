@@ -1,6 +1,6 @@
 'use strict'
 
-const { CORS, ok, err } = require('./_sheets')
+const { getCorsHeaders, ok, err } = require('./_sheets')
 const https = require('https')
 
 function resendEmail({ to, subject, html, text, replyTo, fromName }) {
@@ -41,19 +41,21 @@ function resendEmail({ to, subject, html, text, replyTo, fromName }) {
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'POST') return err('Method not allowed', 405, origin)
 
   let body
-  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
+  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON', 400, origin) }
 
   const {
     to, memberName, productionTitle, productionCode,
     inviteCode, appUrl, directorName, directorEmail
   } = body
 
-  if (!to || !productionCode || !inviteCode) return err('to, productionCode, and inviteCode required')
-  if (!process.env.RESEND_API_KEY) return err('RESEND_API_KEY not configured', 500)
+  if (!to || !productionCode || !inviteCode) return err('to, productionCode, and inviteCode required', 400, origin)
+  if (!process.env.RESEND_API_KEY) return err('RESEND_API_KEY not configured', 500, origin)
 
   const url = appUrl || 'https://rehearsal-notes.netlify.app'
   const firstName = memberName ? memberName.split(' ')[0] : 'there'
@@ -113,9 +115,9 @@ Questions? Reply to this email.
       replyTo: directorEmail || undefined,
       fromName: directorName || 'Ovature™'
     })
-    return ok({ sent: true })
+    return ok({ sent: true }, origin)
   } catch (e) {
     console.error(e)
-    return err('Failed to send welcome email: ' + e.message, 500)
+    return err('Failed to send welcome email: ' + e.message, 500, origin)
   }
 }

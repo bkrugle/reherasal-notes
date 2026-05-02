@@ -1,6 +1,6 @@
 'use strict'
 
-const { sheetsClient, driveClient, getRows, appendRows, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, driveClient, getRows, appendRows, getCorsHeaders, ok, err } = require('./_sheets')
 const { google } = require('googleapis')
 const https = require('https')
 
@@ -83,17 +83,20 @@ function resendEmail({ to, subject, html, text, replyTo, fromName }) {
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'POST') return err('Method not allowed', 405, origin)
 
   let body
-  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
+  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON', 400, origin) }
 
   const { sheetId, headshotFolderId, appUrl, productionTitle, directorEmail, productionCode,
     firstName, lastName, email, phone, grade, age, experience, conflicts, customAnswers,
     headshotBase64, editToken: existingToken, smsGateway } = body
 
-  if (!sheetId || !firstName || !lastName) return err('sheetId, firstName, and lastName required')
+  if (!sheetId || !firstName || !lastName) return err('sheetId, firstName, and lastName required', 400, origin)
 
   try {
     const sheets = await sheetsClient()
@@ -224,9 +227,9 @@ exports.handler = async (event) => {
       await resendEmail({ to: email, subject: `${productionTitle || 'Audition'} — Your submission`, html, text, replyTo: directorEmail || undefined }).catch(e => console.warn('Email failed:', e.message))
     }
 
-    return ok({ id: existingId || id, editToken })
+    return ok({ id: existingId || id, editToken }, origin)
   } catch (e) {
     console.error(e)
-    return err('Failed to submit audition: ' + e.message, 500)
+    return err('Failed to submit audition: ' + e.message, 500, origin)
   }
 }

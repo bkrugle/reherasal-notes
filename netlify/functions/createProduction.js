@@ -2,25 +2,28 @@
 
 const {
   sheetsClient, driveClient, getRows, appendRows,
-  hashPin, makeProductionCode, REGISTRY_SHEET_ID, CORS, ok, err
+  hashPin, makeProductionCode, REGISTRY_SHEET_ID, getCorsHeaders, ok, err
 } = require('./_sheets')
 const { defaultActs, migrateConfig } = require('./_actsScenes')
 
 const SHARED_DRIVE_ID = '0AHO7QedLJaIHUk9PVA'
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'POST') return err('Method not allowed', 405, origin)
 
   let body
-  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
+  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON', 400, origin) }
 
   const {
     title, pin, adminPin, directorName, directorEmail, showDates,
     scenes, acts, actCount, characters, staff, useAuditions
   } = body
-  if (!title || !pin) return err('Title and PIN are required')
-  if (pin.length < 4) return err('PIN must be at least 4 characters')
+  if (!title || !pin) return err('Title and PIN are required', 400, origin)
+  if (pin.length < 4) return err('PIN must be at least 4 characters', 400, origin)
 
   try {
     const sheets = await sheetsClient()
@@ -167,9 +170,9 @@ exports.handler = async (event) => {
       [productionCode, title, productionSheetId, pinHash, adminPinHash, new Date().toISOString()]
     ])
 
-    return ok({ productionCode, message: 'Production created successfully' })
+    return ok({ productionCode, message: 'Production created successfully' }, origin)
   } catch (e) {
     console.error(e)
-    return err('Failed to create production: ' + e.message, 500)
+    return err('Failed to create production: ' + e.message, 500, origin)
   }
 }
