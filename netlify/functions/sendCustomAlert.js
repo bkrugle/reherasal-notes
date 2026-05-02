@@ -1,6 +1,6 @@
 'use strict'
 
-const { sheetsClient, getRows, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, getRows, getCorsHeaders, ok, err } = require('./_sheets')
 const { sendSMS, sendEmailToNtfy } = require('./_sms')
 const https = require('https')
 
@@ -40,14 +40,16 @@ function resendEmail({ to, subject, html, text }) {
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'POST') return err('Method not allowed', 405, origin)
 
   let body
-  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
+  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON', 400, origin) }
 
   const { sheetId, message, recipientIds, alertTarget = 'staff', useEmail = false } = body
-  if (!sheetId || !message) return err('sheetId and message required')
+  if (!sheetId || !message) return err('sheetId and message required', 400, origin)
 
   try {
     const sheets = await sheetsClient()
@@ -141,7 +143,7 @@ exports.handler = async (event) => {
         } catch (e) { results.failed.push({ name: castNames[i], error: e.message }) }
       }
 
-      return ok(results)
+      return ok(results, origin)
     }
 
     // ── NTFY/SMS MODE (live show day) ─────────────────────────────────────────
@@ -210,9 +212,9 @@ exports.handler = async (event) => {
       }
     }
 
-    return ok(results)
+    return ok(results, origin)
   } catch (e) {
     console.error(e)
-    return err(e.message, 500)
+    return err(e.message, 500, origin)
   }
 }

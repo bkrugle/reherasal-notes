@@ -1,6 +1,6 @@
 'use strict'
 
-const { sheetsClient, getRows, REGISTRY_SHEET_ID, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, getRows, REGISTRY_SHEET_ID, getCorsHeaders, ok, err } = require('./_sheets')
 const https = require('https')
 
 function sendEmail({ to, subject, html, text }) {
@@ -29,22 +29,25 @@ function sendEmail({ to, subject, html, text }) {
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'POST') return err('Method not allowed', 405, origin)
 
   let body
-  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
+  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON', 400, origin) }
 
   const { email, appUrl } = body
-  if (!email) return err('Email required')
-  if (!process.env.RESEND_API_KEY) return err('Email not configured', 500)
+  if (!email) return err('Email required', 400, origin)
+  if (!process.env.RESEND_API_KEY) return err('Email not configured', 500, origin)
 
   try {
     const sheets = await sheetsClient()
 
     // Search Registry for matching director email
     const regRows = await getRows(sheets, REGISTRY_SHEET_ID, 'Registry!A:F')
-    if (regRows.length < 2) return ok({ sent: false, message: 'No productions found' })
+    if (regRows.length < 2) return ok({ sent: false, message: 'No productions found' }, origin)
 
     const [header, ...data] = regRows
     const codeIdx = header.indexOf('productionCode')
@@ -69,7 +72,7 @@ exports.handler = async (event) => {
 
     // Always return ok to avoid email enumeration
     if (!matches.length) {
-      return ok({ sent: true }) // Don't reveal whether email exists
+      return ok({ sent: true }, origin) // Don't reveal whether email exists
     }
 
     const url = appUrl || 'https://rehearsal-notes.netlify.app'
@@ -100,9 +103,9 @@ exports.handler = async (event) => {
       html, text
     })
 
-    return ok({ sent: true })
+    return ok({ sent: true }, origin)
   } catch (e) {
     console.error(e)
-    return err('Failed: ' + e.message, 500)
+    return err('Failed: ' + e.message, 500, origin)
   }
 }

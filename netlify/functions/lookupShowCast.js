@@ -1,19 +1,22 @@
 'use strict'
 
-const { CORS, ok, err } = require('./_sheets')
+const { getCorsHeaders, ok, err } = require('./_sheets')
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'POST') return err('Method not allowed', 405, origin)
 
   let body
-  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
+  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON', 400, origin) }
 
   const { showTitle } = body
-  if (!showTitle) return err('showTitle required')
+  if (!showTitle) return err('showTitle required', 400, origin)
 
   const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return err('ANTHROPIC_API_KEY not configured', 500)
+  if (!apiKey) return err('ANTHROPIC_API_KEY not configured', 500, origin)
 
   // Anti-hallucination prompt mirroring lookupShowScenes:
   //   - Accuracy over completeness
@@ -78,8 +81,8 @@ Common mistakes to avoid:
     })
 
     let parsed
-    try { parsed = JSON.parse(response.body) } catch { return err('Invalid API response', 500) }
-    if (response.status >= 400) return err(parsed.error?.message || 'API error', 500)
+    try { parsed = JSON.parse(response.body) } catch { return err('Invalid API response', 500, origin) }
+    if (response.status >= 400) return err(parsed.error?.message || 'API error', 500, origin)
 
     const text = parsed.content?.[0]?.text || '{}'
 
@@ -115,9 +118,9 @@ Common mistakes to avoid:
       .filter(Boolean)
       .filter(name => name.toLowerCase() !== String(showTitle).toLowerCase())
 
-    return ok({ characters, confident: isConfident, showTitle })
+    return ok({ characters, confident: isConfident, showTitle }, origin)
   } catch (e) {
     console.error('lookupShowCast error:', e.message)
-    return err(e.message, 500)
+    return err(e.message, 500, origin)
   }
 }

@@ -1,8 +1,10 @@
 'use strict'
 
-const { sheetsClient, driveClient, hashPin, getRows, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, driveClient, hashPin, getRows, getCorsHeaders, ok, err } = require('./_sheets')
+// Note: hashPin is now async and returns a Promise
 
 const SHARED_DRIVE_ID = '0AHO7QedLJaIHUk9PVA'
+// Note: getCorsHeaders handles dynamic origin validation
 
 function makeInviteCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -69,14 +71,17 @@ async function ensureAuditionSetup(sheets, drive, sheetId, existing) {
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'POST') return err('Method not allowed', 405, origin)
 
   let body
-  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
+  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON', 400, origin) }
 
   const { sheetId, config, sharedWith } = body
-  if (!sheetId) return err('sheetId required')
+  if (!sheetId) return err('sheetId required', 400, origin)
 
   try {
     const sheets = await sheetsClient()
@@ -179,7 +184,7 @@ exports.handler = async (event) => {
           newInviteCodes[name || email] = inviteCode
         }
 
-        if (pin && !prev) pinHash = hashPin(pin)
+        if (pin && !prev) pinHash = await hashPin(pin)
 
         const memberRole = (prev?.role === 'admin' || member?.role === 'admin') ? 'admin' : 'member'
         rows.push([
@@ -203,12 +208,12 @@ exports.handler = async (event) => {
         requestBody: { values: rows }
       })
 
-      return ok({ success: true, newInviteCodes })
+      return ok({ success: true, newInviteCodes }, origin)
     }
 
-    return ok({ success: true })
+    return ok({ success: true }, origin)
   } catch (e) {
     console.error(e)
-    return err('Failed to update production: ' + e.message, 500)
+    return err('Failed to update production: ' + e.message, 500, origin)
   }
 }

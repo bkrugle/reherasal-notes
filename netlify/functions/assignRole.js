@@ -1,27 +1,30 @@
 'use strict'
 
-const { sheetsClient, getRows, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, getRows, getCorsHeaders, ok, err } = require('./_sheets')
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'POST') return err('Method not allowed', 405, origin)
 
   let body
-  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
+  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON', 400, origin) }
 
   const { sheetId, auditionerId, role } = body
-  if (!sheetId || !auditionerId) return err('sheetId and auditionerId required')
+  if (!sheetId || !auditionerId) return err('sheetId and auditionerId required', 400, origin)
 
   try {
     const sheets = await sheetsClient()
 
     // 1. Update the auditioner's role
     const rows = await getRows(sheets, sheetId, 'Auditioners!A:P')
-    if (rows.length < 2) return err('Not found', 404)
+    if (rows.length < 2) return err('Not found', 404, origin)
     const [header, ...data] = rows
     const idx = {}; header.forEach((c, i) => { idx[c] = i })
     const ri = data.findIndex(r => r[idx.id] === auditionerId)
-    if (ri < 0) return err('Auditioner not found', 404)
+    if (ri < 0) return err('Auditioner not found', 404, origin)
 
     const rowIndex = ri + 2
     const row = [...data[ri]]
@@ -108,9 +111,9 @@ exports.handler = async (event) => {
       })
     }
 
-    return ok({ success: true })
+    return ok({ success: true }, origin)
   } catch (e) {
     console.error(e)
-    return err('Failed: ' + e.message, 500)
+    return err('Failed: ' + e.message, 500, origin)
   }
 }

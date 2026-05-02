@@ -1,6 +1,6 @@
 'use strict'
 
-const { sheetsClient, getRows, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, getRows, getCorsHeaders, ok, err } = require('./_sheets')
 const https = require('https')
 
 function resendEmail({ to, subject, html, text }) {
@@ -54,14 +54,16 @@ function fmtTime(iso) {
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'POST') return err('Method not allowed', 405, origin)
 
   let body
-  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
+  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON', 400, origin) }
 
   const { sheetId, showDate, timeline, closingNote, productionCode } = body
-  if (!sheetId || !showDate) return err('sheetId and showDate required')
+  if (!sheetId || !showDate) return err('sheetId and showDate required', 400, origin)
 
   try {
     const sheets = await sheetsClient()
@@ -235,7 +237,7 @@ exports.handler = async (event) => {
     const text = `Show Report — ${productionTitle} — ${showDateLabel}\n\nRun Times:\nAct 1: ${fmtMs(act1Ms)}\nIntermission: ${fmtMs(intMs)}\nAct 2: ${fmtMs(act2Ms)}\nTotal: ${fmtMs(act1Ms + intMs + act2Ms)}\n\nAttendance: ${checkedIn.length} in, ${missingCast.length} missing${missingCast.length > 0 ? ': ' + missingCast.join(', ') : ''}\n\nTonight's notes: ${tonightNotes.length}\nOpen notes: ${openNotes.length}${closingNote ? '\n\nSM Notes: ' + closingNote : ''}`
 
     const recipients = [directorEmail, smEmail].filter(Boolean)
-    if (recipients.length === 0) return err('No email addresses configured for director or SM')
+    if (recipients.length === 0) return err('No email addresses configured for director or SM', 400, origin)
 
     await resendEmail({
       to: recipients,
@@ -244,9 +246,9 @@ exports.handler = async (event) => {
       text
     })
 
-    return ok({ sent: true, recipients })
+    return ok({ sent: true, recipients }, origin)
   } catch (e) {
     console.error(e)
-    return err('Failed to send report: ' + e.message, 500)
+    return err('Failed to send report: ' + e.message, 500, origin)
   }
 }
