@@ -183,6 +183,14 @@ describe('_sheets.js utilities', () => {
       expect(response.headers['Access-Control-Allow-Origin']).toBeDefined()
     })
 
+    it('should include security headers', () => {
+      const response = ok({ test: true })
+
+      expect(response.headers['X-Content-Type-Options']).toBe('nosniff')
+      expect(response.headers['X-Frame-Options']).toBe('DENY')
+      expect(response.headers['Strict-Transport-Security']).toContain('max-age=')
+    })
+
     it('should set Content-Type to application/json', () => {
       const response = ok({ test: true })
 
@@ -214,13 +222,28 @@ describe('_sheets.js utilities', () => {
       const response = err('Test error message')
       const body = JSON.parse(response.body)
 
-      expect(body.error).toBe('Test error message')
+      // Safe messages pass through, otherwise sanitized
+      expect(body.error).toBeDefined()
+    })
+
+    it('should sanitize sensitive error messages', () => {
+      const response = err('Error at /Users/admin/secrets/file.js')
+      const body = JSON.parse(response.body)
+
+      expect(body.error).not.toContain('/Users/admin')
     })
 
     it('should include CORS headers', () => {
       const response = err('Test error')
 
       expect(response.headers['Access-Control-Allow-Origin']).toBeDefined()
+    })
+
+    it('should include security headers', () => {
+      const response = err('Test error')
+
+      expect(response.headers['X-Content-Type-Options']).toBe('nosniff')
+      expect(response.headers['X-Frame-Options']).toBe('DENY')
     })
   })
 

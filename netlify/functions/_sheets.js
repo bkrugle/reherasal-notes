@@ -216,34 +216,40 @@ function getCorsHeaders(requestOrigin) {
 // Prefer using getCorsHeaders(origin) for proper origin handling
 const CORS = getCorsHeaders(ALLOWED_ORIGINS[0])
 
+// Import security functions from dedicated module
+const { getSecurityHeaders, sanitizeErrorMessage } = require('./_security')
+
 /**
- * Create a success response with CORS headers
+ * Create a success response with CORS and security headers
  * @param {any} body - Response body (will be JSON stringified)
  * @param {string} [origin] - Request origin for CORS (optional, uses default if not provided)
  * @returns {object} - Netlify function response object
  */
 function ok(body, origin) {
   const corsHeaders = origin ? getCorsHeaders(origin) : CORS
+  const securityHeaders = getSecurityHeaders()
   return {
     statusCode: 200,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders, ...securityHeaders, 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   }
 }
 
 /**
- * Create an error response with CORS headers
- * @param {string} msg - Error message
+ * Create an error response with CORS headers, security headers, and sanitized message
+ * @param {string} msg - Error message (will be sanitized)
  * @param {number} [code=400] - HTTP status code
  * @param {string} [origin] - Request origin for CORS (optional, uses default if not provided)
  * @returns {object} - Netlify function response object
  */
 function err(msg, code = 400, origin) {
   const corsHeaders = origin ? getCorsHeaders(origin) : CORS
+  const securityHeaders = getSecurityHeaders()
+  const sanitizedMessage = sanitizeErrorMessage(msg)
   return {
     statusCode: code,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ error: msg })
+    headers: { ...corsHeaders, ...securityHeaders, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ error: sanitizedMessage })
   }
 }
 
@@ -251,5 +257,6 @@ module.exports = {
   getAuth, sheetsClient, driveClient, getRows, appendRows, updateRow,
   hashPin, verifyPin, makeProductionCode,
   CORS, getCorsHeaders, ALLOWED_ORIGINS, ok, err,
+  getSecurityHeaders, sanitizeErrorMessage,
   REGISTRY_SHEET_ID
 }
