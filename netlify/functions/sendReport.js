@@ -1,6 +1,6 @@
 'use strict'
 
-const { CORS, ok, err } = require('./_sheets')
+const { getCorsHeaders, ok, err } = require('./_sheets')
 const https = require('https')
 
 function resendEmail({ to, subject, html, text }) {
@@ -37,17 +37,19 @@ function resendEmail({ to, subject, html, text }) {
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'POST') return err('Method not allowed', 405, origin)
 
   let body
-  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
+  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON', 400, origin) }
 
   const { to, subject, notes: rawNotes, productionTitle, date, directorName, directorEmail } = body
   const notes = (rawNotes || []).filter(n => !n.privateNote)
-  if (!to || !notes) return err('to and notes required')
+  if (!to || !notes) return err('to and notes required', 400, origin)
 
-  if (!process.env.RESEND_API_KEY) return err('RESEND_API_KEY not configured', 500)
+  if (!process.env.RESEND_API_KEY) return err('RESEND_API_KEY not configured', 500, origin)
 
   const dt = new Date(date + 'T00:00:00')
   const dateLabel = dt.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
@@ -103,9 +105,9 @@ exports.handler = async (event) => {
       replyTo: directorEmail || undefined,
       fromName: directorName || 'Ovature'
     })
-    return ok({ sent: true })
+    return ok({ sent: true }, origin)
   } catch (e) {
     console.error(e)
-    return err('Failed to send: ' + e.message, 500)
+    return err('Failed to send: ' + e.message, 500, origin)
   }
 }

@@ -2,25 +2,38 @@
 
 const {
   sheetsClient, driveClient, getRows, appendRows,
-  hashPin, makeProductionCode, REGISTRY_SHEET_ID, CORS, ok, err
+  hashPin, makeProductionCode, REGISTRY_SHEET_ID, getCorsHeaders, ok, err
 } = require('./_sheets')
+const { sanitizeInput, sanitizeObject, validatePin, validateEmail } = require('./_validation')
 const { defaultActs, migrateConfig } = require('./_actsScenes')
 
 const SHARED_DRIVE_ID = '0AHO7QedLJaIHUk9PVA'
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
-  if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
+  if (event.httpMethod !== 'POST') return err('Method not allowed', 405, origin)
 
   let body
-  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
+  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON', 400, origin) }
 
   const {
     title, pin, adminPin, directorName, directorEmail, showDates,
     scenes, acts, actCount, characters, staff, useAuditions
   } = body
-  if (!title || !pin) return err('Title and PIN are required')
-  if (pin.length < 4) return err('PIN must be at least 4 characters')
+  if (!title || !pin) return err('Title and PIN are required', 400, origin)
+  if (!validatePin(pin)) return err('PIN must be 4-8 digits', 400, origin)
+  if (adminPin && !validatePin(adminPin)) return err('Admin PIN must be 4-8 digits', 400, origin)
+  if (directorEmail && !validateEmail(directorEmail)) return err('Invalid director email', 400, origin)
+
+  // Sanitize text inputs
+  const safeTitle = sanitizeInput(title)
+  const safeDirectorName = sanitizeInput(directorName || '')
+  const safeShowDates = sanitizeInput(showDates || '')
+  const safeCharacters = Array.isArray(characters) ? characters.map(c => typeof c === 'string' ? sanitizeInput(c) : sanitizeObject(c)) : []
+  const safeStaff = Array.isArray(staff) ? staff.map(s => typeof s === 'string' ? sanitizeInput(s) : sanitizeObject(s)) : []
 
   try {
     const sheets = await sheetsClient()
@@ -29,7 +42,7 @@ exports.handler = async (event) => {
     // 1. Create production root folder
     const rootFolder = await drive.files.create({
       supportsAllDrives: true,
-      requestBody: { name: title, mimeType: 'application/vnd.google-apps.folder', parents: [SHARED_DRIVE_ID] },
+      requestBody: { name: safeTitle, mimeType: 'application/vnd.google-apps.folder', parents: [SHARED_DRIVE_ID] },
       fields: 'id'
     })
     const rootFolderId = rootFolder.data.id
@@ -63,7 +76,7 @@ exports.handler = async (event) => {
     // 4. Create production sheet
     const driveFile = await drive.files.create({
       supportsAllDrives: true,
-      requestBody: { name: `Production Sheet — ${title}`, mimeType: 'application/vnd.google-apps.spreadsheet', parents: [rootFolderId] },
+      requestBody: { name: `Production Sheet — ${safeTitle}`, mimeType: 'application/vnd.google-apps.spreadsheet', parents: [rootFolderId] },
       fields: 'id'
     })
     const productionSheetId = driveFile.data.id
@@ -121,16 +134,16 @@ exports.handler = async (event) => {
     }
 
     const configData = [
-      ['title', title],
-      ['directorName', directorName || ''],
+      ['title', safeTitle],
+      ['directorName', safeDirectorName],
       ['directorEmail', directorEmail || ''],
-      ['showDates', showDates || ''],
+      ['showDates', safeShowDates],
       ['venue', ''],
       ['calendarId', ''],
       ['acts', JSON.stringify(finalActs)],
       ['scenes', JSON.stringify(finalScenes)],
-      ['characters', JSON.stringify(characters || [])],
-      ['staff', JSON.stringify(staff || [])],
+      ['characters', JSON.stringify(safeCharacters)],
+      ['staff', JSON.stringify(safeStaff)],
       ['rootFolderId', rootFolderId],
       ['attachFolderId', attachFolderId],
       ['docsFolderId', docsFolderId],
@@ -152,9 +165,9 @@ exports.handler = async (event) => {
     })
 
     // 10. Register in Registry
-    const productionCode = makeProductionCode(title)
-    const pinHash = hashPin(pin)
-    const adminPinHash = adminPin ? hashPin(adminPin) : pinHash
+    const productionCode = makeProductionCode(safeTitle)
+    const pinHash = await hashPin(pin)
+    const adminPinHash = adminPin ? await hashPin(adminPin) : pinHash
 
     const registryRows = await getRows(sheets, REGISTRY_SHEET_ID, 'Registry!A:A')
     if (registryRows.length === 0) {
@@ -164,12 +177,12 @@ exports.handler = async (event) => {
       })
     }
     await appendRows(sheets, REGISTRY_SHEET_ID, 'Registry!A:F', [
-      [productionCode, title, productionSheetId, pinHash, adminPinHash, new Date().toISOString()]
+      [productionCode, safeTitle, productionSheetId, pinHash, adminPinHash, new Date().toISOString()]
     ])
 
-    return ok({ productionCode, message: 'Production created successfully' })
+    return ok({ productionCode, message: 'Production created successfully' }, origin)
   } catch (e) {
     console.error(e)
-    return err('Failed to create production: ' + e.message, 500)
+    return err('Failed to create production: ' + e.message, 500, origin)
   }
 }

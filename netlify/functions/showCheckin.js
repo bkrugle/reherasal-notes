@@ -1,18 +1,21 @@
 'use strict'
 
-const { sheetsClient, getRows, appendRows, REGISTRY_SHEET_ID, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, getRows, appendRows, REGISTRY_SHEET_ID, getCorsHeaders, ok, err } = require('./_sheets')
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
 
   // GET — return current check-in status (for public checkin page to verify)
   if (event.httpMethod === 'GET') {
     const { productionCode, showDate } = event.queryStringParameters || {}
-    if (!productionCode || !showDate) return err('productionCode and showDate required')
+    if (!productionCode || !showDate) return err('productionCode and showDate required', 400, origin)
     try {
       const sheets = await sheetsClient()
       const sheetId = await getSheetId(sheets, productionCode)
-      if (!sheetId) return err('Production not found', 404)
+      if (!sheetId) return err('Production not found', 404, origin)
       await ensureCheckinTab(sheets, sheetId)
       const rows = await getRows(sheets, sheetId, 'Checkins!A:G')
       const [header, ...data] = rows.length > 1 ? rows : [['id','showDate','castName','checkedInAt','checkedInBy','note','smsAlertSent'], []]
@@ -41,22 +44,22 @@ exports.handler = async (event) => {
         castName: r[idx.castName],
         checkedInAt: r[idx.checkedInAt],
         note: r[idx.note] || ''
-      })), productionTitle: config.title || '', showDate, castList, sheetId })
-    } catch (e) { return err(e.message, 500) }
+      })), productionTitle: config.title || '', showDate, castList, sheetId }, origin)
+    } catch (e) { return err(e.message, 500, origin) }
   }
 
-  if (event.httpMethod !== 'POST') return err('Method not allowed', 405)
+  if (event.httpMethod !== 'POST') return err('Method not allowed', 405, origin)
 
   let body
-  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON') }
+  try { body = JSON.parse(event.body) } catch { return err('Invalid JSON', 400, origin) }
 
   const { productionCode, showDate, castName, note, checkedInBy } = body
-  if (!productionCode || !showDate || !castName) return err('productionCode, showDate, and castName required')
+  if (!productionCode || !showDate || !castName) return err('productionCode, showDate, and castName required', 400, origin)
 
   try {
     const sheets = await sheetsClient()
     const sheetId = await getSheetId(sheets, productionCode)
-    if (!sheetId) return err('Production not found', 404)
+    if (!sheetId) return err('Production not found', 404, origin)
 
     await ensureCheckinTab(sheets, sheetId)
 
@@ -65,7 +68,7 @@ exports.handler = async (event) => {
     const [header, ...data] = rows.length > 1 ? rows : [['id','showDate','castName','checkedInAt','checkedInBy','note','smsAlertSent'], []]
     const idx = {}; header.forEach((c, i) => { idx[c] = i })
     const already = data.find(r => r[idx.showDate] === showDate && r[idx.castName] === castName && r.some(Boolean))
-    if (already) return ok({ success: true, alreadyCheckedIn: true, checkedInAt: already[idx.checkedInAt] })
+    if (already) return ok({ success: true, alreadyCheckedIn: true, checkedInAt: already[idx.checkedInAt] }, origin)
 
     const id = Date.now().toString(36)
     const now = new Date().toISOString()
@@ -73,10 +76,10 @@ exports.handler = async (event) => {
       id, showDate, castName, now, checkedInBy || 'Self', note || '', 'false'
     ]])
 
-    return ok({ success: true, alreadyCheckedIn: false, checkedInAt: now })
+    return ok({ success: true, alreadyCheckedIn: false, checkedInAt: now }, origin)
   } catch (e) {
     console.error(e)
-    return err('Check-in failed: ' + e.message, 500)
+    return err('Check-in failed: ' + e.message, 500, origin)
   }
 }
 

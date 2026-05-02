@@ -1,13 +1,16 @@
 'use strict'
 
-const { sheetsClient, getRows, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, getRows, getCorsHeaders, ok, err } = require('./_sheets')
 const { migrateConfig } = require('./_actsScenes')
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
 
   const sheetId = event.queryStringParameters && event.queryStringParameters.sheetId
-  if (!sheetId) return err('sheetId required')
+  if (!sheetId) return err('sheetId required', 400, origin)
 
   try {
     const sheets = await sheetsClient()
@@ -62,9 +65,9 @@ exports.handler = async (event) => {
       }))
     }
 
-    return ok({ config, sharedWith })
+    return ok({ config, sharedWith }, origin)
   } catch (e) {
     console.error(e)
-    return err('Failed to load production: ' + e.message, 500)
+    return err('Failed to load production: ' + e.message, 500, origin)
   }
 }

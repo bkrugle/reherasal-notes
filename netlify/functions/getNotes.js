@@ -1,12 +1,15 @@
 'use strict'
 
-const { sheetsClient, getRows, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, getRows, getCorsHeaders, ok, err } = require('./_sheets')
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
 
   const sheetId = event.queryStringParameters && event.queryStringParameters.sheetId
-  if (!sheetId) return err('sheetId required')
+  if (!sheetId) return err('sheetId required', 400, origin)
 
   try {
     const sheets = await sheetsClient()
@@ -14,7 +17,7 @@ exports.handler = async (event) => {
     // Legacy sheets that only have A:S (19 cols) still work; the extra
     // columns simply come back as undefined and we map them to null.
     const rows = await getRows(sheets, sheetId, 'Notes!A:U')
-    if (rows.length < 2) return ok({ notes: [] })
+    if (rows.length < 2) return ok({ notes: [] }, origin)
 
     const [header, ...data] = rows
     const idx = {}
@@ -52,9 +55,9 @@ exports.handler = async (event) => {
       }))
       .reverse()
 
-    return ok({ notes })
+    return ok({ notes }, origin)
   } catch (e) {
     console.error(e)
-    return err('Failed to load notes: ' + e.message, 500)
+    return err('Failed to load notes: ' + e.message, 500, origin)
   }
 }

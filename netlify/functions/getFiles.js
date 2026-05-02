@@ -1,12 +1,15 @@
 'use strict'
 
-const { driveClient, CORS, ok, err } = require('./_sheets')
+const { driveClient, getCorsHeaders, ok, err } = require('./_sheets')
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
 
   const { folderId } = event.queryStringParameters || {}
-  if (!folderId) return err('folderId required')
+  if (!folderId) return err('folderId required', 400, origin)
 
   try {
     const drive = await driveClient()
@@ -29,9 +32,9 @@ exports.handler = async (event) => {
       thumbnailLink: f.thumbnailLink || null
     }))
 
-    return ok({ files })
+    return ok({ files }, origin)
   } catch (e) {
     console.error(e)
-    return err('Failed to list files: ' + e.message, 500)
+    return err('Failed to list files: ' + e.message, 500, origin)
   }
 }

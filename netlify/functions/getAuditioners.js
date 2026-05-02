@@ -1,12 +1,15 @@
 'use strict'
 
-const { sheetsClient, getRows, CORS, ok, err } = require('./_sheets')
+const { sheetsClient, getRows, getCorsHeaders, ok, err } = require('./_sheets')
 
 exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
+  const origin = event.headers?.origin || event.headers?.Origin
+  const corsHeaders = getCorsHeaders(origin)
+
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders, body: '' }
 
   const { sheetId } = event.queryStringParameters || {}
-  if (!sheetId) return err('sheetId required')
+  if (!sheetId) return err('sheetId required', 400, origin)
 
   try {
     const sheets = await sheetsClient()
@@ -15,7 +18,7 @@ exports.handler = async (event) => {
       getRows(sheets, sheetId, 'AuditionNotes!A:F').catch(() => [])
     ])
 
-    if (audRows.length < 2) return ok({ auditioners: [] })
+    if (audRows.length < 2) return ok({ auditioners: [] }, origin)
 
     const [header, ...data] = audRows
     const idx = {}
@@ -58,9 +61,9 @@ exports.handler = async (event) => {
         notes: notesMap[r[idx.id]] || []
       }))
 
-    return ok({ auditioners })
+    return ok({ auditioners }, origin)
   } catch (e) {
     console.error(e)
-    return err('Failed to load auditioners: ' + e.message, 500)
+    return err('Failed to load auditioners: ' + e.message, 500, origin)
   }
 }
