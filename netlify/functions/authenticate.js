@@ -1,7 +1,7 @@
 'use strict'
 
 const {
-  sheetsClient, getRows, hashPin,
+  sheetsClient, getRows, hashPin, verifyPin,
   REGISTRY_SHEET_ID, CORS, ok, err
 } = require('./_sheets')
 
@@ -49,9 +49,9 @@ exports.handler = async (event) => {
     const row = data.find(r => r[codeIdx] === productionCode.toUpperCase())
     if (!row) return err('Production not found', 404)
 
-    const pinHash = hashPin(pin)
-    const isAdmin = pinHash === row[adminPinIdx]
-    const isMember = pinHash === row[pinIdx]
+    // Verify PIN against stored bcrypt hashes
+    const isAdmin = await verifyPin(pin, row[adminPinIdx])
+    const isMember = await verifyPin(pin, row[pinIdx])
 
     if (!isAdmin && !isMember) {
       const sheetId = row[sheetIdx]
@@ -69,9 +69,17 @@ exports.handler = async (event) => {
         const ntfyIdx = sh.indexOf('ntfyTopic')
         const phoneIdx = sh.indexOf('phone')
 
-        // Try PIN match first
-        let sharedRow = sdata.find(r => r[phIdx] && r[phIdx] === pinHash)
-        let rowIndex = sdata.indexOf(sharedRow)
+        // Try PIN match first (async bcrypt comparison)
+        let sharedRow = null
+        let rowIndex = -1
+        for (let i = 0; i < sdata.length; i++) {
+          const r = sdata[i]
+          if (r[phIdx] && await verifyPin(pin, r[phIdx])) {
+            sharedRow = r
+            rowIndex = i
+            break
+          }
+        }
 
         if (sharedRow) {
           const memberRole = roleIdx >= 0 && sharedRow[roleIdx] === 'admin' ? 'admin' : 'shared'
@@ -111,7 +119,7 @@ exports.handler = async (event) => {
 
           if (newPin.length < 4) return err('PIN must be at least 4 characters')
 
-          const newPinHash = hashPin(newPin)
+          const newPinHash = await hashPin(newPin)
           const sheetRowIndex = rowIndex + 2
 
           const updatedRow = [...sharedRow]

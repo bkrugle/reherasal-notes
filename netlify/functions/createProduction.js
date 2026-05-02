@@ -153,8 +153,8 @@ exports.handler = async (event) => {
 
     // 10. Register in Registry
     const productionCode = makeProductionCode(title)
-    const pinHash = hashPin(pin)
-    const adminPinHash = adminPin ? hashPin(adminPin) : pinHash
+    const pinHash = await hashPin(pin)
+    const adminPinHash = adminPin ? await hashPin(adminPin) : pinHash
 
     const registryRows = await getRows(sheets, REGISTRY_SHEET_ID, 'Registry!A:A')
     if (registryRows.length === 0) {

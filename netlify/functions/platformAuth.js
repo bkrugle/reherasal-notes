@@ -1,6 +1,6 @@
 'use strict'
 
-const { sheetsClient, getRows, hashPin, REGISTRY_SHEET_ID, CORS, ok, err } = require('./_sheets')
+const { verifyPin, CORS, ok, err } = require('./_sheets')
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' }
@@ -23,8 +23,15 @@ exports.handler = async (event) => {
 
   if (!platformAdmins.length) return err('No platform admins configured', 500)
 
-  const pinHash = hashPin(pin)
-  const admin = platformAdmins.find(a => hashPin(a.pin) === pinHash || a.pin === pin)
+  // Find admin by verifying PIN against stored bcrypt hash
+  // Platform admins should have bcrypt hashes stored in PLATFORM_ADMINS env var
+  let admin = null
+  for (const a of platformAdmins) {
+    if (await verifyPin(pin, a.pin)) {
+      admin = a
+      break
+    }
+  }
 
   if (!admin) return err('Invalid platform PIN', 401)
 

@@ -1,6 +1,7 @@
 'use strict'
 
 const { sheetsClient, driveClient, hashPin, getRows, CORS, ok, err } = require('./_sheets')
+// Note: hashPin is now async and returns a Promise
 
 const SHARED_DRIVE_ID = '0AHO7QedLJaIHUk9PVA'
 
@@ -179,7 +180,7 @@ exports.handler = async (event) => {
           newInviteCodes[name || email] = inviteCode
         }
 
-        if (pin && !prev) pinHash = hashPin(pin)
+        if (pin && !prev) pinHash = await hashPin(pin)
 
         const memberRole = (prev?.role === 'admin' || member?.role === 'admin') ? 'admin' : 'member'
         rows.push([
